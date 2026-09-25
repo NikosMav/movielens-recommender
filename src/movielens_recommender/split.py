@@ -1,4 +1,10 @@
-"""Time-based train/test split and cold-start filtering."""
+"""Time-based train/test split and cold-start filtering.
+
+The default protocol is a **per-user chronological holdout**. It prevents
+within-user leakage (a user's test rows never appear in that user's train) but
+does **not** prevent cross-user / global temporal leakage: other users'
+later interactions can still sit in the training matrix (see ADR-0002).
+"""
 
 from __future__ import annotations
 
@@ -22,7 +28,8 @@ class SplitConfig:
        test; the remainder are train. Require at least one train interaction
        (users who would otherwise have an empty train set are dropped).
 
-    The split is deterministic given the same ratings rows and config.
+    Prevents within-user leakage; does not prevent cross-user / global
+    temporal leakage (ADR-0002). Deterministic given the same ratings and config.
     """
 
     min_ratings: int = 5
@@ -76,7 +83,10 @@ class SplitResult:
 
 
 def time_based_split(ratings: pd.DataFrame, config: SplitConfig | None = None) -> SplitResult:
-    """Per-user time-based holdout of the latest interactions.
+    """Per-user chronological holdout of the latest interactions.
+
+    Prevents within-user leakage; does not prevent cross-user / global
+    temporal leakage (see ADR-0002).
 
     Parameters
     ----------

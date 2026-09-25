@@ -12,7 +12,7 @@ See [`docs/problem.md`](docs/problem.md) for the task definition, primary metric
 | --- | --- |
 | **S1** | Framing + data (download, clean, split, EDA, eval harness) |
 | **S2** | Classic CF baselines |
-| **S3** | Two-tower retrieval |
+| **S3** | Two-tower retrieval; add validation split for tuning (never tune on test); global-time-cutoff sanity check on ml-1m |
 | **S4** | Learned ranker |
 | **S5** | Serving |
 | **S6** | Operations |
@@ -59,6 +59,8 @@ For each user (deterministic):
 2. Sort by **`timestamp` ascending** (stable).
 3. Hold out the last **`max(1, floor(n * 0.2))`** interactions as test; rest train (≥1 train required).
 
+This **prevents within-user leakage** but **does not prevent cross-user / global temporal leakage** (other users’ later ratings can still appear in train — see ADR-0002). S3 will add a validation split for tuning (never on test) and a global-time-cutoff sanity check on ml-1m.
+
 **Relevance:** rating **`≥ 4.0`**.
 
 **Cold-start policy:** cold items (absent from train) are removed from relevant test sets; users with no remaining warm relevant items are excluded from ranking-metric averages (counts recorded in results JSON). Already-seen train items are filtered from recommendations.
@@ -90,9 +92,10 @@ python scripts/make_results_table.py
 
 ```bash
 python scripts/run_eda.py --dataset ml-latest-small --download
+python scripts/run_eda.py --dataset ml-1m --download
 ```
 
-Figures and aggregate stats land in `docs/eda/` (committed). Raw data does not.
+Committed aggregate stats and figures for **both** datasets live under [`docs/eda/`](docs/eda/) (rating distribution, user activity, item popularity, ratings over time). Raw data is not committed.
 
 ## Tests and CI
 

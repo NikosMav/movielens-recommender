@@ -19,9 +19,11 @@ Primary use of the model: surface unseen movies the user is likely to rate highl
 | --- | --- | --- |
 | **Primary** | **NDCG@10** | Ranking quality with binary gains; main gate for stage progression |
 | Secondary | NDCG@20, Precision@k, Recall@k (k ∈ {10, 20}) | Completeness / precision trade-offs |
-| Diagnostics | Catalog coverage@k, mean recommended-item popularity | Diversity / popularity bias (not optimization targets) |
+| Diagnostics | Catalog coverage@k (point estimate), mean recommended-item popularity (with user-bootstrap CI) | Diversity / popularity bias (not optimization targets) |
 
-All ranking metrics are averaged over eligible test users (see cold-start policy in the README / ADR-0002). Bootstrap 95% CIs over users are reported for ranking metrics and diagnostics.
+All ranking metrics are averaged over eligible test users (see cold-start policy in the README / ADR-0002). Bootstrap 95% CIs over users are reported for **user-level means** (ranking metrics and mean popularity); coverage has no user-bootstrap CI (ADR-0003).
+
+The S1–S2 split **prevents within-user leakage** but **does not prevent cross-user / global temporal leakage** (ADR-0002).
 
 ## Baselines later stages must beat
 
@@ -31,16 +33,16 @@ Stages 1–2 establish three collaborative-filtering baselines on a fixed harnes
 2. **item_item_cosine** — item–item cosine CF  
 3. **als** — matrix factorization via `implicit` ALS  
 
-Committed numbers live in `results/*.json`. **Later model stages (retrieval, ranker) must beat the best prior stage on the same split and primary metric (NDCG@10), or document a negative result** with analysis—no silent regressions.
+Committed numbers live in `results/*.json`. **Later model stages (retrieval, ranker) must beat the best prior stage on the same split and primary metric (NDCG@10), or document a negative result** with analysis—no silent regressions. **Nothing is ever tuned on the test set.**
 
 ## Planned lifecycle
 
 | Stage | Focus |
 | --- | --- |
 | **S1** | Framing + data (download, clean, split, EDA, eval harness) |
-| **S2** | Classic CF baselines |
-| **S3** | Two-tower retrieval (candidate generation) |
-| **S4** | Learned ranker (re-rank retrieved candidates) |
+| **S2** | Classic CF baselines (default hyperparams; not tuned on test) |
+| **S3** | Two-tower retrieval; **first** add a **validation split for tuning** (train→val only; test sealed); run a **global-time-cutoff sanity check on ml-1m** to see if model ranking holds without cross-user future signal |
+| **S4** | Learned ranker (re-rank retrieved candidates; tune on val only) |
 | **S5** | Serving (inference path, latency budget) |
 | **S6** | Operations (monitoring, refresh, drift) |
 

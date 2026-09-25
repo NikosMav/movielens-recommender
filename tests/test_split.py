@@ -23,7 +23,7 @@ def _toy_ratings() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def test_no_timestamp_leakage():
+def test_no_within_user_timestamp_leakage():
     split = time_based_split(_toy_ratings(), SplitConfig(min_ratings=5, test_fraction=0.2))
     for uid in split.train["user_id"].unique():
         train_ts = split.train.loc[split.train["user_id"] == uid, "timestamp"]
