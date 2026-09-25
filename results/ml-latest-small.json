@@ -1,0 +1,73 @@
+{
+  "dataset": "ml-latest-small",
+  "hyperparameters": {
+    "als": {
+      "alpha": 40.0,
+      "confidence_threshold": 4.0,
+      "factors": 64,
+      "iterations": 15,
+      "random_state": 42,
+      "regularization": 0.01
+    },
+    "item_item_cosine": {
+      "min_common": 1
+    },
+    "most_popular": {}
+  },
+  "ks": [
+    10,
+    20
+  ],
+  "library_versions": {
+    "implicit": "0.7.3",
+    "movielens-recommender": "0.1.0",
+    "numpy": "2.4.4",
+    "pandas": "3.0.6",
+    "scipy": "1.18.1"
+  },
+  "metrics": {
+    "als": {
+      "n_eval_users": 591.0,
+      "ndcg@10": 0.079035,
+      "ndcg@20": 0.094133,
+      "precision@10": 0.062098,
+      "precision@20": 0.052961,
+      "recall@10": 0.068184,
+      "recall@20": 0.12503
+    },
+    "item_item_cosine": {
+      "n_eval_users": 591.0,
+      "ndcg@10": 0.089462,
+      "ndcg@20": 0.100943,
+      "precision@10": 0.070558,
+      "precision@20": 0.058206,
+      "recall@10": 0.076075,
+      "recall@20": 0.124811
+    },
+    "most_popular": {
+      "n_eval_users": 591.0,
+      "ndcg@10": 0.073956,
+      "ndcg@20": 0.079648,
+      "precision@10": 0.056176,
+      "precision@20": 0.046531,
+      "recall@10": 0.050519,
+      "recall@20": 0.084428
+    }
+  },
+  "relevance_threshold": 4.0,
+  "seed": 42,
+  "split": {
+    "config": {
+      "min_ratings": 5,
+      "relevance_threshold": 4.0,
+      "test_fraction": 0.2
+    },
+    "n_test": 19940,
+    "n_test_users": 610,
+    "n_train": 80896,
+    "n_train_items": 8246,
+    "n_train_users": 610,
+    "n_users_dropped": 0,
+    "n_users_kept": 610
+  }
+}
