@@ -25,6 +25,8 @@ METRIC_COLS = [
     "mean_popularity@10",
 ]
 
+RETRIEVAL_COLS = ["recall@100", "recall@200"]
+
 
 def _fmt(value: float) -> str:
     return f"{value:.4f}"
@@ -41,6 +43,8 @@ def _model_label(name: str, tuned_flags: dict | None) -> str:
     is_tuned = bool(tuned_flags and tuned_flags.get(name)) or name.endswith("_tuned")
     if name.endswith("_tuned"):
         return name
+    if name == "two_tower":
+        return "two_tower (tuned)" if is_tuned else "two_tower"
     if is_tuned:
         return f"{name} (tuned)"
     return name
@@ -76,11 +80,12 @@ def render_headline(filename: str, payload: dict) -> str:
         f"val_fraction={val_f}, "
         f"relevance_threshold={payload.get('relevance_threshold')}, "
         f"seed={payload.get('seed')}, ks={payload.get('ks')}, "
+        f"retrieval_ks={payload.get('retrieval_ks', [])}, "
         f"bootstrap={boot.get('n_bootstrap')} @ alpha={boot.get('alpha')}. "
         f"Primary metric: **{payload.get('primary_metric', 'ndcg@10')}**. "
         "Coverage@k is a point estimate only (no user-bootstrap CI; see ADR-0003). "
         "Names marked **(tuned)** used validation-selected hyperparameters "
-        "(ADR-0005); others are S2 YAML defaults."
+        "(ADR-0005 / ADR-0006); others are S2 YAML defaults."
     )
     lines.append("")
     header = ["model", *METRIC_COLS]
@@ -99,10 +104,110 @@ def render_headline(filename: str, payload: dict) -> str:
     lines.append("| --- | --- |")
     for model in sorted(metrics):
         cis = metrics[model].get("confidence_intervals", {})
-        lines.append(
-            f"| {_model_label(model, tuned_flags)} | {_fmt_ci(cis, 'ndcg@10')} |"
-        )
+        label = _model_label(model, tuned_flags)
+        if model == "two_tower" and metrics[model].get("seed_summary"):
+            ss = metrics[model]["seed_summary"]["ndcg@10"]
+            lines.append(
+                f"| {label} | mean±std over seeds "
+                f"{_fmt(ss['mean'])}±{_fmt(ss['std'])}; "
+                f"primary-seed CI {_fmt_ci(cis, 'ndcg@10')} |"
+            )
+        else:
+            lines.append(f"| {label} | {_fmt_ci(cis, 'ndcg@10')} |")
     lines.append("")
+
+    # Retrieval recall for models that report it.
+    if any(all(c in metrics[m] for c in RETRIEVAL_COLS) for m in metrics):
+        lines.append("#### Retrieval recall (candidate generation)")
+        lines.append("")
+        lines.append(
+            "Recall@100 / Recall@200 for models that report them "
+            "(two-tower and baselines evaluated at the same cutoffs)."
+        )
+        lines.append("")
+        lines.append("| model | recall@100 | recall@200 |")
+        lines.append("| --- | --- | --- |")
+        for model in sorted(metrics):
+            m = metrics[model]
+            if not all(c in m for c in RETRIEVAL_COLS):
+                continue
+            label = _model_label(model, tuned_flags)
+            r100 = m["recall@100"]
+            r200 = m["recall@200"]
+            if model == "two_tower" and m.get("seed_summary"):
+                s100 = m["seed_summary"].get("recall@100", {})
+                s200 = m["seed_summary"].get("recall@200", {})
+                cell100 = (
+                    f"{_fmt(float(r100))}"
+                    + (f" ±{_fmt(s100['std'])}" if s100 else "")
+                )
+                cell200 = (
+                    f"{_fmt(float(r200))}"
+                    + (f" ±{_fmt(s200['std'])}" if s200 else "")
+                )
+            else:
+                cell100 = _fmt(float(r100))
+                cell200 = _fmt(float(r200))
+            lines.append(f"| {label} | {cell100} | {cell200} |")
+        lines.append("")
+
+    # Two-tower seed table + gate.
+    tt = payload.get("two_tower")
+    if tt:
+        lines.append("#### Two-tower seeds and gate (ADR-0006)")
+        lines.append("")
+        lines.append(
+            f"Chosen hyperparams: `{tt.get('best_hyperparams')}` "
+            f"(val NDCG@10={_fmt(float(tt['best_val_ndcg@10']))}; "
+            f"early-stopping best_epoch={tt.get('best_epoch')}; "
+            f"{tt.get('early_stopping')}). "
+            f"Tuning log: [`{tt.get('tuning_json')}`]({tt.get('tuning_json')})."
+        )
+        lines.append("")
+        lines.append("| seed | ndcg@10 | ndcg@10 CI | recall@100 | recall@200 |")
+        lines.append("| --- | --- | --- | --- | --- |")
+        for row in tt.get("per_seed", []):
+            ci = row.get("ndcg@10_ci") or {}
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        str(row["seed"]),
+                        _fmt(float(row["ndcg@10"])),
+                        f"[{_fmt(ci['low'])}, {_fmt(ci['high'])}]" if ci else "",
+                        _fmt(float(row["recall@100"]))
+                        if row.get("recall@100") is not None
+                        else "",
+                        _fmt(float(row["recall@200"]))
+                        if row.get("recall@200") is not None
+                        else "",
+                    ]
+                )
+                + " |"
+            )
+        across = tt.get("across_seeds", {}).get("ndcg@10", {})
+        if across:
+            lines.append("")
+            lines.append(
+                f"Across seeds: NDCG@10 mean={_fmt(across['mean'])}, "
+                f"std={_fmt(across['std'])}, "
+                f"min={_fmt(across['min'])}, max={_fmt(across['max'])}."
+            )
+        gate = tt.get("gate") or {}
+        lines.append("")
+        if gate.get("negative_result"):
+            lines.append(
+                "**Gate: negative result.** Two-tower does **not** beat both "
+                "item–item bars on ml-1m-style NDCG@10 with CIs taken into "
+                "account (see ADR-0006). S4 should use item–item cosine as the "
+                "retriever unless a later stage reverses this."
+            )
+        elif gate.get("beats_both_item_item_bars"):
+            lines.append(
+                "**Gate: win.** Two-tower beats both item–item default and tuned "
+                "bars on NDCG@10 with CIs taken into account."
+            )
+        lines.append("")
 
     # Segment breakdowns (NDCG@10 only).
     if any("segments" in metrics[m] for m in metrics):
@@ -151,14 +256,29 @@ def render_headline(filename: str, payload: dict) -> str:
 
     tuning = payload.get("tuning_summary")
     if tuning:
-        lines.append(
-            f"Tuning log: [`{tuning.get('tuning_json')}`]"
-            f"({tuning.get('tuning_json')}). "
-            f"Chosen ALS={tuning.get('als_best')} "
-            f"(val NDCG@10={_fmt(float(tuning['als_best_val_ndcg@10']))}); "
-            f"item–item={tuning.get('item_item_cosine_best')} "
-            f"(val NDCG@10={_fmt(float(tuning['item_item_cosine_best_val_ndcg@10']))})."
-        )
+        bits = [
+            f"Tuning log: [`{tuning.get('tuning_json')}`]({tuning.get('tuning_json')})."
+        ]
+        if tuning.get("als_best") is not None:
+            bits.append(
+                f"Chosen ALS={tuning.get('als_best')} "
+                f"(val NDCG@10={_fmt(float(tuning['als_best_val_ndcg@10']))}); "
+                f"item–item={tuning.get('item_item_cosine_best')} "
+                f"(val NDCG@10="
+                f"{_fmt(float(tuning['item_item_cosine_best_val_ndcg@10']))})."
+            )
+        if tuning.get("two_tower_best") is not None:
+            bits.append(
+                f"Two-tower={tuning.get('two_tower_best')} "
+                f"(val NDCG@10={_fmt(float(tuning['two_tower_best_val_ndcg@10']))}, "
+                f"best_epoch={tuning.get('two_tower_best_epoch')}; "
+                f"log [`{tuning.get('two_tower_tuning_json')}`]"
+                f"({tuning.get('two_tower_tuning_json')}))."
+            )
+        lines.append(" ".join(bits))
+        lines.append("")
+    if payload.get("runtime_sec") is not None:
+        lines.append(f"Pipeline runtime: {_fmt(float(payload['runtime_sec']))}s.")
         lines.append("")
     return "\n".join(lines)
 
@@ -190,8 +310,11 @@ def render_global_cutoff() -> str:
         f"eval users (warm relevant)={surv.get('n_eval_users')}."
     )
     lines.append("")
-    lines.append("| model | ndcg@10 | ndcg@10 CI | precision@10 | recall@10 |")
-    lines.append("| --- | --- | --- | --- | --- |")
+    lines.append(
+        "| model | ndcg@10 | ndcg@10 CI | precision@10 | recall@10 | "
+        "recall@100 | recall@200 |"
+    )
+    lines.append("| --- | --- | --- | --- | --- | --- | --- |")
     metrics = payload["metrics"]
     for model in sorted(metrics):
         m = metrics[model]
@@ -205,6 +328,8 @@ def render_global_cutoff() -> str:
                     _fmt_ci(cis, "ndcg@10"),
                     _fmt(float(m["precision@10"])),
                     _fmt(float(m["recall@10"])),
+                    _fmt(float(m["recall@100"])) if "recall@100" in m else "",
+                    _fmt(float(m["recall@200"])) if "recall@200" in m else "",
                 ]
             )
             + " |"

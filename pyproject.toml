@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "movielens-recommender"
 version = "0.1.0"
-description = "Standalone MovieLens recommender: data/split/eval + classic baselines"
+description = "Standalone MovieLens recommender: data/split/eval + classic baselines + two-tower retrieval"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -23,6 +23,12 @@ dependencies = [
 dev = [
     "pytest==8.3.5",
     "ruff==0.11.2",
+]
+# Two-tower retrieval (S3b). Prefer the CPU wheel in CI / laptops:
+#   pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+#   pip install -e ".[deep]"
+deep = [
+    "torch==2.6.0",
 ]
 
 [project.scripts]

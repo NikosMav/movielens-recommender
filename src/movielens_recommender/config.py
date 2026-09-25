@@ -22,6 +22,8 @@ class EvalYAML:
     relevance_threshold: float = 4.0
     n_bootstrap: int = 1000
     bootstrap_alpha: float = 0.05
+    # Extra recall cutoffs for retrieval models (S3b); reported when computed.
+    retrieval_ks: list[int] = field(default_factory=lambda: [100, 200])
 
 
 @dataclass
@@ -40,6 +42,21 @@ class ItemKNNYAML:
 
 
 @dataclass
+class TwoTowerYAML:
+    enabled: bool = True
+    embedding_dim: int = 64
+    learning_rate: float = 1e-3
+    temperature: float = 0.1
+    batch_size: int = 1024
+    weight_decay: float = 1e-4
+    max_epochs: int = 20
+    patience: int = 3
+    max_history: int = 50
+    # Test-time seeds for variance reporting (ADR-0006).
+    seeds: list[int] = field(default_factory=lambda: [42, 43, 44])
+
+
+@dataclass
 class GlobalCutoffYAML:
     enabled: bool = False
     timestamp_quantile: float = 0.8
@@ -50,6 +67,7 @@ class GlobalCutoffYAML:
 class ModelsYAML:
     als: ALSYAML = field(default_factory=ALSYAML)
     item_item_cosine: ItemKNNYAML = field(default_factory=ItemKNNYAML)
+    two_tower: TwoTowerYAML = field(default_factory=TwoTowerYAML)
 
 
 @dataclass
@@ -81,6 +99,7 @@ def load_config(path: Path | str | None = None) -> RunConfig:
     models_raw = raw.get("models", {})
     als_raw = models_raw.get("als", {})
     knn_raw = models_raw.get("item_item_cosine", {})
+    tt_raw = models_raw.get("two_tower", {})
     gc_raw = raw.get("global_cutoff", {})
     return RunConfig(
         seed=int(raw.get("seed", 42)),
@@ -98,6 +117,7 @@ def load_config(path: Path | str | None = None) -> RunConfig:
             relevance_threshold=float(eval_raw.get("relevance_threshold", 4.0)),
             n_bootstrap=int(eval_raw.get("n_bootstrap", 1000)),
             bootstrap_alpha=float(eval_raw.get("bootstrap_alpha", 0.05)),
+            retrieval_ks=[int(k) for k in eval_raw.get("retrieval_ks", [100, 200])],
         ),
         models=ModelsYAML(
             als=ALSYAML(
@@ -110,6 +130,18 @@ def load_config(path: Path | str | None = None) -> RunConfig:
                 min_common=int(knn_raw.get("min_common", 1)),
                 k_neighbors=int(knn_raw.get("k_neighbors", 0)),
                 shrinkage=float(knn_raw.get("shrinkage", 0.0)),
+            ),
+            two_tower=TwoTowerYAML(
+                enabled=bool(tt_raw.get("enabled", True)),
+                embedding_dim=int(tt_raw.get("embedding_dim", 64)),
+                learning_rate=float(tt_raw.get("learning_rate", 1e-3)),
+                temperature=float(tt_raw.get("temperature", 0.1)),
+                batch_size=int(tt_raw.get("batch_size", 1024)),
+                weight_decay=float(tt_raw.get("weight_decay", 1e-4)),
+                max_epochs=int(tt_raw.get("max_epochs", 20)),
+                patience=int(tt_raw.get("patience", 3)),
+                max_history=int(tt_raw.get("max_history", 50)),
+                seeds=[int(s) for s in tt_raw.get("seeds", [42, 43, 44])],
             ),
         ),
         global_cutoff=GlobalCutoffYAML(

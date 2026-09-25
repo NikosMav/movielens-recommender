@@ -31,6 +31,13 @@ pip install -r requirements.txt
 pip install -e ".[dev]"
 ```
 
+Optional **two-tower** extras (S3b; PyTorch CPU wheel):
+
+```bash
+pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+pip install -e ".[deep]"
+```
+
 ## Download data
 
 Archives are fetched from official GroupLens URLs and verified against **pinned SHA-256 checksums** (see ADR-0001).
@@ -110,9 +117,9 @@ pytest -q
 ruff check src tests scripts
 ```
 
-GitHub Actions runs ruff + pytest on push/PR and does **not** download MovieLens.
+GitHub Actions installs the CPU PyTorch wheel, runs ruff + pytest (including two-tower unit tests on synthetic data), and does **not** download MovieLens.
 
-## Baselines (S2 defaults + S3a tuned)
+## Baselines (S2 defaults + S3a tuned) and S3b two-tower
 
 | Model | Notes |
 | --- | --- |
@@ -121,8 +128,11 @@ GitHub Actions runs ruff + pytest on push/PR and does **not** download MovieLens
 | `item_item_cosine_tuned` | Same model; `k_neighbors` / `shrinkage` chosen on validation NDCG@10. |
 | `als` | `implicit` ALS (factors=64, iterations=15, α=40, seed=42) — S2 defaults. |
 | `als_tuned` | ALS with factors/regularization/α chosen on validation NDCG@10. |
+| `two_tower` | Optional PyTorch two-tower retrieval (ADR-0006); tuned on val NDCG@10 with early stopping; test over 3 seeds. |
 
-Tuning grids and per-trial validation scores: `results/tuning/*.json`.
+Tuning grids and per-trial validation scores: `results/tuning/*.json` and `results/tuning/two_tower_*.json`.
+
+**S3b gate (ml-1m):** two-tower must beat **both** item–item default and tuned on test NDCG@10 with CIs taken into account, or be written up as a negative result (S4 then uses item–item as the retriever).
 
 ## Results
 
