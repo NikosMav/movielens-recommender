@@ -15,7 +15,8 @@ from movielens_recommender.metrics import (
     precision_at_k,
     recall_at_k,
 )
-from movielens_recommender.split import SplitResult, apply_cold_start_policy
+from movielens_recommender.segments import evaluate_segments
+from movielens_recommender.split import SplitConfig, SplitResult, apply_cold_start_policy
 
 RecommenderFn = Callable[[int, int], Sequence[int]]
 """(user_id, n) -> ranked item ids (may include seen items; harness filters)."""
@@ -65,6 +66,69 @@ def _per_user_popularity(
     return values
 
 
+def _prepare_eval(
+    train: pd.DataFrame,
+    test: pd.DataFrame,
+    *,
+    relevance_threshold: float,
+    split: SplitResult | None,
+) -> tuple[SplitResult, dict[int, set[int]], dict[int, set[int]]]:
+    if split is None:
+        split = SplitResult(
+            train=train,
+            test=test,
+            config=SplitConfig(relevance_threshold=relevance_threshold),
+            n_users_kept=int(train["user_id"].nunique()),
+            n_users_dropped=0,
+        )
+    # Ensure cold-start uses the train matrix the model was fit on.
+    split.train = train
+    split.test = test
+    seen, relevant, _stats = apply_cold_start_policy(
+        split, relevance_threshold=relevance_threshold
+    )
+    if not relevant:
+        raise ValueError("No test users with warm relevant items to evaluate.")
+    return split, seen, relevant
+
+
+def collect_recommendations(
+    recommend_fn: RecommenderFn,
+    seen: Mapping[int, set[int]],
+    relevant: Mapping[int, set[int]],
+    *,
+    max_k: int,
+) -> dict[int, list[int]]:
+    """Generate filtered top-``max_k`` lists for every eval user."""
+    recommendations: dict[int, list[int]] = {}
+    for user_id in relevant:
+        user_seen = seen.get(user_id, set())
+        recommendations[user_id] = recommend_filtered(
+            recommend_fn, user_id, max_k, user_seen
+        )
+    return recommendations
+
+
+def ndcg_point_estimate(
+    recommend_fn: RecommenderFn,
+    train: pd.DataFrame,
+    test: pd.DataFrame,
+    *,
+    relevance_threshold: float = 4.0,
+    k: int = 10,
+    split: SplitResult | None = None,
+) -> float:
+    """Mean NDCG@k without bootstrap — for validation-grid selection only."""
+    split, seen, relevant = _prepare_eval(
+        train, test, relevance_threshold=relevance_threshold, split=split
+    )
+    recommendations = collect_recommendations(recommend_fn, seen, relevant, max_k=k)
+    values = [
+        ndcg_at_k(recommendations[uid], rel, k) for uid, rel in relevant.items()
+    ]
+    return float(sum(values) / len(values))
+
+
 def evaluate_recommender(
     recommend_fn: RecommenderFn,
     train: pd.DataFrame,
@@ -76,43 +140,36 @@ def evaluate_recommender(
     bootstrap_alpha: float = 0.05,
     seed: int = 42,
     split: SplitResult | None = None,
+    include_segments: bool = False,
 ) -> dict[str, Any]:
     """Evaluate with cold-start policy, diagnostics, and bootstrap CIs.
 
     Ranking metrics and mean popularity are user-level means → percentile
     bootstrap CIs over users. Catalog coverage is a catalog-level set statistic
     → point estimate only (no user-bootstrap CI).
+
+    When ``include_segments`` is True, also compute activity-tercile and
+    head/tail NDCG@10 breakdowns (see :mod:`movielens_recommender.segments`).
     """
-    if split is None:
-        from movielens_recommender.split import SplitConfig
-
-        split = SplitResult(
-            train=train,
-            test=test,
-            config=SplitConfig(relevance_threshold=relevance_threshold),
-            n_users_kept=int(train["user_id"].nunique()),
-            n_users_dropped=0,
-        )
-
-    seen, relevant, cold_stats = apply_cold_start_policy(
-        split, relevance_threshold=relevance_threshold
+    split, seen, relevant = _prepare_eval(
+        train, test, relevance_threshold=relevance_threshold, split=split
     )
-    if not relevant:
-        raise ValueError("No test users with warm relevant items to evaluate.")
+    cold_stats = split.cold_start
+    assert cold_stats is not None
 
     max_k = max(ks)
     catalog = set(train["item_id"].astype(int))
     item_pop = {int(i): float(c) for i, c in train.groupby("item_id").size().items()}
 
+    recommendations = collect_recommendations(
+        recommend_fn, seen, relevant, max_k=max_k
+    )
+
     per_user: dict[str, list[float]] = {
         f"{m}@{k}": [] for k in ks for m in ("precision", "recall", "ndcg")
     }
-    recommendations: dict[int, list[int]] = {}
-
     for user_id, rel in relevant.items():
-        user_seen = seen.get(user_id, set())
-        recs = recommend_filtered(recommend_fn, user_id, max_k, user_seen)
-        recommendations[user_id] = recs
+        recs = recommendations[user_id]
         for k in ks:
             per_user[f"precision@{k}"].append(precision_at_k(recs, rel, k))
             per_user[f"recall@{k}"].append(recall_at_k(recs, rel, k))
@@ -166,6 +223,17 @@ def evaluate_recommender(
             "the union downward, so CIs would not contain the full-sample estimate."
         ),
     }
+
+    if include_segments:
+        metrics["segments"] = evaluate_segments(
+            recommendations,
+            relevant,
+            train,
+            k=10,
+            n_bootstrap=n_bootstrap,
+            bootstrap_alpha=bootstrap_alpha,
+            seed=seed,
+        )
     return metrics
 
 
@@ -182,8 +250,8 @@ def format_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:
             for metric_name, bounds in value.items():
                 cis_out[metric_name] = {b: _round_num(v) for b, v in bounds.items()}
             out[key] = cis_out
-        elif key in {"cold_start", "uncertainty_policy"}:
-            out[key] = dict(value)
+        elif key in {"cold_start", "uncertainty_policy", "segments"}:
+            out[key] = value
         elif key == "n_eval_users":
             out[key] = float(value)
         elif isinstance(value, int | float):

@@ -1,6 +1,6 @@
 # movielens-recommender
 
-A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–2 cover framing, data, evaluation, and classic collaborative-filtering baselines. Later stages add retrieval, ranking, serving, and operations.
+A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–2 cover framing, data, evaluation, and classic collaborative-filtering baselines. Stage 3a adds a validation split for tuning, segment breakdowns, and a global-time-cutoff sanity check. Later stages add retrieval, ranking, serving, and operations.
 
 **MovieLens data is not redistributed here.** Download it yourself from GroupLens and respect their [license and terms of use](https://grouplens.org/datasets/movielens/). Raw and derived rating files live under a gitignored `data/` directory and must never be committed. Aggregate EDA stats/figures under `docs/eda/` are fine to commit.
 
@@ -12,7 +12,8 @@ See [`docs/problem.md`](docs/problem.md) for the task definition, primary metric
 | --- | --- |
 | **S1** | Framing + data (download, clean, split, EDA, eval harness) |
 | **S2** | Classic CF baselines |
-| **S3** | Two-tower retrieval; add validation split for tuning (never tune on test); global-time-cutoff sanity check on ml-1m |
+| **S3a** | Validation split + tuned baselines + segments + global-time-cutoff sanity check |
+| **S3b** | Two-tower retrieval (optional torch extra; tune on val only) |
 | **S4** | Learned ranker |
 | **S5** | Serving |
 | **S6** | Operations |
@@ -57,13 +58,18 @@ For each user (deterministic):
 
 1. Drop if fewer than **`min_ratings=5`** interactions.
 2. Sort by **`timestamp` ascending** (stable).
-3. Hold out the last **`max(1, floor(n * 0.2))`** interactions as test; rest train (≥1 train required).
+3. Hold out the last **`max(1, floor(n * 0.2))`** interactions as **test**.
+4. From the remaining train pool, hold out the last **`max(1, floor(n_train * 0.1))`** as **validation**; earlier rows are **fit-train** (ADR-0005).
 
-This **prevents within-user leakage** but **does not prevent cross-user / global temporal leakage** (other users’ later ratings can still appear in train — see ADR-0002). S3 will add a validation split for tuning (never on test) and a global-time-cutoff sanity check on ml-1m.
+**Tune** on validation only → **refit** chosen configs on **full-train** (= fit-train ∪ val) → **evaluate once** on test. **Never tune on test.**
+
+This **prevents within-user leakage** but **does not prevent cross-user / global temporal leakage** (other users’ later ratings can still appear in train — see ADR-0002). A **global-time-cutoff** sanity check on ml-1m is reported as a secondary table under `results/global_cutoff/`.
 
 **Relevance:** rating **`≥ 4.0`**.
 
 **Cold-start policy:** cold items (absent from train) are removed from relevant test sets; users with no remaining warm relevant items are excluded from ranking-metric averages (counts recorded in results JSON). Already-seen train items are filtered from recommendations.
+
+**Segments (S3a):** NDCG@10 by user-activity terciles (train rating count) and head/tail items (head = top 20% of train items by popularity). Item-segment metrics restrict relevant **and** recommended items to the segment.
 
 ## Metrics
 
@@ -106,13 +112,17 @@ ruff check src tests scripts
 
 GitHub Actions runs ruff + pytest on push/PR and does **not** download MovieLens.
 
-## Baselines (S2)
+## Baselines (S2 defaults + S3a tuned)
 
 | Model | Notes |
 | --- | --- |
 | `most_popular` | Train interaction counts (ties by item id). |
-| `item_item_cosine` | Item–item cosine CF. |
-| `als` | `implicit` ALS (factors=64, iterations=15, α=40, seed=42) — **not tuned**. |
+| `item_item_cosine` | Item–item cosine CF (S2 defaults: all neighbours, no shrinkage). |
+| `item_item_cosine_tuned` | Same model; `k_neighbors` / `shrinkage` chosen on validation NDCG@10. |
+| `als` | `implicit` ALS (factors=64, iterations=15, α=40, seed=42) — S2 defaults. |
+| `als_tuned` | ALS with factors/regularization/α chosen on validation NDCG@10. |
+
+Tuning grids and per-trial validation scores: `results/tuning/*.json`.
 
 ## Results
 

@@ -1,12 +1,14 @@
-# Default experiment config for stages 1–2 baselines.
+# Default experiment config (ml-latest-small). S3a: val split + tuning.
 seed: 42
 dataset: ml-latest-small
 data_dir: data
 results_dir: results
+tune: true
 
 split:
   min_ratings: 5
   test_fraction: 0.2
+  val_fraction: 0.1
 
 eval:
   ks: [10, 20]
@@ -15,6 +17,7 @@ eval:
   bootstrap_alpha: 0.05
 
 models:
+  # S2 defaults (also reported as untuned baselines).
   als:
     factors: 64
     regularization: 0.01
@@ -22,3 +25,10 @@ models:
     alpha: 40.0
   item_item_cosine:
     min_common: 1
+    k_neighbors: 0
+    shrinkage: 0.0
+
+global_cutoff:
+  enabled: false
+  timestamp_quantile: 0.8
+  min_train_ratings: 5

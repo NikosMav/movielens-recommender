@@ -12,14 +12,27 @@ class ItemItemCosineRecommender:
 
     Builds a user-item CSR matrix of ratings, L2-normalizes item columns, and
     computes the dense item-item Gram matrix ``S = X.T @ X`` (cosine since
-    columns are unit-norm). For a user with train ratings ``r``, scores are
-    ``S @ r`` (with train items zeroed so they are not re-recommended).
+    columns are unit-norm). Optional shrinkage and neighbourhood truncation:
+
+    - ``shrinkage``: ``sim' = (n_common / (n_common + shrinkage)) * sim``
+    - ``k_neighbors``: keep only the top-k similar items per item (0 = all)
+
+    For a user with train ratings ``r``, scores are ``S @ r`` (with train items
+    zeroed so they are not re-recommended).
 
     For large catalogs this is O(|I|^2); fine for ml-latest-small / ml-1m.
     """
 
-    def __init__(self, *, min_common: int = 1) -> None:
+    def __init__(
+        self,
+        *,
+        min_common: int = 1,
+        k_neighbors: int = 0,
+        shrinkage: float = 0.0,
+    ) -> None:
         self.min_common = min_common
+        self.k_neighbors = k_neighbors
+        self.shrinkage = shrinkage
         self._item_ids: np.ndarray = np.array([], dtype=np.int64)
         self._item_index: dict[int, int] = {}
         self._user_index: dict[int, int] = {}
@@ -44,7 +57,7 @@ class ItemItemCosineRecommender:
         )
         self._user_item = mat
 
-        # Binary co-occurrence for optional min_common filter.
+        # Binary co-occurrence for min_common filter and shrinkage.
         binary = mat.copy()
         binary.data = np.ones_like(binary.data)
         common = (binary.T @ binary).toarray()
@@ -57,6 +70,13 @@ class ItemItemCosineRecommender:
         np.fill_diagonal(sim, 0.0)
         if self.min_common > 1:
             sim[common < self.min_common] = 0.0
+        if self.shrinkage > 0.0:
+            sim = sim * (common / (common + self.shrinkage))
+            np.fill_diagonal(sim, 0.0)
+
+        if self.k_neighbors > 0 and self.k_neighbors < sim.shape[0]:
+            sim = _top_k_neighbors(sim, self.k_neighbors)
+
         self._similarity = sim.astype(np.float64)
         return self
 
@@ -80,3 +100,28 @@ class ItemItemCosineRecommender:
             part = np.argpartition(-scores, n - 1)[:n]
             order = part[np.argsort(-scores[part], kind="mergesort")]
         return [int(self._item_ids[i]) for i in order[:n] if np.isfinite(scores[i])]
+
+    def hyperparams(self) -> dict:
+        return {
+            "min_common": self.min_common,
+            "k_neighbors": self.k_neighbors,
+            "shrinkage": self.shrinkage,
+        }
+
+
+def _top_k_neighbors(sim: np.ndarray, k: int) -> np.ndarray:
+    """Zero all but the top-k absolute similarities per row (stable ties)."""
+    n = sim.shape[0]
+    out = np.zeros_like(sim)
+    # argpartition on -sim keeps largest similarities.
+    # For each row, keep top-k; ties broken by original column index via mergesort.
+    for i in range(n):
+        row = sim[i]
+        if k >= n:
+            out[i] = row
+            continue
+        part = np.argpartition(-row, k)[:k]
+        # Stable order among the selected for determinism of which ties survive
+        # is not required for scoring; keep the partitioned top-k values.
+        out[i, part] = row[part]
+    return out

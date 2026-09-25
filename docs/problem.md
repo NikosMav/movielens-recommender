@@ -20,20 +20,29 @@ Primary use of the model: surface unseen movies the user is likely to rate highl
 | **Primary** | **NDCG@10** | Ranking quality with binary gains; main gate for stage progression |
 | Secondary | NDCG@20, Precision@k, Recall@k (k ∈ {10, 20}) | Completeness / precision trade-offs |
 | Diagnostics | Catalog coverage@k (point estimate), mean recommended-item popularity (with user-bootstrap CI) | Diversity / popularity bias (not optimization targets) |
+| Segments (S3a) | NDCG@10 by user-activity tercile and head/tail items | Same harness; item segments restrict relevant **and** recommended items to the segment |
 
 All ranking metrics are averaged over eligible test users (see cold-start policy in the README / ADR-0002). Bootstrap 95% CIs over users are reported for **user-level means** (ranking metrics and mean popularity); coverage has no user-bootstrap CI (ADR-0003).
 
-The S1–S2 split **prevents within-user leakage** but **does not prevent cross-user / global temporal leakage** (ADR-0002).
+The S1–S2 split **prevents within-user leakage** but **does not prevent cross-user / global temporal leakage** (ADR-0002). S3a adds a per-user **validation** slice for tuning (ADR-0005) and a **global-time-cutoff** sanity check on ml-1m.
+
+## Split and tuning protocol (S3a)
+
+1. Per user: hold out the latest `max(1, floor(0.2 n))` ratings as **test**.
+2. From the remaining train pool: hold out the latest `max(1, floor(0.1 n_train))` as **validation**; earlier rows are **fit-train**.
+3. **Tune** hyperparameters on validation NDCG@10 only (fit on fit-train).
+4. **Refit** the chosen config on **full-train** (= fit-train ∪ val).
+5. **Evaluate once** on test. **Never tune on test** (ADR-0005).
 
 ## Baselines later stages must beat
 
-Stages 1–2 establish three collaborative-filtering baselines on a fixed harness:
+Stages 1–2 establish three collaborative-filtering baselines on a fixed harness; S3a adds validation-tuned variants of ALS and item–item:
 
 1. **most_popular** — global interaction-count ranking  
-2. **item_item_cosine** — item–item cosine CF  
-3. **als** — matrix factorization via `implicit` ALS  
+2. **item_item_cosine** / **item_item_cosine_tuned** — item–item cosine CF (default vs val-tuned)  
+3. **als** / **als_tuned** — matrix factorization via `implicit` ALS (default vs val-tuned)  
 
-Committed numbers live in `results/*.json`. **Later model stages (retrieval, ranker) must beat the best prior stage on the same split and primary metric (NDCG@10), or document a negative result** with analysis—no silent regressions. **Nothing is ever tuned on the test set.**
+Committed numbers live in `results/*.json`. Tuning grids and val scores live in `results/tuning/*.json`. **Later model stages (retrieval, ranker) must beat the best prior stage on the same split and primary metric (NDCG@10), or document a negative result** with analysis—no silent regressions. **Nothing is ever tuned on the test set.**
 
 ## Planned lifecycle
 
@@ -41,7 +50,8 @@ Committed numbers live in `results/*.json`. **Later model stages (retrieval, ran
 | --- | --- |
 | **S1** | Framing + data (download, clean, split, EDA, eval harness) |
 | **S2** | Classic CF baselines (default hyperparams; not tuned on test) |
-| **S3** | Two-tower retrieval; **first** add a **validation split for tuning** (train→val only; test sealed); run a **global-time-cutoff sanity check on ml-1m** to see if model ranking holds without cross-user future signal |
+| **S3a** | Validation split + tuned baselines + segment breakdowns + global-time-cutoff sanity check on ml-1m |
+| **S3b** | Two-tower retrieval (optional torch extra; tune on val only) |
 | **S4** | Learned ranker (re-rank retrieved candidates; tune on val only) |
 | **S5** | Serving (inference path, latency budget) |
 | **S6** | Operations (monitoring, refresh, drift) |
