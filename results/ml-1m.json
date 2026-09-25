@@ -81,24 +81,14 @@
         "n_users_excluded_no_warm_relevant": 82
       },
       "confidence_intervals": {
-        "coverage@10": {
-          "high": 0.498227,
-          "low": 0.486229,
-          "mean": 0.519771
-        },
-        "coverage@20": {
-          "high": 0.553859,
-          "low": 0.543217,
-          "mean": 0.572403
-        },
         "mean_popularity@10": {
           "high": 970.808751,
           "low": 941.912618,
           "mean": 956.129221
         },
         "mean_popularity@20": {
-          "high": 1073.721996,
-          "low": 1044.482031,
+          "high": 1072.822989,
+          "low": 1044.53889,
           "mean": 1058.125201
         },
         "ndcg@10": {
@@ -142,7 +132,20 @@
       "precision@10": 0.056428,
       "precision@20": 0.054154,
       "recall@10": 0.059805,
-      "recall@20": 0.104945
+      "recall@20": 0.104945,
+      "uncertainty_policy": {
+        "bootstrap_over_users": [
+          "precision@k",
+          "recall@k",
+          "ndcg@k",
+          "mean_popularity@k"
+        ],
+        "coverage_ci_policy": "point_estimate_only",
+        "coverage_ci_rationale": "Coverage is |union of top-k lists| / |catalog|. User bootstrap with replacement reduces unique users and biases the union downward, so CIs would not contain the full-sample estimate.",
+        "point_estimate_only": [
+          "coverage@k"
+        ]
+      }
     },
     "item_item_cosine": {
       "cold_start": {
@@ -154,24 +157,14 @@
         "n_users_excluded_no_warm_relevant": 82
       },
       "confidence_intervals": {
-        "coverage@10": {
-          "high": 0.120814,
-          "low": 0.113717,
-          "mean": 0.127352
-        },
-        "coverage@20": {
-          "high": 0.160894,
-          "low": 0.149714,
-          "mean": 0.170166
-        },
         "mean_popularity@10": {
           "high": 1803.25888,
           "low": 1786.485266,
           "mean": 1794.567153
         },
         "mean_popularity@20": {
-          "high": 1679.082789,
-          "low": 1664.035585,
+          "high": 1679.290718,
+          "low": 1663.893584,
           "mean": 1671.416759
         },
         "ndcg@10": {
@@ -215,7 +208,20 @@
       "precision@10": 0.097952,
       "precision@20": 0.083568,
       "recall@10": 0.07859,
-      "recall@20": 0.127654
+      "recall@20": 0.127654,
+      "uncertainty_policy": {
+        "bootstrap_over_users": [
+          "precision@k",
+          "recall@k",
+          "ndcg@k",
+          "mean_popularity@k"
+        ],
+        "coverage_ci_policy": "point_estimate_only",
+        "coverage_ci_rationale": "Coverage is |union of top-k lists| / |catalog|. User bootstrap with replacement reduces unique users and biases the union downward, so CIs would not contain the full-sample estimate.",
+        "point_estimate_only": [
+          "coverage@k"
+        ]
+      }
     },
     "most_popular": {
       "cold_start": {
@@ -227,24 +233,14 @@
         "n_users_excluded_no_warm_relevant": 82
       },
       "confidence_intervals": {
-        "coverage@10": {
-          "high": 0.032179,
-          "low": 0.029452,
-          "mean": 0.032452
-        },
-        "coverage@20": {
-          "high": 0.050995,
-          "low": 0.043905,
-          "mean": 0.051541
-        },
         "mean_popularity@10": {
           "high": 2331.573671,
           "low": 2319.934049,
           "mean": 2325.936069
         },
         "mean_popularity@20": {
-          "high": 2102.622643,
-          "low": 2090.220072,
+          "high": 2102.061173,
+          "low": 2089.985857,
           "mean": 2096.176083
         },
         "ndcg@10": {
@@ -288,7 +284,20 @@
       "precision@10": 0.078718,
       "precision@20": 0.069789,
       "recall@10": 0.046634,
-      "recall@20": 0.087399
+      "recall@20": 0.087399,
+      "uncertainty_policy": {
+        "bootstrap_over_users": [
+          "precision@k",
+          "recall@k",
+          "ndcg@k",
+          "mean_popularity@k"
+        ],
+        "coverage_ci_policy": "point_estimate_only",
+        "coverage_ci_rationale": "Coverage is |union of top-k lists| / |catalog|. User bootstrap with replacement reduces unique users and biases the union downward, so CIs would not contain the full-sample estimate.",
+        "point_estimate_only": [
+          "coverage@k"
+        ]
+      }
     }
   },
   "primary_metric": "ndcg@10",

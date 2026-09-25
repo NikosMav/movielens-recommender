@@ -65,7 +65,8 @@ def render_table(filename: str, payload: dict) -> str:
         f"relevance_threshold={payload.get('relevance_threshold')}, "
         f"seed={payload.get('seed')}, ks={payload.get('ks')}, "
         f"bootstrap={boot.get('n_bootstrap')} @ alpha={boot.get('alpha')}. "
-        f"Primary metric: **{payload.get('primary_metric', 'ndcg@10')}**."
+        f"Primary metric: **{payload.get('primary_metric', 'ndcg@10')}**. "
+        "Coverage@k is a point estimate only (no user-bootstrap CI; see ADR-0003)."
     )
     lines.append("")
     header = ["model", *METRIC_COLS]

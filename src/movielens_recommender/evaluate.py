@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from movielens_recommender.metrics import (
@@ -20,6 +19,12 @@ from movielens_recommender.split import SplitResult, apply_cold_start_policy
 
 RecommenderFn = Callable[[int, int], Sequence[int]]
 """(user_id, n) -> ranked item ids (may include seen items; harness filters)."""
+
+# Catalog coverage is a set-union over users. Resampling users with replacement
+# shrinks the unique-user set and systematically underestimates coverage, so the
+# point estimate often falls above a naive user-bootstrap CI. We therefore report
+# coverage as a point estimate only (see ADR-0003).
+COVERAGE_CI_POLICY = "point_estimate_only"
 
 
 def recommend_filtered(
@@ -44,6 +49,22 @@ def recommend_filtered(
     return out
 
 
+def _per_user_popularity(
+    recommendations: Mapping[int, Sequence[int]],
+    item_popularity: Mapping[int, float],
+    k: int,
+) -> list[float]:
+    """Per-user mean popularity of top-k recommendations (unknown items → 0)."""
+    values: list[float] = []
+    for recs in recommendations.values():
+        top = list(recs[:k])
+        if not top:
+            values.append(0.0)
+            continue
+        values.append(sum(float(item_popularity.get(int(i), 0.0)) for i in top) / len(top))
+    return values
+
+
 def evaluate_recommender(
     recommend_fn: RecommenderFn,
     train: pd.DataFrame,
@@ -58,11 +79,11 @@ def evaluate_recommender(
 ) -> dict[str, Any]:
     """Evaluate with cold-start policy, diagnostics, and bootstrap CIs.
 
-    Ranking metrics are averaged over users with ≥1 warm relevant test item.
-    Catalog coverage and mean popularity are diagnostics (not stage gates).
+    Ranking metrics and mean popularity are user-level means → percentile
+    bootstrap CIs over users. Catalog coverage is a catalog-level set statistic
+    → point estimate only (no user-bootstrap CI).
     """
     if split is None:
-        # Build a minimal SplitResult so cold-start policy can run.
         from movielens_recommender.split import SplitConfig
 
         split = SplitResult(
@@ -81,8 +102,7 @@ def evaluate_recommender(
 
     max_k = max(ks)
     catalog = set(train["item_id"].astype(int))
-    item_pop = train.groupby("item_id").size().astype(float).to_dict()
-    item_pop = {int(k): float(v) for k, v in item_pop.items()}
+    item_pop = {int(i): float(c) for i, c in train.groupby("item_id").size().items()}
 
     per_user: dict[str, list[float]] = {
         f"{m}@{k}": [] for k in ks for m in ("precision", "recall", "ndcg")
@@ -108,45 +128,44 @@ def evaluate_recommender(
         metrics[name] = mean
         cis[name] = {"mean": mean, "low": low, "high": high}
 
-    # Diagnostics + bootstrap over users by resampling recommendation lists.
-    user_ids = list(recommendations.keys())
-    rng = np.random.default_rng(seed)
     for k in ks:
         cov = catalog_coverage(recommendations, catalog, k)
-        pop = mean_popularity(recommendations, item_pop, k)
         metrics[f"coverage@{k}"] = cov
-        metrics[f"mean_popularity@{k}"] = pop
+        # No CI entry for coverage — see COVERAGE_CI_POLICY / ADR-0003.
 
-        cov_samples: list[float] = []
-        pop_samples: list[float] = []
-        n = len(user_ids)
-        for _ in range(max(n_bootstrap, 1)):
-            sample_ids = rng.choice(user_ids, size=n, replace=True)
-            # Coverage uses the unique user set in the bootstrap sample (union of lists).
-            uniq = {int(uid): recommendations[int(uid)] for uid in set(int(x) for x in sample_ids)}
-            cov_samples.append(catalog_coverage(uniq, catalog, k))
-            # Popularity averages over the sampled users (with replacement).
-            pop_vals = []
-            for uid in sample_ids:
-                top = recommendations[int(uid)][:k]
-                if not top:
-                    pop_vals.append(0.0)
-                else:
-                    pop_vals.append(float(np.mean([item_pop.get(int(i), 0.0) for i in top])))
-            pop_samples.append(float(np.mean(pop_vals)))
-        cis[f"coverage@{k}"] = {
-            "mean": cov,
-            "low": float(np.quantile(cov_samples, bootstrap_alpha / 2)),
-            "high": float(np.quantile(cov_samples, 1 - bootstrap_alpha / 2)),
-        }
-        cis[f"mean_popularity@{k}"] = {
-            "mean": pop,
-            "low": float(np.quantile(pop_samples, bootstrap_alpha / 2)),
-            "high": float(np.quantile(pop_samples, 1 - bootstrap_alpha / 2)),
-        }
+        pop_vals = _per_user_popularity(recommendations, item_pop, k)
+        pop_mean, pop_low, pop_high = bootstrap_mean_ci(
+            pop_vals, n_bootstrap=n_bootstrap, alpha=bootstrap_alpha, seed=seed
+        )
+        # mean_popularity() must match the mean of pop_vals.
+        assert abs(pop_mean - mean_popularity(recommendations, item_pop, k)) < 1e-12
+        metrics[f"mean_popularity@{k}"] = pop_mean
+        cis[f"mean_popularity@{k}"] = {"mean": pop_mean, "low": pop_low, "high": pop_high}
+
+    # Sanity: every reported CI must contain its point estimate.
+    for name, bounds in cis.items():
+        if not (bounds["low"] <= bounds["mean"] <= bounds["high"]):
+            raise AssertionError(
+                f"CI for {name} does not contain the point estimate: {bounds}"
+            )
 
     metrics["confidence_intervals"] = cis
     metrics["cold_start"] = cold_stats.to_dict()
+    metrics["uncertainty_policy"] = {
+        "bootstrap_over_users": [
+            "precision@k",
+            "recall@k",
+            "ndcg@k",
+            "mean_popularity@k",
+        ],
+        "point_estimate_only": ["coverage@k"],
+        "coverage_ci_policy": COVERAGE_CI_POLICY,
+        "coverage_ci_rationale": (
+            "Coverage is |union of top-k lists| / |catalog|. "
+            "User bootstrap with replacement reduces unique users and biases "
+            "the union downward, so CIs would not contain the full-sample estimate."
+        ),
+    }
     return metrics
 
 
@@ -163,7 +182,7 @@ def format_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:
             for metric_name, bounds in value.items():
                 cis_out[metric_name] = {b: _round_num(v) for b, v in bounds.items()}
             out[key] = cis_out
-        elif key == "cold_start":
+        elif key in {"cold_start", "uncertainty_policy"}:
             out[key] = dict(value)
         elif key == "n_eval_users":
             out[key] = float(value)

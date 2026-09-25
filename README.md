@@ -71,7 +71,7 @@ For each user (deterministic):
 | Secondary | NDCG@20, Precision@k, Recall@k (k=10,20) |
 | Diagnostics | Catalog coverage@k, mean train popularity of recommended items |
 
-Averaged over eligible test users. **95% bootstrap CIs** over users (1000 resamples, seed from config).
+Averaged over eligible test users. **95% bootstrap CIs** over users (1000 resamples, seed from config) for ranking metrics and mean popularity. **Catalog coverage is a point estimate only** — a user-level bootstrap is invalid for a set-union statistic (see ADR-0003).
 
 ## Config-driven run
 
@@ -119,7 +119,7 @@ GitHub Actions runs ruff + pytest on push/PR and does **not** download MovieLens
 
 Pinned version: `ml-1m@sha256:a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20`.
 
-Split: min_ratings=5, test_fraction=0.2, relevance_threshold=4.0, seed=42, ks=[10, 20], bootstrap=1000 @ alpha=0.05. Primary metric: **ndcg@10**.
+Split: min_ratings=5, test_fraction=0.2, relevance_threshold=4.0, seed=42, ks=[10, 20], bootstrap=1000 @ alpha=0.05. Primary metric: **ndcg@10**. Coverage@k is a point estimate only (no user-bootstrap CI; see ADR-0003).
 
 | model | ndcg@10 | precision@10 | recall@10 | ndcg@20 | precision@20 | recall@20 | coverage@10 | mean_popularity@10 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -139,7 +139,7 @@ Split: min_ratings=5, test_fraction=0.2, relevance_threshold=4.0, seed=42, ks=[1
 
 Pinned version: `ml-latest-small@sha256:696d65a3dfceac7c45750ad32df2c259311949efec81f0f144fdfb91ebc9e436`.
 
-Split: min_ratings=5, test_fraction=0.2, relevance_threshold=4.0, seed=42, ks=[10, 20], bootstrap=1000 @ alpha=0.05. Primary metric: **ndcg@10**.
+Split: min_ratings=5, test_fraction=0.2, relevance_threshold=4.0, seed=42, ks=[10, 20], bootstrap=1000 @ alpha=0.05. Primary metric: **ndcg@10**. Coverage@k is a point estimate only (no user-bootstrap CI; see ADR-0003).
 
 | model | ndcg@10 | precision@10 | recall@10 | ndcg@20 | precision@20 | recall@20 | coverage@10 | mean_popularity@10 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
