@@ -40,7 +40,7 @@ This **prevents within-user leakage** (no user’s test interactions appear in t
 - Protocol **prevents within-user leakage**; it **does not prevent cross-user / global temporal leakage**. Absolute scores are not comparable to papers that use a global cutoff or random splits.
 - Metrics remain comparable across stages on **this same split**; stage ranking could still shift under a stricter global-time protocol.
 
-## Follow-ups (S3)
+## Follow-ups
 
-1. **Validation split for tuning** — introduce a held-out validation slice (still never tune on test). Hyperparameter search (including ALS) happens only on train→val; test stays sealed.
-2. **Global-time-cutoff sanity check on ml-1m** — re-evaluate baselines under a single corpus-wide timestamp cutoff to see whether the model ranking (especially vs most-popular) still holds when cross-user future signal is removed. Document as confirmation or as a negative/caveat result.
+1. **Validation split for tuning** — **done in S3a** (ADR-0005): per-user val holdout from the train pool (`val_fraction=0.1`); tune on val only; refit on full train; evaluate once on test.
+2. **Global-time-cutoff sanity check on ml-1m** — **done in S3a** as a **secondary** table under `results/global_cutoff/ml-1m.json` (80th-percentile corpus timestamp cutoff; uses per-user-protocol tuned configs **without** re-tuning). Answers whether model ranking holds when cross-user future signal is removed; **not** the headline result.

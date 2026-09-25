@@ -1,12 +1,14 @@
-# Same protocol as default.yaml on MovieLens 1M.
+# Same protocol as default.yaml on MovieLens 1M, plus global-time-cutoff sanity check.
 seed: 42
 dataset: ml-1m
 data_dir: data
 results_dir: results
+tune: true
 
 split:
   min_ratings: 5
   test_fraction: 0.2
+  val_fraction: 0.1
 
 eval:
   ks: [10, 20]
@@ -22,3 +24,10 @@ models:
     alpha: 40.0
   item_item_cosine:
     min_common: 1
+    k_neighbors: 0
+    shrinkage: 0.0
+
+global_cutoff:
+  enabled: true
+  timestamp_quantile: 0.8
+  min_train_ratings: 5

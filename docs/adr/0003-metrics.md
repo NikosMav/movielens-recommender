@@ -16,7 +16,7 @@ We need a single primary metric for stage gates, secondary ranking metrics, and 
 - **Uncertainty:**
   - **User-level means** (precision / recall / NDCG / mean popularity): percentile bootstrap over users (default 1000 resamples, seed from config, 95% CI). Every reported CI must contain its point estimate.
   - **Catalog coverage:** **point estimate only** — no user-bootstrap CI.
-- Segment breakdowns (activity buckets, head/tail) deferred to keep S1–S2 small.
+- Segment breakdowns (activity terciles, head/tail items) deferred in S1–S2; **added in S3a** (see `segments` in `results/*.json` and ADR-0005 / README).
 
 ### Why coverage has no user-bootstrap CI
 
