@@ -1,0 +1,10 @@
+# Pin file for reproducible installs on Python 3.10+.
+# Prefer: pip install -r requirements.txt && pip install -e ".[dev]"
+numpy==2.2.6
+scipy==1.15.3
+pandas==2.2.3
+implicit==0.7.3
+PyYAML==6.0.3
+matplotlib==3.10.1
+pytest==8.3.5
+ruff==0.11.2

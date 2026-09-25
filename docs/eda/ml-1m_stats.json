@@ -1,0 +1,37 @@
+{
+  "cleaning": {
+    "n_clean": 1000209,
+    "n_dropped_duplicates": 0,
+    "n_dropped_invalid_ids": 0,
+    "n_dropped_invalid_rating": 0,
+    "n_dropped_null": 0,
+    "n_raw": 1000209
+  },
+  "dataset": "ml-1m",
+  "item_popularity": {
+    "max": 3428,
+    "mean": 269.88909875876953,
+    "median": 123.5,
+    "min": 1
+  },
+  "n_items": 3706,
+  "n_ratings": 1000209,
+  "n_users": 6040,
+  "rating_mean": 3.581564453029317,
+  "rating_std": 1.1171018453732575,
+  "rating_value_counts": {
+    "1.0": 56174,
+    "2.0": 107557,
+    "3.0": 261197,
+    "4.0": 348971,
+    "5.0": 226310
+  },
+  "timestamp_max": 1046454590,
+  "timestamp_min": 956703932,
+  "user_activity": {
+    "max": 2314,
+    "mean": 165.5975165562914,
+    "median": 96.0,
+    "min": 20
+  }
+}
