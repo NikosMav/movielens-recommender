@@ -21,7 +21,11 @@
         20
       ],
       "n_bootstrap": 1000,
-      "relevance_threshold": 4.0
+      "relevance_threshold": 4.0,
+      "retrieval_ks": [
+        100,
+        200
+      ]
     },
     "global_cutoff": {
       "enabled": false,
@@ -39,6 +43,22 @@
         "k_neighbors": 0,
         "min_common": 1,
         "shrinkage": 0.0
+      },
+      "two_tower": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "enabled": true,
+        "learning_rate": 0.001,
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "seeds": [
+          42,
+          43,
+          44
+        ],
+        "temperature": 0.1,
+        "weight_decay": 0.0001
       }
     },
     "results_dir": "results",
@@ -80,7 +100,24 @@
       "min_common": 1,
       "shrinkage": 100.0
     },
-    "most_popular": {}
+    "most_popular": {},
+    "two_tower": {
+      "batch_size": 1024,
+      "best_epoch": 7,
+      "embedding_dim": 64,
+      "learning_rate": 0.003,
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "refit_epochs": 7,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    }
   },
   "ks": [
     10,
@@ -92,7 +129,8 @@
     "numpy": "2.2.6",
     "pandas": "2.2.3",
     "pyyaml": "6.0.3",
-    "scipy": "1.15.3"
+    "scipy": "1.15.3",
+    "torch": "2.6.0+cpu"
   },
   "metrics": {
     "als": {
@@ -110,53 +148,103 @@
           "low": 105.482767,
           "mean": 108.293729
         },
+        "mean_popularity@100": {
+          "high": 70.65678,
+          "low": 67.947981,
+          "mean": 69.258254
+        },
         "mean_popularity@20": {
           "high": 101.051693,
           "low": 96.072792,
           "mean": 98.444407
+        },
+        "mean_popularity@200": {
+          "high": 56.190684,
+          "low": 54.372136,
+          "mean": 55.268119
         },
         "ndcg@10": {
           "high": 0.090247,
           "low": 0.069247,
           "mean": 0.079476
         },
+        "ndcg@100": {
+          "high": 0.170856,
+          "low": 0.147755,
+          "mean": 0.158996
+        },
         "ndcg@20": {
           "high": 0.104841,
           "low": 0.084733,
           "mean": 0.09481
+        },
+        "ndcg@200": {
+          "high": 0.201695,
+          "low": 0.178189,
+          "mean": 0.190055
         },
         "precision@10": {
           "high": 0.070508,
           "low": 0.054403,
           "mean": 0.062203
         },
+        "precision@100": {
+          "high": 0.035662,
+          "low": 0.030184,
+          "mean": 0.032949
+        },
         "precision@20": {
           "high": 0.058559,
           "low": 0.047203,
           "mean": 0.053051
+        },
+        "precision@200": {
+          "high": 0.0259,
+          "low": 0.021686,
+          "mean": 0.023746
         },
         "recall@10": {
           "high": 0.080736,
           "low": 0.058034,
           "mean": 0.069307
         },
+        "recall@100": {
+          "high": 0.35123,
+          "low": 0.304005,
+          "mean": 0.326502
+        },
         "recall@20": {
           "high": 0.144232,
           "low": 0.110943,
           "mean": 0.126768
+        },
+        "recall@200": {
+          "high": 0.453307,
+          "low": 0.404739,
+          "mean": 0.42716
         }
       },
       "coverage@10": 0.096532,
+      "coverage@100": 0.271283,
       "coverage@20": 0.133155,
+      "coverage@200": 0.365753,
       "mean_popularity@10": 108.293729,
+      "mean_popularity@100": 69.258254,
       "mean_popularity@20": 98.444407,
+      "mean_popularity@200": 55.268119,
       "n_eval_users": 590.0,
       "ndcg@10": 0.079476,
+      "ndcg@100": 0.158996,
       "ndcg@20": 0.09481,
+      "ndcg@200": 0.190055,
       "precision@10": 0.062203,
+      "precision@100": 0.032949,
       "precision@20": 0.053051,
+      "precision@200": 0.023746,
       "recall@10": 0.069307,
+      "recall@100": 0.326502,
       "recall@20": 0.126768,
+      "recall@200": 0.42716,
       "segments": {
         "definitions": {
           "head_fraction": 0.2,
@@ -180,14 +268,14 @@
           "tail": {
             "confidence_intervals": {
               "ndcg@10": {
-                "high": 0.001002,
-                "low": 0.0,
-                "mean": 0.000334
+                "high": 0.044141,
+                "low": 0.020667,
+                "mean": 0.031267
               }
             },
             "n_segment_items": 6597,
             "n_users": 352,
-            "ndcg@10": 0.000334
+            "ndcg@10": 0.031267
           }
         },
         "user_activity_terciles": {
@@ -261,53 +349,103 @@
           "low": 93.633665,
           "mean": 96.196271
         },
+        "mean_popularity@100": {
+          "high": 61.978833,
+          "low": 59.882768,
+          "mean": 60.862356
+        },
         "mean_popularity@20": {
           "high": 88.764786,
           "low": 84.4901,
           "mean": 86.554746
+        },
+        "mean_popularity@200": {
+          "high": 50.147936,
+          "low": 48.73586,
+          "mean": 49.442136
         },
         "ndcg@10": {
           "high": 0.098221,
           "low": 0.076836,
           "mean": 0.08751
         },
+        "ndcg@100": {
+          "high": 0.164297,
+          "low": 0.141083,
+          "mean": 0.152379
+        },
         "ndcg@20": {
           "high": 0.112501,
           "low": 0.09069,
           "mean": 0.101294
+        },
+        "ndcg@200": {
+          "high": 0.191521,
+          "low": 0.168637,
+          "mean": 0.180017
         },
         "precision@10": {
           "high": 0.072881,
           "low": 0.057627,
           "mean": 0.065254
         },
+        "precision@100": {
+          "high": 0.032695,
+          "low": 0.027592,
+          "mean": 0.030169
+        },
         "precision@20": {
           "high": 0.060678,
           "low": 0.049831,
           "mean": 0.055254
+        },
+        "precision@200": {
+          "high": 0.0235,
+          "low": 0.019669,
+          "mean": 0.021559
         },
         "recall@10": {
           "high": 0.089522,
           "low": 0.063628,
           "mean": 0.07641
         },
+        "recall@100": {
+          "high": 0.319349,
+          "low": 0.272268,
+          "mean": 0.294883
+        },
         "recall@20": {
           "high": 0.144812,
           "low": 0.112908,
           "mean": 0.128447
+        },
+        "recall@200": {
+          "high": 0.409586,
+          "low": 0.360881,
+          "mean": 0.384834
         }
       },
       "coverage@10": 0.111933,
+      "coverage@100": 0.286806,
       "coverage@20": 0.152801,
+      "coverage@200": 0.373151,
       "mean_popularity@10": 96.196271,
+      "mean_popularity@100": 60.862356,
       "mean_popularity@20": 86.554746,
+      "mean_popularity@200": 49.442136,
       "n_eval_users": 590.0,
       "ndcg@10": 0.08751,
+      "ndcg@100": 0.152379,
       "ndcg@20": 0.101294,
+      "ndcg@200": 0.180017,
       "precision@10": 0.065254,
+      "precision@100": 0.030169,
       "precision@20": 0.055254,
+      "precision@200": 0.021559,
       "recall@10": 0.07641,
+      "recall@100": 0.294883,
       "recall@20": 0.128447,
+      "recall@200": 0.384834,
       "segments": {
         "definitions": {
           "head_fraction": 0.2,
@@ -331,14 +469,14 @@
           "tail": {
             "confidence_intervals": {
               "ndcg@10": {
-                "high": 0.002136,
-                "low": 0.0,
-                "mean": 0.00078
+                "high": 0.046778,
+                "low": 0.025518,
+                "mean": 0.036251
               }
             },
             "n_segment_items": 6597,
             "n_users": 352,
-            "ndcg@10": 0.00078
+            "ndcg@10": 0.036251
           }
         },
         "user_activity_terciles": {
@@ -412,53 +550,103 @@
           "low": 119.56389,
           "mean": 122.451864
         },
+        "mean_popularity@100": {
+          "high": 92.597238,
+          "low": 89.298043,
+          "mean": 90.888136
+        },
         "mean_popularity@20": {
           "high": 117.758928,
           "low": 112.429055,
           "mean": 114.993475
+        },
+        "mean_popularity@200": {
+          "high": 77.753595,
+          "low": 75.107686,
+          "mean": 76.350831
         },
         "ndcg@10": {
           "high": 0.1011,
           "low": 0.078414,
           "mean": 0.089929
         },
+        "ndcg@100": {
+          "high": 0.17788,
+          "low": 0.154116,
+          "mean": 0.165766
+        },
         "ndcg@20": {
           "high": 0.112626,
           "low": 0.090702,
           "mean": 0.10169
+        },
+        "ndcg@200": {
+          "high": 0.213697,
+          "low": 0.189581,
+          "mean": 0.201781
         },
         "precision@10": {
           "high": 0.079492,
           "low": 0.061525,
           "mean": 0.070678
         },
+        "precision@100": {
+          "high": 0.037086,
+          "low": 0.031067,
+          "mean": 0.033966
+        },
         "precision@20": {
           "high": 0.064746,
           "low": 0.051864,
           "mean": 0.058305
+        },
+        "precision@200": {
+          "high": 0.027255,
+          "low": 0.022974,
+          "mean": 0.025034
         },
         "recall@10": {
           "high": 0.090049,
           "low": 0.065288,
           "mean": 0.077113
         },
+        "recall@100": {
+          "high": 0.354663,
+          "low": 0.307594,
+          "mean": 0.330583
+        },
         "recall@20": {
           "high": 0.142435,
           "low": 0.111784,
           "mean": 0.126634
+        },
+        "recall@200": {
+          "high": 0.476424,
+          "low": 0.425984,
+          "mean": 0.450661
         }
       },
       "coverage@10": 0.056512,
+      "coverage@100": 0.189061,
       "coverage@20": 0.083313,
+      "coverage@200": 0.272617,
       "mean_popularity@10": 122.451864,
+      "mean_popularity@100": 90.888136,
       "mean_popularity@20": 114.993475,
+      "mean_popularity@200": 76.350831,
       "n_eval_users": 590.0,
       "ndcg@10": 0.089929,
+      "ndcg@100": 0.165766,
       "ndcg@20": 0.10169,
+      "ndcg@200": 0.201781,
       "precision@10": 0.070678,
+      "precision@100": 0.033966,
       "precision@20": 0.058305,
+      "precision@200": 0.025034,
       "recall@10": 0.077113,
+      "recall@100": 0.330583,
       "recall@20": 0.126634,
+      "recall@200": 0.450661,
       "segments": {
         "definitions": {
           "head_fraction": 0.2,
@@ -482,14 +670,14 @@
           "tail": {
             "confidence_intervals": {
               "ndcg@10": {
-                "high": 0.001183,
-                "low": 0.0,
-                "mean": 0.000394
+                "high": 0.017884,
+                "low": 0.005068,
+                "mean": 0.010534
               }
             },
             "n_segment_items": 6597,
             "n_users": 352,
-            "ndcg@10": 0.000394
+            "ndcg@10": 0.010534
           }
         },
         "user_activity_terciles": {
@@ -563,53 +751,103 @@
           "low": 157.432004,
           "mean": 160.456441
         },
+        "mean_popularity@100": {
+          "high": 105.049395,
+          "low": 101.711777,
+          "mean": 103.368644
+        },
         "mean_popularity@20": {
           "high": 148.25361,
           "low": 142.963883,
           "mean": 145.544661
+        },
+        "mean_popularity@200": {
+          "high": 84.91693,
+          "low": 82.168452,
+          "mean": 83.532686
         },
         "ndcg@10": {
           "high": 0.11296,
           "low": 0.086733,
           "mean": 0.099663
         },
+        "ndcg@100": {
+          "high": 0.194073,
+          "low": 0.168037,
+          "mean": 0.180968
+        },
         "ndcg@20": {
           "high": 0.127097,
           "low": 0.102521,
           "mean": 0.115012
+        },
+        "ndcg@200": {
+          "high": 0.23021,
+          "low": 0.20444,
+          "mean": 0.217728
         },
         "precision@10": {
           "high": 0.086441,
           "low": 0.065932,
           "mean": 0.076271
         },
+        "precision@100": {
+          "high": 0.041,
+          "low": 0.03383,
+          "mean": 0.037271
+        },
         "precision@20": {
           "high": 0.074917,
           "low": 0.059744,
           "mean": 0.067373
+        },
+        "precision@200": {
+          "high": 0.029687,
+          "low": 0.024746,
+          "mean": 0.027178
         },
         "recall@10": {
           "high": 0.090331,
           "low": 0.066398,
           "mean": 0.07742
         },
+        "recall@100": {
+          "high": 0.380005,
+          "low": 0.329652,
+          "mean": 0.355397
+        },
         "recall@20": {
           "high": 0.152298,
           "low": 0.118997,
           "mean": 0.135438
+        },
+        "recall@200": {
+          "high": 0.502323,
+          "low": 0.452374,
+          "mean": 0.477252
         }
       },
       "coverage@10": 0.048508,
+      "coverage@100": 0.203614,
       "coverage@20": 0.073005,
+      "coverage@200": 0.312273,
       "mean_popularity@10": 160.456441,
+      "mean_popularity@100": 103.368644,
       "mean_popularity@20": 145.544661,
+      "mean_popularity@200": 83.532686,
       "n_eval_users": 590.0,
       "ndcg@10": 0.099663,
+      "ndcg@100": 0.180968,
       "ndcg@20": 0.115012,
+      "ndcg@200": 0.217728,
       "precision@10": 0.076271,
+      "precision@100": 0.037271,
       "precision@20": 0.067373,
+      "precision@200": 0.027178,
       "recall@10": 0.07742,
+      "recall@100": 0.355397,
       "recall@20": 0.135438,
+      "recall@200": 0.477252,
       "segments": {
         "definitions": {
           "head_fraction": 0.2,
@@ -633,14 +871,14 @@
           "tail": {
             "confidence_intervals": {
               "ndcg@10": {
-                "high": 0.0,
+                "high": 0.002649,
                 "low": 0.0,
-                "mean": 0.0
+                "mean": 0.001047
               }
             },
             "n_segment_items": 6597,
             "n_users": 352,
-            "ndcg@10": 0.0
+            "ndcg@10": 0.001047
           }
         },
         "user_activity_terciles": {
@@ -714,53 +952,103 @@
           "low": 214.634729,
           "mean": 216.752542
         },
+        "mean_popularity@100": {
+          "high": 128.415687,
+          "low": 125.813766,
+          "mean": 127.059322
+        },
         "mean_popularity@20": {
           "high": 194.185943,
           "low": 190.360983,
           "mean": 192.216695
+        },
+        "mean_popularity@200": {
+          "high": 100.813207,
+          "low": 98.741303,
+          "mean": 99.741924
         },
         "ndcg@10": {
           "high": 0.085957,
           "low": 0.06363,
           "mean": 0.074273
         },
+        "ndcg@100": {
+          "high": 0.137326,
+          "low": 0.113612,
+          "mean": 0.125318
+        },
         "ndcg@20": {
           "high": 0.090914,
           "low": 0.070068,
           "mean": 0.080214
+        },
+        "ndcg@200": {
+          "high": 0.172449,
+          "low": 0.146926,
+          "mean": 0.159652
         },
         "precision@10": {
           "high": 0.065093,
           "low": 0.047623,
           "mean": 0.056271
         },
+        "precision@100": {
+          "high": 0.031915,
+          "low": 0.024881,
+          "mean": 0.028203
+        },
         "precision@20": {
           "high": 0.053138,
           "low": 0.040169,
           "mean": 0.04661
+        },
+        "precision@200": {
+          "high": 0.024178,
+          "low": 0.019296,
+          "mean": 0.021585
         },
         "recall@10": {
           "high": 0.061387,
           "low": 0.042611,
           "mean": 0.051437
         },
+        "recall@100": {
+          "high": 0.25593,
+          "low": 0.2122,
+          "mean": 0.233663
+        },
         "recall@20": {
           "high": 0.099245,
           "low": 0.072694,
           "mean": 0.085877
+        },
+        "recall@200": {
+          "high": 0.379486,
+          "low": 0.331125,
+          "mean": 0.354423
         }
       },
       "coverage@10": 0.011885,
+      "coverage@100": 0.05821,
       "coverage@20": 0.019888,
+      "coverage@200": 0.093742,
       "mean_popularity@10": 216.752542,
+      "mean_popularity@100": 127.059322,
       "mean_popularity@20": 192.216695,
+      "mean_popularity@200": 99.741924,
       "n_eval_users": 590.0,
       "ndcg@10": 0.074273,
+      "ndcg@100": 0.125318,
       "ndcg@20": 0.080214,
+      "ndcg@200": 0.159652,
       "precision@10": 0.056271,
+      "precision@100": 0.028203,
       "precision@20": 0.04661,
+      "precision@200": 0.021585,
       "recall@10": 0.051437,
+      "recall@100": 0.233663,
       "recall@20": 0.085877,
+      "recall@200": 0.354423,
       "segments": {
         "definitions": {
           "head_fraction": 0.2,
@@ -849,14 +1137,583 @@
           "coverage@k"
         ]
       }
+    },
+    "two_tower": {
+      "cold_start": {
+        "n_cold_items_in_test": 1478,
+        "n_eval_users": 590,
+        "n_relevant_dropped_cold_item": 617,
+        "n_train_items": 8246,
+        "n_train_users": 610,
+        "n_users_excluded_no_warm_relevant": 20
+      },
+      "confidence_intervals": {
+        "mean_popularity@10": {
+          "high": 101.863373,
+          "low": 94.019369,
+          "mean": 97.808983
+        },
+        "mean_popularity@100": {
+          "high": 68.431626,
+          "low": 64.574361,
+          "mean": 66.445847
+        },
+        "mean_popularity@20": {
+          "high": 93.143583,
+          "low": 86.532172,
+          "mean": 89.847797
+        },
+        "mean_popularity@200": {
+          "high": 56.066507,
+          "low": 53.246653,
+          "mean": 54.634297
+        },
+        "ndcg@10": {
+          "high": 0.101333,
+          "low": 0.077658,
+          "mean": 0.089021
+        },
+        "ndcg@100": {
+          "high": 0.192762,
+          "low": 0.166029,
+          "mean": 0.178435
+        },
+        "ndcg@20": {
+          "high": 0.122341,
+          "low": 0.097958,
+          "mean": 0.109303
+        },
+        "ndcg@200": {
+          "high": 0.226224,
+          "low": 0.199536,
+          "mean": 0.212575
+        },
+        "precision@10": {
+          "high": 0.071699,
+          "low": 0.056606,
+          "mean": 0.064068
+        },
+        "precision@100": {
+          "high": 0.036746,
+          "low": 0.031203,
+          "mean": 0.033983
+        },
+        "precision@20": {
+          "high": 0.063051,
+          "low": 0.052119,
+          "mean": 0.057373
+        },
+        "precision@200": {
+          "high": 0.026297,
+          "low": 0.022508,
+          "mean": 0.02439
+        },
+        "recall@10": {
+          "high": 0.098042,
+          "low": 0.070372,
+          "mean": 0.083295
+        },
+        "recall@100": {
+          "high": 0.381723,
+          "low": 0.333015,
+          "mean": 0.35663
+        },
+        "recall@20": {
+          "high": 0.165282,
+          "low": 0.128785,
+          "mean": 0.146234
+        },
+        "recall@200": {
+          "high": 0.497108,
+          "low": 0.445072,
+          "mean": 0.471209
+        }
+      },
+      "coverage@10": 0.139583,
+      "coverage@100": 0.442518,
+      "coverage@20": 0.200097,
+      "coverage@200": 0.584162,
+      "mean_popularity@10": 98.895028,
+      "mean_popularity@100": 66.445847,
+      "mean_popularity@20": 89.847797,
+      "mean_popularity@200": 54.634297,
+      "n_eval_users": 590.0,
+      "n_seeds": 3.0,
+      "ndcg@10": 0.091006,
+      "ndcg@100": 0.178435,
+      "ndcg@20": 0.110499,
+      "ndcg@200": 0.212575,
+      "per_seed_confidence_intervals": {
+        "42": {
+          "mean_popularity@10": {
+            "high": 101.863373,
+            "low": 94.019369,
+            "mean": 97.808983
+          },
+          "mean_popularity@100": {
+            "high": 68.431626,
+            "low": 64.574361,
+            "mean": 66.445847
+          },
+          "mean_popularity@20": {
+            "high": 93.143583,
+            "low": 86.532172,
+            "mean": 89.847797
+          },
+          "mean_popularity@200": {
+            "high": 56.066507,
+            "low": 53.246653,
+            "mean": 54.634297
+          },
+          "ndcg@10": {
+            "high": 0.101333,
+            "low": 0.077658,
+            "mean": 0.089021
+          },
+          "ndcg@100": {
+            "high": 0.192762,
+            "low": 0.166029,
+            "mean": 0.178435
+          },
+          "ndcg@20": {
+            "high": 0.122341,
+            "low": 0.097958,
+            "mean": 0.109303
+          },
+          "ndcg@200": {
+            "high": 0.226224,
+            "low": 0.199536,
+            "mean": 0.212575
+          },
+          "precision@10": {
+            "high": 0.071699,
+            "low": 0.056606,
+            "mean": 0.064068
+          },
+          "precision@100": {
+            "high": 0.036746,
+            "low": 0.031203,
+            "mean": 0.033983
+          },
+          "precision@20": {
+            "high": 0.063051,
+            "low": 0.052119,
+            "mean": 0.057373
+          },
+          "precision@200": {
+            "high": 0.026297,
+            "low": 0.022508,
+            "mean": 0.02439
+          },
+          "recall@10": {
+            "high": 0.098042,
+            "low": 0.070372,
+            "mean": 0.083295
+          },
+          "recall@100": {
+            "high": 0.381723,
+            "low": 0.333015,
+            "mean": 0.35663
+          },
+          "recall@20": {
+            "high": 0.165282,
+            "low": 0.128785,
+            "mean": 0.146234
+          },
+          "recall@200": {
+            "high": 0.497108,
+            "low": 0.445072,
+            "mean": 0.471209
+          }
+        },
+        "43": {
+          "mean_popularity@10": {
+            "high": 105.442801,
+            "low": 97.44314,
+            "mean": 101.405763
+          },
+          "mean_popularity@100": {
+            "high": 70.120946,
+            "low": 66.174403,
+            "mean": 68.11661
+          },
+          "mean_popularity@20": {
+            "high": 96.595695,
+            "low": 90.019962,
+            "mean": 93.305254
+          },
+          "mean_popularity@200": {
+            "high": 57.180728,
+            "low": 54.244974,
+            "mean": 55.700093
+          },
+          "ndcg@10": {
+            "high": 0.10117,
+            "low": 0.078523,
+            "mean": 0.089811
+          },
+          "ndcg@100": {
+            "high": 0.192427,
+            "low": 0.165568,
+            "mean": 0.178678
+          },
+          "ndcg@20": {
+            "high": 0.122239,
+            "low": 0.097252,
+            "mean": 0.109318
+          },
+          "ndcg@200": {
+            "high": 0.22737,
+            "low": 0.200324,
+            "mean": 0.213583
+          },
+          "precision@10": {
+            "high": 0.075763,
+            "low": 0.059831,
+            "mean": 0.067797
+          },
+          "precision@100": {
+            "high": 0.037238,
+            "low": 0.031711,
+            "mean": 0.034458
+          },
+          "precision@20": {
+            "high": 0.065767,
+            "low": 0.053388,
+            "mean": 0.059407
+          },
+          "precision@200": {
+            "high": 0.026789,
+            "low": 0.022974,
+            "mean": 0.024788
+          },
+          "recall@10": {
+            "high": 0.100027,
+            "low": 0.072694,
+            "mean": 0.086068
+          },
+          "recall@100": {
+            "high": 0.380362,
+            "low": 0.332217,
+            "mean": 0.356653
+          },
+          "recall@20": {
+            "high": 0.164892,
+            "low": 0.128232,
+            "mean": 0.145794
+          },
+          "recall@200": {
+            "high": 0.500009,
+            "low": 0.447409,
+            "mean": 0.473981
+          }
+        },
+        "44": {
+          "mean_popularity@10": {
+            "high": 101.657653,
+            "low": 93.569708,
+            "mean": 97.470339
+          },
+          "mean_popularity@100": {
+            "high": 68.589971,
+            "low": 64.675079,
+            "mean": 66.580763
+          },
+          "mean_popularity@20": {
+            "high": 93.482555,
+            "low": 86.841729,
+            "mean": 89.983136
+          },
+          "mean_popularity@200": {
+            "high": 55.906722,
+            "low": 53.045108,
+            "mean": 54.449051
+          },
+          "ndcg@10": {
+            "high": 0.105665,
+            "low": 0.083271,
+            "mean": 0.094187
+          },
+          "ndcg@100": {
+            "high": 0.193406,
+            "low": 0.167184,
+            "mean": 0.180012
+          },
+          "ndcg@20": {
+            "high": 0.125183,
+            "low": 0.101319,
+            "mean": 0.112876
+          },
+          "ndcg@200": {
+            "high": 0.228891,
+            "low": 0.202587,
+            "mean": 0.21571
+          },
+          "precision@10": {
+            "high": 0.078309,
+            "low": 0.062542,
+            "mean": 0.070678
+          },
+          "precision@100": {
+            "high": 0.037883,
+            "low": 0.03222,
+            "mean": 0.035085
+          },
+          "precision@20": {
+            "high": 0.065339,
+            "low": 0.054576,
+            "mean": 0.059915
+          },
+          "precision@200": {
+            "high": 0.027196,
+            "low": 0.023312,
+            "mean": 0.025212
+          },
+          "recall@10": {
+            "high": 0.105627,
+            "low": 0.0782,
+            "mean": 0.091414
+          },
+          "recall@100": {
+            "high": 0.379573,
+            "low": 0.330197,
+            "mean": 0.354429
+          },
+          "recall@20": {
+            "high": 0.172903,
+            "low": 0.136699,
+            "mean": 0.154097
+          },
+          "recall@200": {
+            "high": 0.503007,
+            "low": 0.450135,
+            "mean": 0.47593
+          }
+        }
+      },
+      "precision@10": 0.067514,
+      "precision@100": 0.033983,
+      "precision@20": 0.058898,
+      "precision@200": 0.02439,
+      "recall@10": 0.086926,
+      "recall@100": 0.355904,
+      "recall@20": 0.148708,
+      "recall@200": 0.473707,
+      "seed_summary": {
+        "coverage@10": {
+          "max": 0.141766,
+          "mean": 0.139583,
+          "min": 0.135217,
+          "std": 0.003087,
+          "values": [
+            0.135217,
+            0.141766,
+            0.141766
+          ]
+        },
+        "mean_popularity@10": {
+          "max": 101.405763,
+          "mean": 98.895028,
+          "min": 97.470339,
+          "std": 1.780732,
+          "values": [
+            97.808983,
+            101.405763,
+            97.470339
+          ]
+        },
+        "ndcg@10": {
+          "max": 0.094187,
+          "mean": 0.091006,
+          "min": 0.089021,
+          "std": 0.002272,
+          "values": [
+            0.089021,
+            0.089811,
+            0.094187
+          ]
+        },
+        "ndcg@20": {
+          "max": 0.112876,
+          "mean": 0.110499,
+          "min": 0.109303,
+          "std": 0.001681,
+          "values": [
+            0.109303,
+            0.109318,
+            0.112876
+          ]
+        },
+        "precision@10": {
+          "max": 0.070678,
+          "mean": 0.067514,
+          "min": 0.064068,
+          "std": 0.002706,
+          "values": [
+            0.064068,
+            0.067797,
+            0.070678
+          ]
+        },
+        "precision@20": {
+          "max": 0.059915,
+          "mean": 0.058898,
+          "min": 0.057373,
+          "std": 0.001098,
+          "values": [
+            0.057373,
+            0.059407,
+            0.059915
+          ]
+        },
+        "recall@10": {
+          "max": 0.091414,
+          "mean": 0.086926,
+          "min": 0.083295,
+          "std": 0.00337,
+          "values": [
+            0.083295,
+            0.086068,
+            0.091414
+          ]
+        },
+        "recall@100": {
+          "max": 0.356653,
+          "mean": 0.355904,
+          "min": 0.354429,
+          "std": 0.001043,
+          "values": [
+            0.35663,
+            0.356653,
+            0.354429
+          ]
+        },
+        "recall@20": {
+          "max": 0.154097,
+          "mean": 0.148708,
+          "min": 0.145794,
+          "std": 0.003815,
+          "values": [
+            0.146234,
+            0.145794,
+            0.154097
+          ]
+        },
+        "recall@200": {
+          "max": 0.47593,
+          "mean": 0.473707,
+          "min": 0.471209,
+          "std": 0.001937,
+          "values": [
+            0.471209,
+            0.473981,
+            0.47593
+          ]
+        }
+      },
+      "segments": {
+        "definitions": {
+          "head_fraction": 0.2,
+          "item_head_tail": "Head items = top 20% of train catalog by interaction count (ties broken by item_id ascending). Tail = remaining train items.",
+          "item_segment_metric": "For an item segment S: relevant_S = relevant \u2229 S; recommendations are filtered to items in S (order preserved) and scored at k against relevant_S. Users with empty relevant_S are excluded from that segment's average.",
+          "user_activity": "Eval users partitioned into low/mid/high terciles by train rating count (full_train interaction count). Ties broken by user_id ascending before assigning ranks so boundaries are deterministic."
+        },
+        "item_head_tail": {
+          "head": {
+            "confidence_intervals": {
+              "ndcg@10": {
+                "high": 0.127257,
+                "low": 0.100348,
+                "mean": 0.113635
+              }
+            },
+            "n_segment_items": 1649,
+            "n_users": 574,
+            "ndcg@10": 0.113635
+          },
+          "tail": {
+            "confidence_intervals": {
+              "ndcg@10": {
+                "high": 0.017504,
+                "low": 0.006193,
+                "mean": 0.011371
+              }
+            },
+            "n_segment_items": 6597,
+            "n_users": 352,
+            "ndcg@10": 0.011371
+          }
+        },
+        "user_activity_terciles": {
+          "high": {
+            "confidence_intervals": {
+              "ndcg@10": {
+                "high": 0.103658,
+                "low": 0.066429,
+                "mean": 0.084741
+              }
+            },
+            "n_users": 197,
+            "ndcg@10": 0.084741,
+            "train_rating_count_max": 2159,
+            "train_rating_count_min": 104
+          },
+          "low": {
+            "confidence_intervals": {
+              "ndcg@10": {
+                "high": 0.123065,
+                "low": 0.076146,
+                "mean": 0.099535
+              }
+            },
+            "n_users": 197,
+            "ndcg@10": 0.099535,
+            "train_rating_count_max": 37,
+            "train_rating_count_min": 16
+          },
+          "mid": {
+            "confidence_intervals": {
+              "ndcg@10": {
+                "high": 0.101551,
+                "low": 0.065186,
+                "mean": 0.082755
+              }
+            },
+            "n_users": 196,
+            "ndcg@10": 0.082755,
+            "train_rating_count_max": 103,
+            "train_rating_count_min": 37
+          }
+        }
+      },
+      "uncertainty_policy": {
+        "bootstrap_over_users": [
+          "precision@k",
+          "recall@k",
+          "ndcg@k",
+          "mean_popularity@k"
+        ],
+        "coverage_ci_policy": "point_estimate_only",
+        "coverage_ci_rationale": "Coverage is |union of top-k lists| / |catalog|. User bootstrap with replacement reduces unique users and biases the union downward, so CIs would not contain the full-sample estimate.",
+        "point_estimate_only": [
+          "coverage@k"
+        ]
+      }
     }
   },
   "primary_metric": "ndcg@10",
   "protocol_notes": {
+    "retrieval_ks": "Recall@100 / Recall@200 are reported for retrieval comparison (candidate generation for S4).",
     "tuned_models": "Models whose name ends with _tuned (or tuned[name]=true) used hyperparameters selected on validation NDCG@10. Untuned names keep the S2 YAML defaults.",
+    "two_tower": "Optional PyTorch two-tower (ADR-0006): in-batch sampled softmax with log-q correction; exact top-k; history from fit-train (val) or full-train (test) only. Test metrics reported over multiple seeds (mean/spread) plus per-seed user-bootstrap CIs.",
     "validation": "Per-user val holdout from train pool (val_fraction=0.1); tune on val only; refit on full_train; evaluate once on test (ADR-0005)."
   },
   "relevance_threshold": 4.0,
+  "retrieval_ks": [
+    100,
+    200
+  ],
+  "runtime_sec": 244.043,
   "seed": 42,
   "split": {
     "config": {
@@ -883,7 +1740,8 @@
     "als_tuned": true,
     "item_item_cosine": false,
     "item_item_cosine_tuned": true,
-    "most_popular": false
+    "most_popular": false,
+    "two_tower": true
   },
   "tuning_summary": {
     "als_best": {
@@ -899,6 +1757,231 @@
       "shrinkage": 100.0
     },
     "item_item_cosine_best_val_ndcg@10": 0.087254,
-    "tuning_json": "results/tuning/ml-latest-small.json"
+    "tuning_json": "results/tuning/ml-latest-small.json",
+    "two_tower_best": {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.003,
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    },
+    "two_tower_best_epoch": 7,
+    "two_tower_best_val_ndcg@10": 0.08192383501609272,
+    "two_tower_tuning_json": "results/tuning/two_tower_ml-latest-small.json"
+  },
+  "two_tower": {
+    "across_seeds": {
+      "coverage@10": {
+        "max": 0.141766,
+        "mean": 0.139583,
+        "min": 0.135217,
+        "std": 0.003087,
+        "values": [
+          0.135217,
+          0.141766,
+          0.141766
+        ]
+      },
+      "mean_popularity@10": {
+        "max": 101.405763,
+        "mean": 98.895028,
+        "min": 97.470339,
+        "std": 1.780732,
+        "values": [
+          97.808983,
+          101.405763,
+          97.470339
+        ]
+      },
+      "ndcg@10": {
+        "max": 0.094187,
+        "mean": 0.091006,
+        "min": 0.089021,
+        "std": 0.002272,
+        "values": [
+          0.089021,
+          0.089811,
+          0.094187
+        ]
+      },
+      "ndcg@20": {
+        "max": 0.112876,
+        "mean": 0.110499,
+        "min": 0.109303,
+        "std": 0.001681,
+        "values": [
+          0.109303,
+          0.109318,
+          0.112876
+        ]
+      },
+      "precision@10": {
+        "max": 0.070678,
+        "mean": 0.067514,
+        "min": 0.064068,
+        "std": 0.002706,
+        "values": [
+          0.064068,
+          0.067797,
+          0.070678
+        ]
+      },
+      "precision@20": {
+        "max": 0.059915,
+        "mean": 0.058898,
+        "min": 0.057373,
+        "std": 0.001098,
+        "values": [
+          0.057373,
+          0.059407,
+          0.059915
+        ]
+      },
+      "recall@10": {
+        "max": 0.091414,
+        "mean": 0.086926,
+        "min": 0.083295,
+        "std": 0.00337,
+        "values": [
+          0.083295,
+          0.086068,
+          0.091414
+        ]
+      },
+      "recall@100": {
+        "max": 0.356653,
+        "mean": 0.355904,
+        "min": 0.354429,
+        "std": 0.001043,
+        "values": [
+          0.35663,
+          0.356653,
+          0.354429
+        ]
+      },
+      "recall@20": {
+        "max": 0.154097,
+        "mean": 0.148708,
+        "min": 0.145794,
+        "std": 0.003815,
+        "values": [
+          0.146234,
+          0.145794,
+          0.154097
+        ]
+      },
+      "recall@200": {
+        "max": 0.47593,
+        "mean": 0.473707,
+        "min": 0.471209,
+        "std": 0.001937,
+        "values": [
+          0.471209,
+          0.473981,
+          0.47593
+        ]
+      }
+    },
+    "best_epoch": 7,
+    "best_hyperparams": {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.003,
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    },
+    "best_val_ndcg@10": 0.08192383501609272,
+    "early_stopping": "Refit used fixed epoch count = best validation epoch (7).",
+    "gate": {
+      "bars": {
+        "item_item_cosine": {
+          "ci": {
+            "high": 0.1011,
+            "low": 0.078414,
+            "mean": 0.089929
+          },
+          "ndcg@10": 0.089929
+        },
+        "item_item_cosine_tuned": {
+          "ci": {
+            "high": 0.11296,
+            "low": 0.086733,
+            "mean": 0.099663
+          },
+          "ndcg@10": 0.099663
+        }
+      },
+      "beats": {
+        "item_item_cosine": {
+          "all_seed_ci_low_above_bar_ci_high": false,
+          "any_seed_mean_exceeds_bar_point": true,
+          "bar_ci_high": 0.1011,
+          "bar_ndcg@10": 0.089929,
+          "mean_exceeds_bar_point": true,
+          "two_tower_mean_ndcg@10": 0.091006
+        },
+        "item_item_cosine_tuned": {
+          "all_seed_ci_low_above_bar_ci_high": false,
+          "any_seed_mean_exceeds_bar_point": false,
+          "bar_ci_high": 0.11296,
+          "bar_ndcg@10": 0.099663,
+          "mean_exceeds_bar_point": false,
+          "two_tower_mean_ndcg@10": 0.091006
+        }
+      },
+      "beats_both_item_item_bars": false,
+      "negative_result": true,
+      "primary_metric": "ndcg@10"
+    },
+    "per_seed": [
+      {
+        "ndcg@10": 0.089021,
+        "ndcg@10_ci": {
+          "high": 0.101333,
+          "low": 0.077658,
+          "mean": 0.089021
+        },
+        "recall@100": 0.35663,
+        "recall@200": 0.471209,
+        "seed": 42,
+        "train_wall_time_sec": 10.022
+      },
+      {
+        "ndcg@10": 0.089811,
+        "ndcg@10_ci": {
+          "high": 0.10117,
+          "low": 0.078523,
+          "mean": 0.089811
+        },
+        "recall@100": 0.356653,
+        "recall@200": 0.473981,
+        "seed": 43,
+        "train_wall_time_sec": 11.659
+      },
+      {
+        "ndcg@10": 0.094187,
+        "ndcg@10_ci": {
+          "high": 0.105665,
+          "low": 0.083271,
+          "mean": 0.094187
+        },
+        "recall@100": 0.354429,
+        "recall@200": 0.47593,
+        "seed": 44,
+        "train_wall_time_sec": 10.299
+      }
+    ],
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "tuning_json": "results/tuning/two_tower_ml-latest-small.json"
   }
 }

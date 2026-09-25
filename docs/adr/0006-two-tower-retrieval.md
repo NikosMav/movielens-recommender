@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (S3b) — **negative result** on the headline ml-1m gate (see Consequences).
+Accepted (S3b) — **negative result** on the headline ml-1m NDCG@10 gate.
 
 ## Context
 
@@ -33,7 +33,7 @@ Small grid over `embedding_dim ∈ {32, 64}`, `learning_rate ∈ {1e-3, 3e-3}`, 
 **Reporting:**
 
 - Test metrics over **3 seeds** (mean and spread) plus the usual user-bootstrap CI **per seed**.
-- **Recall@100 / Recall@200** for two-tower and the tuned baselines (retrieval role for S4).
+- **Recall@100 / Recall@200** for two-tower and the baselines (retrieval role for S4).
 - Included in segment breakdowns and the ml-1m global-time-cutoff table **without re-tuning** (same HPs as the per-user protocol).
 
 ## Alternatives considered
@@ -47,9 +47,32 @@ Small grid over `embedding_dim ∈ {32, 64}`, `learning_rate ∈ {1e-3, 3e-3}`, 
 | Tune on test / pick best test seed | Forbidden by ADR-0005; would fake a stage win |
 | Large grids / deep MLPs / transformers | Gold-plating; CPU runtime on ml-1m would dominate the stage |
 
+## Outcome (ml-1m test)
+
+Committed numbers: `results/ml-1m.json`, `results/tuning/two_tower_ml-1m.json`.
+
+| Model | NDCG@10 | Notes |
+| --- | --- | --- |
+| item_item_cosine (default) | 0.1201 [0.1158, 0.1242] | Bar |
+| item_item_cosine_tuned | 0.1192 [0.1147, 0.1233] | Bar |
+| **two_tower** (3-seed mean) | **0.1192 ± 0.0001** | Per-seed CIs overlap both bars |
+
+Chosen HPs: `embedding_dim=64`, `learning_rate=3e-3`, `temperature=0.1` (plus fixed batch/weight-decay/history); **best_epoch=6** (refit epoch count). Val NDCG@10 ≈ 0.0826.
+
+**Gate: negative.** Mean NDCG@10 does not exceed the default item–item bar, and seed CIs do not clear either bar’s CI high. We do **not** claim a stage win.
+
+**Where two-tower still helps (not the gate):**
+
+- Recall@100 / @200 ≈ **0.435 / 0.604** vs item–item tuned **0.383 / 0.541** (and default 0.347 / 0.499) — better candidate coverage for a later ranker.
+- Tail-item NDCG@10 ≈ **0.083** vs item–item ≈ **0.001–0.003** — much less head-collapsed.
+- Global-cutoff NDCG@10 ≈ 0.214 vs item–item 0.232 (still behind; not re-tuned).
+
+**Plausible reasons for the NDCG@10 miss:** neighborhood CF is a very strong inductive bias on dense MovieLens co-occurrence; in-batch softmax with a short early-stopped run (6 epochs) optimizes retrieval likelihood more than top-10 ranking; temperature/log-q help calibration but do not invent neighbour structure. Protocol was not bent to chase a win.
+
+**S4 retriever:** use **item–item cosine** (default or tuned) as the candidate generator for the learned ranker, unless a later change reverses the NDCG@10 gate. Two-tower remains available as an optional diverse-retrieval baseline (stronger Recall@100/200 / tail).
+
 ## Consequences
 
-- Headline comparison uses the same harness as S3a. **To claim a win, two-tower must beat both item–item default and tuned on ml-1m test NDCG@10 with CIs taken into account.**
-- If it does not, this ADR and the README record a **negative result**; S4 should use the stronger retriever (item–item cosine) as the candidate generator unless a later change reverses the gate.
-- Tuning logs: `results/tuning/two_tower_*.json`. Metrics: `results/*.json` and `results/global_cutoff/ml-1m.json`.
+- Headline comparison uses the same harness as S3a.
 - Numbers are produced only by code-written JSON — never hand-edited.
+- Optional `[deep]` install keeps the baseline path light; CI covers two-tower unit tests on synthetic data without downloading MovieLens.
