@@ -1,23 +1,23 @@
-# Default experiment config (ml-latest-small). S3a: val split + tuning.
 seed: 42
 dataset: ml-latest-small
 data_dir: data
 results_dir: results
 tune: true
-
 split:
   min_ratings: 5
   test_fraction: 0.2
   val_fraction: 0.1
-
 eval:
-  ks: [10, 20]
+  ks:
+  - 10
+  - 20
   relevance_threshold: 4.0
   n_bootstrap: 1000
   bootstrap_alpha: 0.05
-
+  retrieval_ks:
+  - 100
+  - 200
 models:
-  # S2 defaults (also reported as untuned baselines).
   als:
     factors: 64
     regularization: 0.01
@@ -27,8 +27,22 @@ models:
     min_common: 1
     k_neighbors: 0
     shrinkage: 0.0
-
+  two_tower:
+    enabled: true
+    embedding_dim: 64
+    learning_rate: 0.001
+    temperature: 0.1
+    batch_size: 1024
+    weight_decay: 0.0001
+    max_epochs: 20
+    patience: 3
+    max_history: 50
+    seeds:
+    - 42
+    - 43
+    - 44
 global_cutoff:
   enabled: false
   timestamp_quantile: 0.8
   min_train_ratings: 5
+

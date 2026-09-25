@@ -40,7 +40,8 @@ Stages 1–2 establish three collaborative-filtering baselines on a fixed harnes
 
 1. **most_popular** — global interaction-count ranking  
 2. **item_item_cosine** / **item_item_cosine_tuned** — item–item cosine CF (default vs val-tuned)  
-3. **als** / **als_tuned** — matrix factorization via `implicit` ALS (default vs val-tuned)  
+3. **als** / **als_tuned** — matrix factorization via `implicit` ALS (default vs val-tuned)
+4. **two_tower** (S3b) — optional PyTorch two-tower retrieval (ADR-0006); must beat the item–item bar or be a documented negative result  
 
 Committed numbers live in `results/*.json`. Tuning grids and val scores live in `results/tuning/*.json`. **Later model stages (retrieval, ranker) must beat the best prior stage on the same split and primary metric (NDCG@10), or document a negative result** with analysis—no silent regressions. **Nothing is ever tuned on the test set.**
 

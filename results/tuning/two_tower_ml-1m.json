@@ -1,0 +1,237 @@
+{
+  "dataset": "ml-1m",
+  "dataset_sha256": "a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20",
+  "primary_metric": "ndcg@10",
+  "protocol": "Fit each trial on fit-train only; select by validation NDCG@10 with early stopping. Never uses test. Refit on full_train for best_epoch epochs before test eval (ADR-0005 / ADR-0006).",
+  "seed": 42,
+  "two_tower": {
+    "best_epoch": 6,
+    "best_hyperparams": {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.003,
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    },
+    "best_val_score": 0.082601,
+    "early_stopping": "Train on fit-train; stop when validation NDCG@10 does not improve for `patience` epochs. Refit on full-train uses best_epoch as the fixed epoch count (no validation).",
+    "grid": [
+      {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.001,
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.05,
+        "weight_decay": 0.0001
+      },
+      {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.001,
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.003,
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.05,
+        "weight_decay": 0.0001
+      },
+      {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.003,
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.001,
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.05,
+        "weight_decay": 0.0001
+      },
+      {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.001,
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.003,
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.05,
+        "weight_decay": 0.0001
+      },
+      {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.003,
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      }
+    ],
+    "model": "two_tower",
+    "primary_metric": "ndcg@10",
+    "trials": [
+      {
+        "best_epoch": 12,
+        "epochs_trained": 15,
+        "hyperparams": {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.001,
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.05,
+          "weight_decay": 0.0001
+        },
+        "val_ndcg@10": 0.079366,
+        "wall_time_sec": 194.135
+      },
+      {
+        "best_epoch": 12,
+        "epochs_trained": 15,
+        "hyperparams": {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.001,
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        "val_ndcg@10": 0.081628,
+        "wall_time_sec": 196.36
+      },
+      {
+        "best_epoch": 4,
+        "epochs_trained": 7,
+        "hyperparams": {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.003,
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.05,
+          "weight_decay": 0.0001
+        },
+        "val_ndcg@10": 0.079077,
+        "wall_time_sec": 88.928
+      },
+      {
+        "best_epoch": 5,
+        "epochs_trained": 8,
+        "hyperparams": {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.003,
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        "val_ndcg@10": 0.07998,
+        "wall_time_sec": 108.848
+      },
+      {
+        "best_epoch": 6,
+        "epochs_trained": 9,
+        "hyperparams": {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.001,
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.05,
+          "weight_decay": 0.0001
+        },
+        "val_ndcg@10": 0.079537,
+        "wall_time_sec": 144.488
+      },
+      {
+        "best_epoch": 7,
+        "epochs_trained": 10,
+        "hyperparams": {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.001,
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        "val_ndcg@10": 0.082221,
+        "wall_time_sec": 152.373
+      },
+      {
+        "best_epoch": 3,
+        "epochs_trained": 6,
+        "hyperparams": {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.003,
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.05,
+          "weight_decay": 0.0001
+        },
+        "val_ndcg@10": 0.08011,
+        "wall_time_sec": 86.138
+      },
+      {
+        "best_epoch": 6,
+        "epochs_trained": 9,
+        "hyperparams": {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.003,
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        "val_ndcg@10": 0.082601,
+        "wall_time_sec": 118.466
+      }
+    ]
+  },
+  "val_fraction": 0.1
+}

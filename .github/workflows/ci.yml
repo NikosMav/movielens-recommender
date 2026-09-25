@@ -20,10 +20,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install package (dev extras)
+      - name: Install package (dev + deep / CPU torch)
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[dev,deep]"
 
       - name: Ruff lint
         run: ruff check src tests scripts
