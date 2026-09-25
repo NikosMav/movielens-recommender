@@ -167,7 +167,7 @@ def format_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:
             out[key] = dict(value)
         elif key == "n_eval_users":
             out[key] = float(value)
-        elif isinstance(value, (int, float)):
+        elif isinstance(value, int | float):
             out[key] = _round_num(value)
         else:
             out[key] = value
