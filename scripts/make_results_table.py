@@ -38,9 +38,10 @@ def _fmt_ci(cis: dict, key: str) -> str:
 
 
 def _model_label(name: str, tuned_flags: dict | None) -> str:
-    if tuned_flags and tuned_flags.get(name):
-        return f"{name} (tuned)"
+    is_tuned = bool(tuned_flags and tuned_flags.get(name)) or name.endswith("_tuned")
     if name.endswith("_tuned"):
+        return name
+    if is_tuned:
         return f"{name} (tuned)"
     return name
 

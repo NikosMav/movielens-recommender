@@ -1,0 +1,358 @@
+{
+  "bootstrap": {
+    "alpha": 0.05,
+    "n_bootstrap": 1000
+  },
+  "cleaning": {
+    "n_clean": 1000209,
+    "n_dropped_duplicates": 0,
+    "n_dropped_invalid_ids": 0,
+    "n_dropped_invalid_rating": 0,
+    "n_dropped_null": 0,
+    "n_raw": 1000209
+  },
+  "config": {
+    "data_dir": "data",
+    "dataset": "ml-1m",
+    "eval": {
+      "bootstrap_alpha": 0.05,
+      "ks": [
+        10,
+        20
+      ],
+      "n_bootstrap": 1000,
+      "relevance_threshold": 4.0
+    },
+    "global_cutoff": {
+      "enabled": true,
+      "min_train_ratings": 5,
+      "timestamp_quantile": 0.8
+    },
+    "models": {
+      "als": {
+        "alpha": 40.0,
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "item_item_cosine": {
+        "k_neighbors": 0,
+        "min_common": 1,
+        "shrinkage": 0.0
+      }
+    },
+    "results_dir": "results",
+    "seed": 42,
+    "split": {
+      "min_ratings": 5,
+      "test_fraction": 0.2,
+      "val_fraction": 0.1
+    },
+    "tune": true
+  },
+  "dataset": "ml-1m",
+  "dataset_sha256": "a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20",
+  "dataset_version": "ml-1m@sha256:a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20",
+  "hyperparameters": {
+    "als": {
+      "alpha": 20.0,
+      "confidence_threshold": 4.0,
+      "factors": 128,
+      "iterations": 15,
+      "random_state": 42,
+      "regularization": 0.1
+    },
+    "item_item_cosine": {
+      "k_neighbors": 200,
+      "min_common": 1,
+      "shrinkage": 100.0
+    },
+    "most_popular": {}
+  },
+  "hyperparams_source": "Per-user-protocol tuned configs (validation NDCG@10); not re-tuned for the global cutoff. most_popular has no hyperparameters.",
+  "ks": [
+    10,
+    20
+  ],
+  "library_versions": {
+    "implicit": "0.7.3",
+    "movielens-recommender": "0.1.0",
+    "numpy": "2.2.6",
+    "pandas": "2.2.3",
+    "pyyaml": "6.0.3",
+    "scipy": "1.15.3"
+  },
+  "metrics": {
+    "als": {
+      "cold_start": {
+        "n_cold_items_in_test": 31,
+        "n_eval_users": 1114,
+        "n_relevant_dropped_cold_item": 44,
+        "n_train_items": 3662,
+        "n_train_users": 5392,
+        "n_users_excluded_no_warm_relevant": 21
+      },
+      "confidence_intervals": {
+        "mean_popularity@10": {
+          "high": 1004.890485,
+          "low": 950.664668,
+          "mean": 977.79623
+        },
+        "mean_popularity@20": {
+          "high": 994.22786,
+          "low": 943.328401,
+          "mean": 968.343806
+        },
+        "ndcg@10": {
+          "high": 0.166903,
+          "low": 0.144898,
+          "mean": 0.155275
+        },
+        "ndcg@20": {
+          "high": 0.16671,
+          "low": 0.147674,
+          "mean": 0.15653
+        },
+        "precision@10": {
+          "high": 0.159518,
+          "low": 0.137971,
+          "mean": 0.147935
+        },
+        "precision@20": {
+          "high": 0.148884,
+          "low": 0.130789,
+          "mean": 0.139273
+        },
+        "recall@10": {
+          "high": 0.048255,
+          "low": 0.037632,
+          "mean": 0.042659
+        },
+        "recall@20": {
+          "high": 0.089157,
+          "low": 0.074968,
+          "mean": 0.081655
+        }
+      },
+      "coverage@10": 0.355543,
+      "coverage@20": 0.423812,
+      "mean_popularity@10": 977.79623,
+      "mean_popularity@20": 968.343806,
+      "n_eval_users": 1114.0,
+      "ndcg@10": 0.155275,
+      "ndcg@20": 0.15653,
+      "precision@10": 0.147935,
+      "precision@20": 0.139273,
+      "recall@10": 0.042659,
+      "recall@20": 0.081655,
+      "uncertainty_policy": {
+        "bootstrap_over_users": [
+          "precision@k",
+          "recall@k",
+          "ndcg@k",
+          "mean_popularity@k"
+        ],
+        "coverage_ci_policy": "point_estimate_only",
+        "coverage_ci_rationale": "Coverage is |union of top-k lists| / |catalog|. User bootstrap with replacement reduces unique users and biases the union downward, so CIs would not contain the full-sample estimate.",
+        "point_estimate_only": [
+          "coverage@k"
+        ]
+      }
+    },
+    "item_item_cosine": {
+      "cold_start": {
+        "n_cold_items_in_test": 31,
+        "n_eval_users": 1114,
+        "n_relevant_dropped_cold_item": 44,
+        "n_train_items": 3662,
+        "n_train_users": 5392,
+        "n_users_excluded_no_warm_relevant": 21
+      },
+      "confidence_intervals": {
+        "mean_popularity@10": {
+          "high": 1577.918662,
+          "low": 1541.722132,
+          "mean": 1560.468402
+        },
+        "mean_popularity@20": {
+          "high": 1460.934036,
+          "low": 1429.659062,
+          "mean": 1445.994569
+        },
+        "ndcg@10": {
+          "high": 0.247292,
+          "low": 0.216225,
+          "mean": 0.231884
+        },
+        "ndcg@20": {
+          "high": 0.23112,
+          "low": 0.203997,
+          "mean": 0.217078
+        },
+        "precision@10": {
+          "high": 0.224778,
+          "low": 0.196768,
+          "mean": 0.210413
+        },
+        "precision@20": {
+          "high": 0.197038,
+          "low": 0.172665,
+          "mean": 0.18456
+        },
+        "recall@10": {
+          "high": 0.063715,
+          "low": 0.051981,
+          "mean": 0.057478
+        },
+        "recall@20": {
+          "high": 0.101362,
+          "low": 0.086753,
+          "mean": 0.093798
+        }
+      },
+      "coverage@10": 0.108957,
+      "coverage@20": 0.146914,
+      "mean_popularity@10": 1560.468402,
+      "mean_popularity@20": 1445.994569,
+      "n_eval_users": 1114.0,
+      "ndcg@10": 0.231884,
+      "ndcg@20": 0.217078,
+      "precision@10": 0.210413,
+      "precision@20": 0.18456,
+      "recall@10": 0.057478,
+      "recall@20": 0.093798,
+      "uncertainty_policy": {
+        "bootstrap_over_users": [
+          "precision@k",
+          "recall@k",
+          "ndcg@k",
+          "mean_popularity@k"
+        ],
+        "coverage_ci_policy": "point_estimate_only",
+        "coverage_ci_rationale": "Coverage is |union of top-k lists| / |catalog|. User bootstrap with replacement reduces unique users and biases the union downward, so CIs would not contain the full-sample estimate.",
+        "point_estimate_only": [
+          "coverage@k"
+        ]
+      }
+    },
+    "most_popular": {
+      "cold_start": {
+        "n_cold_items_in_test": 31,
+        "n_eval_users": 1114,
+        "n_relevant_dropped_cold_item": 44,
+        "n_train_items": 3662,
+        "n_train_users": 5392,
+        "n_users_excluded_no_warm_relevant": 21
+      },
+      "confidence_intervals": {
+        "mean_popularity@10": {
+          "high": 2076.500242,
+          "low": 2044.976358,
+          "mean": 2061.84632
+        },
+        "mean_popularity@20": {
+          "high": 1867.104291,
+          "low": 1835.157612,
+          "mean": 1852.392145
+        },
+        "ndcg@10": {
+          "high": 0.2286,
+          "low": 0.198993,
+          "mean": 0.213571
+        },
+        "ndcg@20": {
+          "high": 0.214431,
+          "low": 0.188587,
+          "mean": 0.201339
+        },
+        "precision@10": {
+          "high": 0.212933,
+          "low": 0.184917,
+          "mean": 0.198743
+        },
+        "precision@20": {
+          "high": 0.188107,
+          "low": 0.163908,
+          "mean": 0.175673
+        },
+        "recall@10": {
+          "high": 0.054293,
+          "low": 0.043978,
+          "mean": 0.049031
+        },
+        "recall@20": {
+          "high": 0.091964,
+          "low": 0.07935,
+          "mean": 0.085522
+        }
+      },
+      "coverage@10": 0.037411,
+      "coverage@20": 0.05598,
+      "mean_popularity@10": 2061.84632,
+      "mean_popularity@20": 1852.392145,
+      "n_eval_users": 1114.0,
+      "ndcg@10": 0.213571,
+      "ndcg@20": 0.201339,
+      "precision@10": 0.198743,
+      "precision@20": 0.175673,
+      "recall@10": 0.049031,
+      "recall@20": 0.085522,
+      "uncertainty_policy": {
+        "bootstrap_over_users": [
+          "precision@k",
+          "recall@k",
+          "ndcg@k",
+          "mean_popularity@k"
+        ],
+        "coverage_ci_policy": "point_estimate_only",
+        "coverage_ci_rationale": "Coverage is |union of top-k lists| / |catalog|. User bootstrap with replacement reduces unique users and biases the union downward, so CIs would not contain the full-sample estimate.",
+        "point_estimate_only": [
+          "coverage@k"
+        ]
+      }
+    }
+  },
+  "notes": "Secondary sanity check: whether model ranking holds when cross-user future signal is removed (ADR-0002). Not the headline table.",
+  "primary_metric": "ndcg@10",
+  "protocol": "global_time_cutoff",
+  "relevance_threshold": 4.0,
+  "retuned": false,
+  "secondary": true,
+  "seed": 42,
+  "split": {
+    "cold_start": {
+      "n_cold_items_in_test": 31,
+      "n_eval_users": 1114,
+      "n_relevant_dropped_cold_item": 44,
+      "n_train_items": 3662,
+      "n_train_users": 5392,
+      "n_users_excluded_no_warm_relevant": 21
+    },
+    "config": {
+      "min_train_ratings": 5,
+      "relevance_threshold": 4.0,
+      "timestamp_quantile": 0.8
+    },
+    "cutoff_timestamp": 975768738.0,
+    "n_items_before_filter": 3511,
+    "n_items_kept": 3662,
+    "n_test": 103937,
+    "n_test_interactions_before_filter": 200045,
+    "n_test_interactions_kept": 103937,
+    "n_train": 800138,
+    "n_train_items": 3662,
+    "n_train_users": 5392,
+    "n_users_before_filter": 1783,
+    "n_users_kept": 5392,
+    "protocol": "global_time_cutoff",
+    "timestamp_quantile": 0.8
+  },
+  "surviving": {
+    "n_eval_users": 1114,
+    "n_test_interactions": 103937,
+    "n_test_interactions_after_user_filter": 103937,
+    "n_train_items": 3662,
+    "n_train_users": 5392,
+    "n_users_kept_after_min_train": 5392
+  }
+}

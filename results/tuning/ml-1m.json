@@ -1,0 +1,295 @@
+{
+  "als": {
+    "best_hyperparams": {
+      "alpha": 20.0,
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    "best_val_score": 0.064625,
+    "grid": [
+      {
+        "alpha": 20.0,
+        "factors": 32,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      {
+        "alpha": 40.0,
+        "factors": 32,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      {
+        "alpha": 20.0,
+        "factors": 32,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      {
+        "alpha": 40.0,
+        "factors": 32,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      {
+        "alpha": 20.0,
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      {
+        "alpha": 40.0,
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      {
+        "alpha": 20.0,
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      {
+        "alpha": 40.0,
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      {
+        "alpha": 20.0,
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      {
+        "alpha": 40.0,
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      {
+        "alpha": 20.0,
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      {
+        "alpha": 40.0,
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.1
+      }
+    ],
+    "model": "als",
+    "primary_metric": "ndcg@10",
+    "trials": [
+      {
+        "hyperparams": {
+          "alpha": 20.0,
+          "factors": 32,
+          "iterations": 15,
+          "regularization": 0.01
+        },
+        "val_ndcg@10": 0.056187
+      },
+      {
+        "hyperparams": {
+          "alpha": 40.0,
+          "factors": 32,
+          "iterations": 15,
+          "regularization": 0.01
+        },
+        "val_ndcg@10": 0.045637
+      },
+      {
+        "hyperparams": {
+          "alpha": 20.0,
+          "factors": 32,
+          "iterations": 15,
+          "regularization": 0.1
+        },
+        "val_ndcg@10": 0.057072
+      },
+      {
+        "hyperparams": {
+          "alpha": 40.0,
+          "factors": 32,
+          "iterations": 15,
+          "regularization": 0.1
+        },
+        "val_ndcg@10": 0.045774
+      },
+      {
+        "hyperparams": {
+          "alpha": 20.0,
+          "factors": 64,
+          "iterations": 15,
+          "regularization": 0.01
+        },
+        "val_ndcg@10": 0.059571
+      },
+      {
+        "hyperparams": {
+          "alpha": 40.0,
+          "factors": 64,
+          "iterations": 15,
+          "regularization": 0.01
+        },
+        "val_ndcg@10": 0.051283
+      },
+      {
+        "hyperparams": {
+          "alpha": 20.0,
+          "factors": 64,
+          "iterations": 15,
+          "regularization": 0.1
+        },
+        "val_ndcg@10": 0.059296
+      },
+      {
+        "hyperparams": {
+          "alpha": 40.0,
+          "factors": 64,
+          "iterations": 15,
+          "regularization": 0.1
+        },
+        "val_ndcg@10": 0.052228
+      },
+      {
+        "hyperparams": {
+          "alpha": 20.0,
+          "factors": 128,
+          "iterations": 15,
+          "regularization": 0.01
+        },
+        "val_ndcg@10": 0.063338
+      },
+      {
+        "hyperparams": {
+          "alpha": 40.0,
+          "factors": 128,
+          "iterations": 15,
+          "regularization": 0.01
+        },
+        "val_ndcg@10": 0.058502
+      },
+      {
+        "hyperparams": {
+          "alpha": 20.0,
+          "factors": 128,
+          "iterations": 15,
+          "regularization": 0.1
+        },
+        "val_ndcg@10": 0.064625
+      },
+      {
+        "hyperparams": {
+          "alpha": 40.0,
+          "factors": 128,
+          "iterations": 15,
+          "regularization": 0.1
+        },
+        "val_ndcg@10": 0.059192
+      }
+    ]
+  },
+  "dataset": "ml-1m",
+  "dataset_sha256": "a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20",
+  "item_item_cosine": {
+    "best_hyperparams": {
+      "k_neighbors": 200,
+      "min_common": 1,
+      "shrinkage": 100.0
+    },
+    "best_val_score": 0.080972,
+    "grid": [
+      {
+        "k_neighbors": 40,
+        "min_common": 1,
+        "shrinkage": 0.0
+      },
+      {
+        "k_neighbors": 40,
+        "min_common": 1,
+        "shrinkage": 100.0
+      },
+      {
+        "k_neighbors": 100,
+        "min_common": 1,
+        "shrinkage": 0.0
+      },
+      {
+        "k_neighbors": 100,
+        "min_common": 1,
+        "shrinkage": 100.0
+      },
+      {
+        "k_neighbors": 200,
+        "min_common": 1,
+        "shrinkage": 0.0
+      },
+      {
+        "k_neighbors": 200,
+        "min_common": 1,
+        "shrinkage": 100.0
+      }
+    ],
+    "model": "item_item_cosine",
+    "primary_metric": "ndcg@10",
+    "trials": [
+      {
+        "hyperparams": {
+          "k_neighbors": 40,
+          "min_common": 1,
+          "shrinkage": 0.0
+        },
+        "val_ndcg@10": 0.074953
+      },
+      {
+        "hyperparams": {
+          "k_neighbors": 40,
+          "min_common": 1,
+          "shrinkage": 100.0
+        },
+        "val_ndcg@10": 0.077895
+      },
+      {
+        "hyperparams": {
+          "k_neighbors": 100,
+          "min_common": 1,
+          "shrinkage": 0.0
+        },
+        "val_ndcg@10": 0.079154
+      },
+      {
+        "hyperparams": {
+          "k_neighbors": 100,
+          "min_common": 1,
+          "shrinkage": 100.0
+        },
+        "val_ndcg@10": 0.079436
+      },
+      {
+        "hyperparams": {
+          "k_neighbors": 200,
+          "min_common": 1,
+          "shrinkage": 0.0
+        },
+        "val_ndcg@10": 0.079761
+      },
+      {
+        "hyperparams": {
+          "k_neighbors": 200,
+          "min_common": 1,
+          "shrinkage": 100.0
+        },
+        "val_ndcg@10": 0.080972
+      }
+    ]
+  },
+  "primary_metric": "ndcg@10",
+  "protocol": "Fit each trial on fit-train only; select by validation NDCG@10 (point estimate, no bootstrap). Never uses test. Chosen configs are refit on full_train (= fit-train \u222a val) before test eval.",
+  "seed": 42,
+  "val_fraction": 0.1
+}
