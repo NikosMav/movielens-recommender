@@ -1,4 +1,4 @@
-# Data (never commit MovieLens or derived artifacts)
+# Data (never commit MovieLens or derived rating artifacts)
 data/
 
 # Python
@@ -11,7 +11,6 @@ build/
 dist/
 *.egg-info/
 .eggs/
-*.egg
 .venv/
 venv/
 .env
@@ -31,3 +30,6 @@ htmlcov/
 
 # Netlify
 .netlify
+
+# Matplotlib
+matplotlibrc

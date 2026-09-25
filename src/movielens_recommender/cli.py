@@ -1,12 +1,15 @@
-"""CLI: download data, run split/train/eval pipeline, write results JSON."""
+"""CLI: download data, run config-driven baseline pipeline, write results JSON."""
 
 from __future__ import annotations
 
 import argparse
 import json
+import random
 import sys
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
+
+import numpy as np
 
 from movielens_recommender import __version__
 from movielens_recommender.baselines import (
@@ -14,13 +17,16 @@ from movielens_recommender.baselines import (
     ItemItemCosineRecommender,
     MostPopularRecommender,
 )
-from movielens_recommender.data import DATASET_URLS, download_dataset, load_ratings
+from movielens_recommender.config import RunConfig, load_config
+from movielens_recommender.data import (
+    DATASET_SHA256,
+    DATASET_URLS,
+    DATASET_VERSION_LABELS,
+    download_dataset,
+    load_ratings,
+)
 from movielens_recommender.evaluate import evaluate_recommender, format_metrics
 from movielens_recommender.split import SplitConfig, time_based_split
-
-DEFAULT_KS = (10, 20)
-DEFAULT_SEED = 42
-DEFAULT_RESULTS_DIR = Path("results")
 
 
 def _pkg_version(name: str) -> str:
@@ -37,32 +43,32 @@ def library_versions() -> dict[str, str]:
         "scipy": _pkg_version("scipy"),
         "pandas": _pkg_version("pandas"),
         "implicit": _pkg_version("implicit"),
+        "pyyaml": _pkg_version("PyYAML"),
     }
 
 
-def run_pipeline(
-    *,
-    dataset: str = "ml-latest-small",
-    data_dir: Path = Path("data"),
-    results_dir: Path = DEFAULT_RESULTS_DIR,
-    min_ratings: int = 5,
-    test_fraction: float = 0.2,
-    relevance_threshold: float = 4.0,
-    seed: int = DEFAULT_SEED,
-    ks: tuple[int, ...] = DEFAULT_KS,
-    download: bool = True,
-) -> Path:
-    """Download (optional), split, train baselines, evaluate, write JSON."""
+def set_seeds(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+
+
+def run_pipeline(config: RunConfig, *, download: bool = True) -> Path:
+    """Download (optional), clean, split, train baselines, evaluate, write JSON."""
+    set_seeds(config.seed)
+    data_dir = Path(config.data_dir)
+    results_dir = Path(config.results_dir)
+    dataset = config.dataset
+
     if download:
         download_dataset(dataset, data_dir)
 
-    ratings = load_ratings(dataset, data_dir)
-    config = SplitConfig(
-        min_ratings=min_ratings,
-        test_fraction=test_fraction,
-        relevance_threshold=relevance_threshold,
+    ratings, clean_stats = load_ratings(dataset, data_dir, clean=True)
+    split_cfg = SplitConfig(
+        min_ratings=config.split.min_ratings,
+        test_fraction=config.split.test_fraction,
+        relevance_threshold=config.eval.relevance_threshold,
     )
-    split = time_based_split(ratings, config)
+    split = time_based_split(ratings, split_cfg)
 
     models: dict[str, object] = {}
     hyperparams: dict[str, dict] = {}
@@ -71,17 +77,19 @@ def run_pipeline(
     models["most_popular"] = popular
     hyperparams["most_popular"] = {}
 
-    item_knn = ItemItemCosineRecommender(min_common=1).fit(split.train)
+    knn_cfg = config.models.item_item_cosine
+    item_knn = ItemItemCosineRecommender(min_common=knn_cfg.min_common).fit(split.train)
     models["item_item_cosine"] = item_knn
-    hyperparams["item_item_cosine"] = {"min_common": 1}
+    hyperparams["item_item_cosine"] = {"min_common": knn_cfg.min_common}
 
+    als_cfg = config.models.als
     als = ALSRecommender(
-        factors=64,
-        regularization=0.01,
-        iterations=15,
-        alpha=40.0,
-        confidence_threshold=relevance_threshold,
-        random_state=seed,
+        factors=als_cfg.factors,
+        regularization=als_cfg.regularization,
+        iterations=als_cfg.iterations,
+        alpha=als_cfg.alpha,
+        confidence_threshold=config.eval.relevance_threshold,
+        random_state=config.seed,
     ).fit(split.train)
     models["als"] = als
     hyperparams["als"] = als.hyperparams()
@@ -92,20 +100,33 @@ def run_pipeline(
             model.recommend,
             split.train,
             split.test,
-            relevance_threshold=relevance_threshold,
-            ks=ks,
+            relevance_threshold=config.eval.relevance_threshold,
+            ks=tuple(config.eval.ks),
+            n_bootstrap=config.eval.n_bootstrap,
+            bootstrap_alpha=config.eval.bootstrap_alpha,
+            seed=config.seed,
+            split=split,
         )
         results[name] = format_metrics(metrics)
 
     payload = {
         "dataset": dataset,
+        "dataset_version": DATASET_VERSION_LABELS[dataset],
+        "dataset_sha256": DATASET_SHA256[dataset],
+        "cleaning": clean_stats.to_dict(),
         "split": split.summary(),
-        "relevance_threshold": relevance_threshold,
-        "ks": list(ks),
-        "seed": seed,
+        "relevance_threshold": config.eval.relevance_threshold,
+        "ks": list(config.eval.ks),
+        "seed": config.seed,
+        "bootstrap": {
+            "n_bootstrap": config.eval.n_bootstrap,
+            "alpha": config.eval.bootstrap_alpha,
+        },
+        "config": config.to_dict(),
         "library_versions": library_versions(),
         "hyperparameters": hyperparams,
         "metrics": results,
+        "primary_metric": "ndcg@10",
     }
 
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -116,22 +137,23 @@ def run_pipeline(
 
 def _cmd_download(args: argparse.Namespace) -> int:
     path = download_dataset(args.dataset, args.data_dir, force=args.force)
-    print(f"Downloaded {args.dataset} -> {path}")
+    print(f"Downloaded {args.dataset} (sha256={DATASET_SHA256[args.dataset]}) -> {path}")
     return 0
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
-    out = run_pipeline(
-        dataset=args.dataset,
-        data_dir=Path(args.data_dir),
-        results_dir=Path(args.results_dir),
-        min_ratings=args.min_ratings,
-        test_fraction=args.test_fraction,
-        relevance_threshold=args.relevance_threshold,
-        seed=args.seed,
-        ks=tuple(args.k),
-        download=not args.no_download,
-    )
+    config = load_config(args.config)
+    # CLI overrides for convenience / backwards compatibility.
+    if args.dataset is not None:
+        config.dataset = args.dataset
+    if args.data_dir is not None:
+        config.data_dir = args.data_dir
+    if args.results_dir is not None:
+        config.results_dir = args.results_dir
+    if args.seed is not None:
+        config.seed = args.seed
+
+    out = run_pipeline(config, download=not args.no_download)
     print(f"Wrote results to {out}")
     print(out.read_text(encoding="utf-8"))
     return 0
@@ -158,37 +180,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_run = sub.add_parser(
         "run",
-        help="Download (if needed), split, train baselines, evaluate, write results/*.json",
+        help="Config-driven pipeline: download, clean, split, train, evaluate → results/*.json",
+    )
+    p_run.add_argument(
+        "--config",
+        default="configs/default.yaml",
+        help="Path to YAML run config (default: configs/default.yaml)",
     )
     p_run.add_argument(
         "--dataset",
-        default="ml-latest-small",
+        default=None,
         choices=sorted(DATASET_URLS),
-        help="Dataset name (default: ml-latest-small)",
+        help="Override dataset from config",
     )
-    p_run.add_argument("--data-dir", default="data", help="Root data directory (gitignored)")
-    p_run.add_argument("--results-dir", default="results", help="Where to write metrics JSON")
-    p_run.add_argument("--min-ratings", type=int, default=5, help="Min ratings per user to keep")
-    p_run.add_argument(
-        "--test-fraction",
-        type=float,
-        default=0.2,
-        help="Fraction of each user's latest interactions held out as test",
-    )
-    p_run.add_argument(
-        "--relevance-threshold",
-        type=float,
-        default=4.0,
-        help="Ratings >= this count as relevant for metrics",
-    )
-    p_run.add_argument("--seed", type=int, default=DEFAULT_SEED, help="RNG seed (ALS)")
-    p_run.add_argument(
-        "--k",
-        type=int,
-        nargs="+",
-        default=list(DEFAULT_KS),
-        help="Cutoff values for precision/recall/NDCG (default: 10 20)",
-    )
+    p_run.add_argument("--data-dir", default=None, help="Override data_dir from config")
+    p_run.add_argument("--results-dir", default=None, help="Override results_dir from config")
+    p_run.add_argument("--seed", type=int, default=None, help="Override seed from config")
     p_run.add_argument(
         "--no-download",
         action="store_true",

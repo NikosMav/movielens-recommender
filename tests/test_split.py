@@ -1,17 +1,18 @@
-"""Unit tests for the time-based split (no leakage, min-ratings handling)."""
+"""Unit tests for the time-based split and cold-start policy."""
 
 from __future__ import annotations
 
 import pandas as pd
 import pytest
 
-from movielens_recommender.split import SplitConfig, time_based_split
+from movielens_recommender.split import (
+    SplitConfig,
+    apply_cold_start_policy,
+    time_based_split,
+)
 
 
 def _toy_ratings() -> pd.DataFrame:
-    # user 1: 5 ratings, timestamps 1..5
-    # user 2: 4 ratings (< min_ratings=5) -> dropped
-    # user 3: 10 ratings, timestamps 10..19
     rows = []
     for t in range(1, 6):
         rows.append({"user_id": 1, "item_id": t, "rating": 4.0, "timestamp": t})
@@ -41,8 +42,6 @@ def test_min_ratings_drops_sparse_users():
 
 
 def test_test_fraction_counts():
-    # user 1 has 5 ratings -> n_test = max(1, floor(5*0.2))=1 -> 4 train, 1 test
-    # user 3 has 10 ratings -> n_test = max(1, floor(10*0.2))=2 -> 8 train, 2 test
     split = time_based_split(_toy_ratings(), SplitConfig(min_ratings=5, test_fraction=0.2))
     assert len(split.train[split.train["user_id"] == 1]) == 4
     assert len(split.test[split.test["user_id"] == 1]) == 1
@@ -67,3 +66,36 @@ def test_all_users_dropped_raises():
     )
     with pytest.raises(ValueError, match="No users remaining"):
         time_based_split(tiny, SplitConfig(min_ratings=10, test_fraction=0.2))
+
+
+def test_cold_start_drops_cold_relevant_items():
+    # Train has items 1,2; test has relevant cold item 99 and warm item 2.
+    train = pd.DataFrame(
+        [
+            {"user_id": 1, "item_id": 1, "rating": 5.0, "timestamp": 1},
+            {"user_id": 1, "item_id": 2, "rating": 4.0, "timestamp": 2},
+            {"user_id": 2, "item_id": 1, "rating": 5.0, "timestamp": 1},
+        ]
+    )
+    test = pd.DataFrame(
+        [
+            {"user_id": 1, "item_id": 99, "rating": 5.0, "timestamp": 3},
+            {"user_id": 1, "item_id": 2, "rating": 5.0, "timestamp": 4},
+            {"user_id": 2, "item_id": 99, "rating": 5.0, "timestamp": 3},
+        ]
+    )
+    split = time_based_split(
+        pd.concat([train, test], ignore_index=True),
+        SplitConfig(min_ratings=2, test_fraction=0.5, relevance_threshold=4.0),
+    )
+    # Force known train/test for the policy unit test.
+    split.train = train
+    split.test = test
+    _seen, relevant, stats = apply_cold_start_policy(split)
+    assert 99 not in relevant.get(1, set())
+    assert 2 in relevant[1]
+    # user 2 only had cold relevant → excluded
+    assert 2 not in relevant
+    assert stats.n_relevant_dropped_cold_item >= 1
+    assert stats.n_users_excluded_no_warm_relevant >= 1
+    assert stats.n_cold_items_in_test >= 1

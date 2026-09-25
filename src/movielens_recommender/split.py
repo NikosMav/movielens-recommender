@@ -1,4 +1,4 @@
-"""Time-based train/test split for recommendation evaluation."""
+"""Time-based train/test split and cold-start filtering."""
 
 from __future__ import annotations
 
@@ -34,6 +34,21 @@ class SplitConfig:
 
 
 @dataclass
+class ColdStartStats:
+    """Cold-start filtering summary applied after the split."""
+
+    n_train_users: int
+    n_train_items: int
+    n_cold_items_in_test: int
+    n_relevant_dropped_cold_item: int
+    n_users_excluded_no_warm_relevant: int
+    n_eval_users: int
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass
 class SplitResult:
     """Train/test frames plus the config used to produce them."""
 
@@ -42,9 +57,10 @@ class SplitResult:
     config: SplitConfig
     n_users_kept: int
     n_users_dropped: int
+    cold_start: ColdStartStats | None = None
 
     def summary(self) -> dict:
-        return {
+        out = {
             "n_train": int(len(self.train)),
             "n_test": int(len(self.test)),
             "n_users_kept": self.n_users_kept,
@@ -54,6 +70,9 @@ class SplitResult:
             "n_train_items": int(self.train["item_id"].nunique()),
             "config": self.config.to_dict(),
         }
+        if self.cold_start is not None:
+            out["cold_start"] = self.cold_start.to_dict()
+        return out
 
 
 def time_based_split(ratings: pd.DataFrame, config: SplitConfig | None = None) -> SplitResult:
@@ -112,3 +131,65 @@ def time_based_split(ratings: pd.DataFrame, config: SplitConfig | None = None) -
         n_users_kept=kept,
         n_users_dropped=dropped,
     )
+
+
+def apply_cold_start_policy(
+    split: SplitResult,
+    *,
+    relevance_threshold: float | None = None,
+) -> tuple[dict[int, set[int]], dict[int, set[int]], ColdStartStats]:
+    """Build seen/relevant maps with cold items removed from relevance.
+
+    Cold-start policy
+    -----------------
+    - Cold users (absent from train) never appear after :func:`time_based_split`.
+    - Cold items (absent from train) are dropped from each user's relevant test
+      set. Users with no remaining warm relevant items are excluded from
+      ranking-metric averages (counted in ``n_users_excluded_no_warm_relevant``).
+
+    Returns
+    -------
+    seen, relevant, stats
+        ``relevant`` only includes users with ≥1 warm relevant item.
+    """
+    threshold = (
+        split.config.relevance_threshold if relevance_threshold is None else relevance_threshold
+    )
+    train_items = set(split.train["item_id"].astype(int))
+    train_users = set(split.train["user_id"].astype(int))
+
+    seen: dict[int, set[int]] = {
+        int(uid): set(g["item_id"].astype(int)) for uid, g in split.train.groupby("user_id")
+    }
+
+    test_items = set(split.test["item_id"].astype(int))
+    cold_items = test_items - train_items
+
+    relevant: dict[int, set[int]] = {}
+    n_relevant_dropped = 0
+    n_excluded = 0
+
+    for uid, g in split.test.groupby("user_id"):
+        uid_i = int(uid)
+        if uid_i not in train_users:
+            n_excluded += 1
+            continue
+        rel_all = set(g.loc[g["rating"] >= threshold, "item_id"].astype(int))
+        cold_rel = rel_all - train_items
+        n_relevant_dropped += len(cold_rel)
+        rel_warm = rel_all & train_items
+        if not rel_warm:
+            n_excluded += 1
+            continue
+        relevant[uid_i] = rel_warm
+
+    stats = ColdStartStats(
+        n_train_users=len(train_users),
+        n_train_items=len(train_items),
+        n_cold_items_in_test=len(cold_items),
+        n_relevant_dropped_cold_item=int(n_relevant_dropped),
+        n_users_excluded_no_warm_relevant=int(n_excluded),
+        n_eval_users=len(relevant),
+    )
+    split.cold_start = stats
+    return seen, relevant, stats

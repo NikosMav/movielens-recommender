@@ -1,0 +1,10 @@
+# Pin file for reproducible installs. Prefer: pip install -r requirements.txt
+# Editable install: pip install -e ".[dev]" (uses the same pins via pyproject.toml).
+numpy==2.4.4
+scipy==1.18.1
+pandas==3.0.6
+implicit==0.7.3
+PyYAML==6.0.3
+matplotlib==3.10.8
+pytest==9.1.1
+ruff==0.16.9

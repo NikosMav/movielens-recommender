@@ -15,17 +15,26 @@ BEGIN = "<!-- BEGIN RESULTS TABLE -->"
 END = "<!-- END RESULTS TABLE -->"
 
 METRIC_COLS = [
+    "ndcg@10",
     "precision@10",
     "recall@10",
-    "ndcg@10",
+    "ndcg@20",
     "precision@20",
     "recall@20",
-    "ndcg@20",
+    "coverage@10",
+    "mean_popularity@10",
 ]
 
 
 def _fmt(value: float) -> str:
     return f"{value:.4f}"
+
+
+def _fmt_ci(cis: dict, key: str) -> str:
+    bounds = cis.get(key)
+    if not bounds:
+        return ""
+    return f"[{_fmt(bounds['low'])}, {_fmt(bounds['high'])}]"
 
 
 def load_results() -> list[tuple[str, dict]]:
@@ -42,15 +51,21 @@ def load_results() -> list[tuple[str, dict]]:
 def render_table(filename: str, payload: dict) -> str:
     lines: list[str] = []
     dataset = payload["dataset"]
+    version = payload.get("dataset_version", dataset)
     lines.append(f"### `{dataset}` (from `results/{filename}`)")
+    lines.append("")
+    lines.append(f"Pinned version: `{version}`.")
     lines.append("")
     split = payload.get("split", {})
     cfg = split.get("config", {})
+    boot = payload.get("bootstrap", {})
     lines.append(
         f"Split: min_ratings={cfg.get('min_ratings')}, "
         f"test_fraction={cfg.get('test_fraction')}, "
         f"relevance_threshold={payload.get('relevance_threshold')}, "
-        f"seed={payload.get('seed')}, ks={payload.get('ks')}."
+        f"seed={payload.get('seed')}, ks={payload.get('ks')}, "
+        f"bootstrap={boot.get('n_bootstrap')} @ alpha={boot.get('alpha')}. "
+        f"Primary metric: **{payload.get('primary_metric', 'ndcg@10')}**."
     )
     lines.append("")
     header = ["model", *METRIC_COLS]
@@ -62,6 +77,14 @@ def render_table(filename: str, payload: dict) -> str:
         for col in METRIC_COLS:
             row.append(_fmt(float(metrics[model][col])))
         lines.append("| " + " | ".join(row) + " |")
+    lines.append("")
+    lines.append("95% bootstrap CIs (NDCG@10):")
+    lines.append("")
+    lines.append("| model | ndcg@10 CI |")
+    lines.append("| --- | --- |")
+    for model in sorted(metrics):
+        cis = metrics[model].get("confidence_intervals", {})
+        lines.append(f"| {model} | {_fmt_ci(cis, 'ndcg@10')} |")
     lines.append("")
     return "\n".join(lines)
 
@@ -76,9 +99,7 @@ def build_section(results: list[tuple[str, dict]]) -> str:
 
 def replace_section(readme_text: str, section: str) -> str:
     if BEGIN not in readme_text or END not in readme_text:
-        raise SystemExit(
-            f"README.md must contain markers {BEGIN!r} and {END!r}"
-        )
+        raise SystemExit(f"README.md must contain markers {BEGIN!r} and {END!r}")
     before, rest = readme_text.split(BEGIN, 1)
     _, after = rest.split(END, 1)
     return before + section.rstrip("\n") + "\n" + after.lstrip("\n")

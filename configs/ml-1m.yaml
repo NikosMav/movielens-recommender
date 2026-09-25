@@ -1,0 +1,24 @@
+# Same protocol as default.yaml on MovieLens 1M.
+seed: 42
+dataset: ml-1m
+data_dir: data
+results_dir: results
+
+split:
+  min_ratings: 5
+  test_fraction: 0.2
+
+eval:
+  ks: [10, 20]
+  relevance_threshold: 4.0
+  n_bootstrap: 1000
+  bootstrap_alpha: 0.05
+
+models:
+  als:
+    factors: 64
+    regularization: 0.01
+    iterations: 15
+    alpha: 40.0
+  item_item_cosine:
+    min_common: 1
