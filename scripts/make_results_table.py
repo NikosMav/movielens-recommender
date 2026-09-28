@@ -199,8 +199,8 @@ def render_headline(filename: str, payload: dict) -> str:
             lines.append(
                 "**Gate: negative result.** Two-tower does **not** beat both "
                 "item–item bars on ml-1m-style NDCG@10 with CIs taken into "
-                "account (see ADR-0006). S4 should use item–item cosine as the "
-                "retriever unless a later stage reverses this."
+                "account (see ADR-0006). The retriever or candidate set will "
+                "be chosen in S4 by validation recall."
             )
         elif gate.get("beats_both_item_item_bars"):
             lines.append(

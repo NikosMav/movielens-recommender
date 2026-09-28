@@ -9,7 +9,7 @@ description = "Standalone MovieLens recommender: data/split/eval + classic basel
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "movielens-recommender contributors" }]
+authors = [{ name = "Nikolaos Mavrapidis" }]
 dependencies = [
     "numpy==2.2.6",
     "scipy==1.15.3",
