@@ -69,7 +69,7 @@ Chosen HPs: `embedding_dim=64`, `learning_rate=3e-3`, `temperature=0.1` (plus fi
 
 **Plausible reasons for the NDCG@10 miss:** neighborhood CF is a very strong inductive bias on dense MovieLens co-occurrence; in-batch softmax with a short early-stopped run (6 epochs) optimizes retrieval likelihood more than top-10 ranking; temperature/log-q help calibration but do not invent neighbour structure. Protocol was not bent to chase a win.
 
-**S4 retriever:** use **item–item cosine** (default or tuned) as the candidate generator for the learned ranker, unless a later change reverses the NDCG@10 gate. Two-tower remains available as an optional diverse-retrieval baseline (stronger Recall@100/200 / tail).
+**S4 retriever:** the retriever or candidate set will be chosen in S4 by validation recall. Two-tower remains available as an optional diverse-retrieval baseline (stronger Recall@100/200 / tail).
 
 ## Consequences
 
