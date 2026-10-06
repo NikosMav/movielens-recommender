@@ -7,7 +7,7 @@ Test labels are not an input to this module.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
@@ -106,6 +106,8 @@ class RankerMatrices:
     group: np.ndarray
     user_ids: np.ndarray  # one id per group, same order as ``group``
     feature_names: list[str]
+    # LightGBM categorical columns. Empty keeps the historical numeric path.
+    categorical_features: list[str] = field(default_factory=list)
 
     def subset(self, keep: set[int]) -> RankerMatrices:
         """Keep groups whose user id is in ``keep``, preserving order."""
@@ -117,6 +119,7 @@ class RankerMatrices:
                 group=np.zeros(0, dtype=self.group.dtype),
                 user_ids=np.zeros(0, dtype=self.user_ids.dtype),
                 feature_names=list(self.feature_names),
+                categorical_features=list(self.categorical_features),
             )
         sizes = self.group
         # Row spans of the kept groups.
@@ -133,6 +136,7 @@ class RankerMatrices:
             group=self.group[mask],
             user_ids=self.user_ids[mask],
             feature_names=list(self.feature_names),
+            categorical_features=list(self.categorical_features),
         )
 
 
@@ -185,12 +189,23 @@ def fit_lambdarank(
     if num_boost_round < 1:
         raise ValueError("num_boost_round must be >= 1")
     validate_groups(matrices.y, matrices.group)
+    dataset_kwargs: dict[str, Any] = {}
+    cat_idx = [
+        matrices.feature_names.index(name)
+        for name in matrices.categorical_features
+        if name in matrices.feature_names
+    ]
+    # Omit the argument when empty. LightGBM treats an explicit empty list
+    # differently from its default, which would change the S4 baseline.
+    if cat_idx:
+        dataset_kwargs["categorical_feature"] = cat_idx
     train_set = lgb.Dataset(
         matrices.x,
         label=matrices.y,
         group=[int(g) for g in matrices.group.tolist()],
         feature_name=list(matrices.feature_names),
         free_raw_data=False,
+        **dataset_kwargs,
     )
     callbacks = []
     valid_sets = None

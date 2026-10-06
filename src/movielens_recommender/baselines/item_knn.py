@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
+
 import numpy as np
 import pandas as pd
 from scipy import sparse
@@ -126,6 +128,60 @@ class ItemItemCosineRecommender:
                 (int(self._item_ids[j]), float(scores[uidx, j]))
                 for j in chosen
                 if np.isfinite(scores[uidx, j])
+            ]
+        return out
+
+    def topk_for_profiles(
+        self,
+        profiles: Mapping[int, Sequence[tuple[int, float]]],
+        n: int,
+        *,
+        mask_items: Mapping[int, Sequence[int]] | None = None,
+    ) -> dict[int, list[tuple[int, float]]]:
+        """Top-n from explicit rating profiles, using the fitted item similarity.
+
+        ``profiles`` maps user id to ``(item_id, rating)`` pairs. Items outside
+        the fit catalog are ignored. ``mask_items`` are set to -inf before the
+        top-n so a truncated profile can still hide the rest of the user's
+        train history. Ties use the same stable mergesort as :meth:`recommend`.
+        """
+        if n <= 0 or self._similarity is None or not profiles:
+            return {}
+        uids = [int(uid) for uid in profiles]
+        rows: list[int] = []
+        cols: list[int] = []
+        data: list[float] = []
+        for row, uid in enumerate(uids):
+            for item_id, rating in profiles[uid]:
+                col = self._item_index.get(int(item_id))
+                if col is None:
+                    continue
+                rows.append(row)
+                cols.append(col)
+                data.append(float(rating))
+        mat = sparse.csr_matrix(
+            (data, (rows, cols)),
+            shape=(len(uids), len(self._item_ids)),
+            dtype=np.float64,
+        )
+        scores = np.asarray(mat @ self._similarity.T, dtype=np.float64)
+        if mask_items:
+            row_of = {uid: row for row, uid in enumerate(uids)}
+            for uid, items in mask_items.items():
+                row = row_of.get(int(uid))
+                if row is None:
+                    continue
+                for item_id in items:
+                    col = self._item_index.get(int(item_id))
+                    if col is not None:
+                        scores[row, col] = -np.inf
+        out: dict[int, list[tuple[int, float]]] = {}
+        for row, uid in enumerate(uids):
+            chosen = _topk_indices(scores[row], n)
+            out[uid] = [
+                (int(self._item_ids[j]), float(scores[row, j]))
+                for j in chosen
+                if np.isfinite(scores[row, j])
             ]
         return out
 

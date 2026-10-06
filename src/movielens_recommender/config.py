@@ -57,6 +57,10 @@ class RankerYAML:
     bagging_fraction: float = 0.8
     # Ranker seeds only. Retrievers stay on the config seed.
     seeds: list[int] = field(default_factory=lambda: [42, 43, 44])
+    # S4b. ``off`` is the S4 feature set. ``raw`` / ``affinity`` / ``both``
+    # add ml-1m demographic features. Default stays off unless ADR-0009's
+    # pre-registered rule adopts them.
+    demographics: str = "off"
 
 
 @dataclass
@@ -177,6 +181,7 @@ def load_config(path: Path | str | None = None) -> RunConfig:
                 feature_fraction=float(rank_raw.get("feature_fraction", 0.9)),
                 bagging_fraction=float(rank_raw.get("bagging_fraction", 0.8)),
                 seeds=[int(s) for s in rank_raw.get("seeds", [42, 43, 44])],
+                demographics=str(rank_raw.get("demographics", "off")),
             ),
         ),
         global_cutoff=GlobalCutoffYAML(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import numpy as np
@@ -159,6 +160,80 @@ class TwoTowerRecommender:
                 (int(feat.item_ids[j]), float(row[j]))
                 for j in chosen
                 if np.isfinite(row[j])
+            ]
+        return out
+
+    def topk_for_histories(
+        self,
+        histories: Mapping[int, Sequence[int]],
+        n: int,
+        *,
+        mask_items: Mapping[int, Sequence[int]] | None = None,
+    ) -> dict[int, list[tuple[int, float]]]:
+        """Exact top-n using the given item-id histories instead of stored ones.
+
+        History order is chronological (oldest first). Only the last
+        ``max_history`` ids that exist in the fit catalog are pooled. The
+        user-id embedding is still the one learned at fit time. ``mask_items``
+        are hidden before the top-n. Users absent from the fit catalog are
+        omitted.
+        """
+        if (
+            n <= 0
+            or self._model is None
+            or self._features is None
+            or self._item_vectors is None
+            or not histories
+        ):
+            return {}
+        feat = self._features
+        uids = [int(uid) for uid in histories if int(uid) in feat.user_index]
+        if not uids:
+            return {}
+        width = int(self._max_history)
+        hist = np.zeros((len(uids), width), dtype=np.int64)
+        mask = np.zeros((len(uids), width), dtype=np.float32)
+        user_idx = np.empty(len(uids), dtype=np.int64)
+        for row, uid in enumerate(uids):
+            user_idx[row] = feat.user_index[uid]
+            seq = [
+                feat.item_index[int(item)]
+                for item in histories[uid]
+                if int(item) in feat.item_index
+            ]
+            if len(seq) > width:
+                seq = seq[-width:]
+            if seq:
+                hist[row, : len(seq)] = seq
+                mask[row, : len(seq)] = 1.0
+        device = torch.device(self._device)
+        self._model.eval()
+        with torch.no_grad():
+            user_vecs = (
+                self._model.encode_users(
+                    torch.from_numpy(user_idx).to(device),
+                    torch.from_numpy(hist).to(device),
+                    torch.from_numpy(mask).to(device),
+                )
+                .detach()
+                .cpu()
+                .numpy()
+                .astype(np.float32)
+            )
+        scores = user_vecs @ self._item_vectors.T
+        if mask_items:
+            for row, uid in enumerate(uids):
+                for item_id in mask_items.get(uid, ()):
+                    col = feat.item_index.get(int(item_id))
+                    if col is not None:
+                        scores[row, col] = -np.inf
+        out: dict[int, list[tuple[int, float]]] = {}
+        for row, uid in enumerate(uids):
+            chosen = _topk_indices(scores[row], n)
+            out[uid] = [
+                (int(feat.item_ids[j]), float(scores[row, j]))
+                for j in chosen
+                if np.isfinite(scores[row, j])
             ]
         return out
 

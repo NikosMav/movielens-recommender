@@ -56,6 +56,8 @@ models:
     - 42
     - 43
     - 44
+    # S4b. off keeps the S4 feature set. raw / affinity / both are ml-1m only.
+    demographics: off
 global_cutoff:
   enabled: true
   timestamp_quantile: 0.8
