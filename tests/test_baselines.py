@@ -196,6 +196,15 @@ def test_rp3beta_nonnegative_topk_and_closed_form():
     assert np.all(full.similarity >= 0.0)
 
 
+def test_rp3beta_alpha_zero_keeps_nonnegative_topk():
+    model = RP3betaRecommender(alpha=0.0, beta=0.6, top_k=1).fit(_closed_form_train())
+    sim = model.similarity
+    assert sim.shape == (3, 3)
+    assert np.all(sim >= 0.0)
+    assert np.all(np.diag(sim) == 0.0)
+    assert np.all((sim > 0.0).sum(axis=1) <= 1)
+
+
 def test_rp3beta_excludes_seen_and_unknown_user():
     train = _toy_train()
     model = RP3betaRecommender(alpha=1.0, beta=0.3, top_k=2).fit(train)

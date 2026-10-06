@@ -56,8 +56,8 @@ class RP3betaRecommender:
         p_iu = _l1_normalize_rows(x_bool_t)
 
         if self.alpha != 1.0:
-            p_ui = p_ui.power(self.alpha)
-            p_iu = p_iu.power(self.alpha)
+            p_ui = _power_stored(p_ui, self.alpha)
+            p_iu = _power_stored(p_iu, self.alpha)
 
         item_degree = np.asarray(interactions.sum(axis=0)).ravel()
         penalty = np.zeros(n_items, dtype=np.float64)
@@ -95,6 +95,19 @@ class RP3betaRecommender:
 
     def hyperparams(self) -> dict:
         return {"alpha": self.alpha, "beta": self.beta, "top_k": self.top_k}
+
+
+def _power_stored(mat: sparse.csr_matrix, alpha: float) -> sparse.csr_matrix:
+    """Elementwise power on stored entries. ``alpha=0`` maps those entries to 1.
+
+    SciPy refuses ``power(0)`` because a dense ``0**0`` fill would materialize
+    the structural zeros. On this graph only existing edges are transitions.
+    """
+    if alpha == 0.0:
+        out = mat.copy()
+        out.data = np.ones(out.data.shape, dtype=np.float64)
+        return out
+    return mat.power(alpha)
 
 
 def _l1_normalize_rows(mat: sparse.csr_matrix) -> sparse.csr_matrix:
