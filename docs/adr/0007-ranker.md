@@ -84,7 +84,137 @@ A small torch MLP ranker, reusing the existing `[deep]` extra, is not in this st
 
 ## Outcome
 
-Filled from `results/*.json` after the pipeline run. See the `ranker` object (validation candidate recall, seed NDCG@10, ablations, feature gains, gate, runtime). README tables are generated from that JSON.
+Every figure below is read from the committed results JSON. Metric columns use 4 decimal places; validation candidate recall and mean size use 6, matching `scripts/make_results_table.py`. The README results tables are generated from the same files.
+
+### ml-1m
+
+Source: `results/ml-1m.json`. Pipeline runtime 668.3570s. Ranker stage runtime 335.6810s. lightgbm 4.6.0.
+
+Validation candidate recall at K=200 (n_eval_users=5619). Winner: `two_tower`.
+
+| candidate set | recall@100 | recall@200 | mean size |
+| --- | --- | --- | --- |
+| item_item | 0.435321 | 0.593272 | 200.000000 |
+| two_tower | 0.489363 | 0.655227 | 200.000000 |
+| union_balanced | 0.485470 | 0.653053 | 200.000000 |
+| union_unbalanced | 0.485470 | 0.651810 | 280.720057 |
+
+Test NDCG@10 over the three ranker seeds (shared retrievers and candidate sets):
+
+| seed | best_iteration | ndcg@10 | ndcg@10 CI | recall@10 | coverage@10 |
+| --- | --- | --- | --- | --- | --- |
+| 42 | 95 | 0.1288 | [0.1247, 0.1329] | 0.0943 | 0.3763 |
+| 43 | 94 | 0.1274 | [0.1232, 0.1316] | 0.0917 | 0.3919 |
+| 44 | 43 | 0.1256 | [0.1213, 0.1301] | 0.0925 | 0.4003 |
+
+Across seeds: mean=0.1273, std=0.0013, min=0.1256, max=0.1288.
+
+Gate: ranker mean NDCG@10=0.1273 against item_item_cosine 0.1201 [0.1158, 0.1242] from `metrics['item_item_cosine']['ndcg@10']`. `mean_exceeds_bar_point=true`. `negative_result=false`. `all_seed_ci_low_above_bar_ci_high=false`.
+
+Item–item cosine in the same file: NDCG@10=0.1201, Recall@10=0.0786, Coverage@10=0.1274, tail NDCG@10=0.0321 [0.0292, 0.0354].
+
+Ablations. On the `lambdarank` row, NDCG@10, Recall@10, and Coverage@10 are 3-seed means; the NDCG@10 CI and tail NDCG@10 are the primary seed.
+
+| ablation | ndcg@10 | ndcg@10 CI | recall@10 | coverage@10 | tail ndcg@10 |
+| --- | --- | --- | --- | --- | --- |
+| lambdarank | 0.1273 | [0.1247, 0.1329] | 0.0928 | 0.3895 | 0.0915 [0.0868, 0.0969] |
+| lambdarank_drop_retriever_features | 0.1000 | [0.0964, 0.1037] | 0.0622 | 0.3736 | 0.0732 [0.0691, 0.0777] |
+| lambdarank_item_item | 0.1264 | [0.1225, 0.1306] | 0.0909 | 0.3270 | 0.0492 [0.0456, 0.0533] |
+| lambdarank_two_tower | 0.1288 | [0.1247, 0.1329] | 0.0943 | 0.3763 | 0.0915 [0.0868, 0.0969] |
+| lambdarank_union_balanced | 0.1245 | [0.1201, 0.1286] | 0.0921 | 0.3744 | 0.0907 [0.0860, 0.0960] |
+| no_ranker | 0.1191 | [0.1150, 0.1230] | 0.0897 | 0.4669 | 0.0825 [0.0782, 0.0873] |
+
+Top feature gains (primary-seed refit booster):
+
+| feature | gain |
+| --- | --- |
+| two_tower_rank | 12083.8040 |
+| item_item_rank | 5382.0176 |
+| item_item_score | 4988.1077 |
+| item_popularity | 4535.2138 |
+| user_n_ratings | 4488.3243 |
+| two_tower_score | 3534.1110 |
+| item_recency | 2220.1169 |
+| affinity_romance | 2140.1855 |
+| user_mean_rating | 1925.5218 |
+| affinity_comedy | 1850.7273 |
+
+### ml-latest-small
+
+Source: `results/ml-latest-small.json`. Pipeline runtime 129.4080s. Ranker stage runtime 41.7760s. lightgbm 4.6.0.
+
+Validation candidate recall at K=200 (n_eval_users=536). Winner: `union_unbalanced`.
+
+| candidate set | recall@100 | recall@200 | mean size |
+| --- | --- | --- | --- |
+| item_item | 0.415189 | 0.532968 | 200.000000 |
+| two_tower | 0.403221 | 0.526670 | 200.000000 |
+| union_balanced | 0.418921 | 0.553063 | 200.000000 |
+| union_unbalanced | 0.418921 | 0.553083 | 309.819030 |
+
+Test NDCG@10 over the three ranker seeds (shared retrievers and candidate sets):
+
+| seed | best_iteration | ndcg@10 | ndcg@10 CI | recall@10 | coverage@10 |
+| --- | --- | --- | --- | --- | --- |
+| 42 | 1 | 0.0852 | [0.0734, 0.0968] | 0.0692 | 0.0999 |
+| 43 | 9 | 0.0987 | [0.0867, 0.1102] | 0.0861 | 0.0931 |
+| 44 | 72 | 0.1131 | [0.0990, 0.1257] | 0.0961 | 0.0985 |
+
+Across seeds: mean=0.0990, std=0.0114, min=0.0852, max=0.1131.
+
+Gate: ranker mean NDCG@10=0.0990 against item_item_cosine 0.0899 [0.0784, 0.1011] from `metrics['item_item_cosine']['ndcg@10']`. `mean_exceeds_bar_point=true`. `negative_result=false`. `all_seed_ci_low_above_bar_ci_high=false`.
+
+Item–item cosine in the same file: NDCG@10=0.0899, Recall@10=0.0771, Coverage@10=0.0565, tail NDCG@10=0.0105 [0.0051, 0.0179].
+
+Ablations. On the `lambdarank` row, NDCG@10, Recall@10, and Coverage@10 are 3-seed means; the NDCG@10 CI and tail NDCG@10 are the primary seed.
+
+| ablation | ndcg@10 | ndcg@10 CI | recall@10 | coverage@10 | tail ndcg@10 |
+| --- | --- | --- | --- | --- | --- |
+| lambdarank | 0.0990 | [0.0734, 0.0968] | 0.0838 | 0.0972 | 0.0119 [0.0062, 0.0185] |
+| lambdarank_drop_retriever_features | 0.0838 | [0.0722, 0.0960] | 0.0647 | 0.1157 | 0.0088 [0.0051, 0.0131] |
+| lambdarank_item_item | 0.1071 | [0.0940, 0.1199] | 0.0899 | 0.0924 | 0.0015 [0.0000, 0.0041] |
+| lambdarank_two_tower | 0.0933 | [0.0813, 0.1057] | 0.0766 | 0.1003 | 0.0105 [0.0061, 0.0157] |
+| lambdarank_union_balanced | 0.1218 | [0.1078, 0.1354] | 0.0975 | 0.0878 | 0.0227 [0.0134, 0.0340] |
+| lambdarank_union_unbalanced | 0.0852 | [0.0734, 0.0968] | 0.0692 | 0.0999 | 0.0119 [0.0062, 0.0185] |
+| no_ranker | 0.0983 | [0.0860, 0.1110] | 0.0803 | 0.1054 | 0.0114 [0.0062, 0.0175] |
+
+Top feature gains (primary-seed refit booster):
+
+| feature | gain |
+| --- | --- |
+| in_both | 275.5560 |
+| two_tower_rank | 85.9516 |
+| item_recency | 47.2973 |
+| user_n_ratings | 42.1854 |
+| affinity_drama | 41.1328 |
+| item_item_rank | 32.6754 |
+| affinity_comedy | 28.1487 |
+| affinity_western | 24.4671 |
+| item_item_score | 23.9401 |
+| affinity_musical | 21.2151 |
+
+### Global-time cutoff (ml-1m, secondary)
+
+Source: `results/global_cutoff/ml-1m.json`. `retuned=false`. Ranker protocol: {"candidate_set": "two_tower", "early_stopping": false, "labels": "chronological tail of pre-cutoff train", "num_boost_round": 95, "scoring_features": "full pre-cutoff train", "test_labels_used": false, "training_features": "head of pre-cutoff train"}. Item–item hyperparameters reused on this split: {"k_neighbors": 200, "min_common": 1, "shrinkage": 100.0}.
+
+| model | ndcg@10 | ndcg@10 CI | recall@10 | recall@200 |
+| --- | --- | --- | --- | --- |
+| lambdarank | 0.2323 | [0.2193, 0.2465] | 0.0720 | 0.4801 |
+| no_ranker | 0.2140 | [0.2007, 0.2277] | 0.0655 | 0.4801 |
+| item_item_cosine | 0.2319 | [0.2162, 0.2473] | 0.0575 | 0.4171 |
+| two_tower | 0.2140 | [0.2007, 0.2277] | 0.0655 | 0.4801 |
+| als | 0.1553 | [0.1449, 0.1669] | 0.0427 | 0.3875 |
+| most_popular | 0.2136 | [0.1990, 0.2286] | 0.0490 | 0.3866 |
+
+### Reading
+
+The pre-registered gate compares the 3-seed mean test NDCG@10 with `metrics["item_item_cosine"]["ndcg@10"]` in the same file. On ml-1m that mean is above the item–item point estimate (0.1201 at 4 decimals), so `negative_result` is false. This is a point-estimate win. `all_seed_ci_low_above_bar_ci_high` is false: the seed intervals overlap the bar interval. Each seed's own NDCG@10 point estimate is still above the bar point.
+
+On ml-1m the no-ranker line (winning two-tower order after the full-train refit) and the drop-retriever-features ablation both sit under that bar. The recorded lift is LambdaRank using the retriever score and rank features. Primary-seed tail NDCG@10 is higher for the ranker than for item–item cosine and higher than the no-ranker tail. Coverage@10 of the ranker mean is higher than item–item cosine and lower than the no-ranker line. Gain is led by `two_tower_rank`, `item_item_rank`, `item_item_score`, `item_popularity`, and `user_n_ratings`.
+
+On ml-latest-small, validation Recall@200 selects `union_unbalanced` over `union_balanced` by a margin that shows up at 6 decimals, with mean size above K. The 3-seed mean exceeds that dataset's item–item point estimate, so `negative_result` is false there too. The primary seed's `best_iteration` is 1, and that seed's test NDCG@10 is under the item–item point and under the no-ranker line. The primary-seed CI does not cover the 3-seed mean. Seed std is an order of magnitude larger than on ml-1m. The small-dataset point win is the mean, and it is unstable.
+
+The global cutoff keeps the ml-1m winner (`two_tower`) and trains for a fixed `num_boost_round` equal to the headline primary `best_iteration` (95). `test_labels_used` is false. On that split the ranker NDCG@10 point is just above the reused tuned item–item row, and the no-ranker row matches two-tower. Intervals on that check overlap. It is a secondary sanity check, not the headline gate.
 
 ## Consequences
 

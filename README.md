@@ -150,6 +150,8 @@ Tuning grids and per-trial validation scores: `results/tuning/*.json` and `resul
 
 LightGBM LambdaRank in the optional `[rank]` extra. Candidate sets (tuned item–item, two-tower, balanced union, unbalanced union) are compared on **validation** Recall@100/200 at budget K. The winner is the default set. The ranker is trained on validation-window labels with features from fit-train only, early-stops on a held-out slice of validation users, then refits for `num_boost_round = best_iteration`. Before test scoring, both retrievers and all features are rebuilt on full train. Test labels are not used. Details and the later-window (global cutoff) rule are in [ADR-0007](docs/adr/0007-ranker.md).
 
+The generated results table is the gate record. On both datasets the 3-seed mean exceeds the item–item cosine NDCG@10 point estimate in that file (`negative_result` is false). Seed intervals still overlap the bar interval. On ml-latest-small the primary seed stops at `best_iteration` 1 and that seed's test NDCG@10 sits under the item–item point; the mean is what clears the gate. ADR-0007 records the same figures.
+
 The same run writes a gitignored refit ranker under `models/<dataset>/` (`ranker.txt`, `ranker_meta.json`, schema version 1). Recreate it with:
 
 ```bash
@@ -167,7 +169,7 @@ movielens-recommender run --config configs/ml-1m.yaml
 
 Pinned version: `ml-1m@sha256:a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20`.
 
-Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4.0, seed=42, ks=[10, 20], retrieval_ks=[100, 200], bootstrap=1000 @ alpha=0.05. Primary metric: **ndcg@10**. Coverage@k is a point estimate only (no user-bootstrap CI; see ADR-0003). Names marked **(tuned)** used validation-selected hyperparameters (ADR-0005 / ADR-0006); others are S2 YAML defaults.
+Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4.0, seed=42, ks=[10, 20], retrieval_ks=[100, 200], bootstrap=1000 @ alpha=0.05. Primary metric: **ndcg@10**. Coverage@k is a point estimate only (no user-bootstrap CI; see ADR-0003). Names marked **(tuned)** used validation-selected hyperparameters (ADR-0005 / ADR-0006 / ADR-0007); others are S2 YAML defaults.
 
 | model | ndcg@10 | precision@10 | recall@10 | ndcg@20 | precision@20 | recall@20 | coverage@10 | mean_popularity@10 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -175,7 +177,13 @@ Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4
 | als_tuned | 0.0906 | 0.0740 | 0.0715 | 0.1072 | 0.0677 | 0.1257 | 0.4541 | 1118.0085 |
 | item_item_cosine | 0.1201 | 0.0980 | 0.0786 | 0.1284 | 0.0836 | 0.1277 | 0.1274 | 1794.5672 |
 | item_item_cosine_tuned | 0.1192 | 0.0983 | 0.0808 | 0.1313 | 0.0861 | 0.1384 | 0.1721 | 1634.2176 |
+| lambdarank (tuned) | 0.1273 | 0.1031 | 0.0928 | 0.1436 | 0.0917 | 0.1591 | 0.3895 | 1314.6790 |
+| lambdarank_drop_retriever_features (tuned) | 0.1000 | 0.0860 | 0.0622 | 0.1087 | 0.0761 | 0.1101 | 0.3736 | 1578.6552 |
+| lambdarank_item_item (tuned) | 0.1264 | 0.1032 | 0.0909 | 0.1421 | 0.0910 | 0.1572 | 0.3270 | 1304.3512 |
+| lambdarank_two_tower (tuned) | 0.1288 | 0.1051 | 0.0943 | 0.1445 | 0.0922 | 0.1607 | 0.3763 | 1318.6541 |
+| lambdarank_union_balanced (tuned) | 0.1245 | 0.1019 | 0.0921 | 0.1412 | 0.0911 | 0.1576 | 0.3744 | 1309.8450 |
 | most_popular | 0.0895 | 0.0787 | 0.0466 | 0.0951 | 0.0698 | 0.0874 | 0.0325 | 2325.9361 |
+| no_ranker | 0.1191 | 0.0972 | 0.0897 | 0.1360 | 0.0872 | 0.1535 | 0.4669 | 1175.1585 |
 | two_tower (tuned) | 0.1192 | 0.0966 | 0.0901 | 0.1362 | 0.0865 | 0.1541 | 0.4723 | 1167.6311 |
 
 95% bootstrap CIs (NDCG@10):
@@ -186,7 +194,13 @@ Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4
 | als_tuned | [0.0874, 0.0940] |
 | item_item_cosine | [0.1158, 0.1242] |
 | item_item_cosine_tuned | [0.1147, 0.1233] |
+| lambdarank (tuned) | mean±std over seeds 0.1273±0.0013; primary-seed CI [0.1247, 0.1329] |
+| lambdarank_drop_retriever_features (tuned) | [0.0964, 0.1037] |
+| lambdarank_item_item (tuned) | [0.1225, 0.1306] |
+| lambdarank_two_tower (tuned) | [0.1247, 0.1329] |
+| lambdarank_union_balanced (tuned) | [0.1201, 0.1286] |
 | most_popular | [0.0857, 0.0935] |
+| no_ranker | [0.1150, 0.1230] |
 | two_tower (tuned) | mean±std over seeds 0.1192±0.0001; primary-seed CI [0.1150, 0.1230] |
 
 #### Retrieval recall (candidate generation)
@@ -199,7 +213,13 @@ Recall@100 / Recall@200 for models that report them, evaluated at the same cutof
 | als_tuned | 0.3638 | 0.5014 |
 | item_item_cosine | 0.3471 | 0.4989 |
 | item_item_cosine_tuned | 0.3828 | 0.5414 |
+| lambdarank (tuned) | 0.4481 ±0.0011 | 0.6025 ±0.0000 |
+| lambdarank_drop_retriever_features (tuned) | 0.4004 | 0.6025 |
+| lambdarank_item_item (tuned) | 0.4286 | 0.5414 |
+| lambdarank_two_tower (tuned) | 0.4492 | 0.6025 |
+| lambdarank_union_balanced (tuned) | 0.4468 | 0.5971 |
 | most_popular | 0.2599 | 0.3961 |
+| no_ranker | 0.4353 | 0.6025 |
 | two_tower (tuned) | 0.4354 ±0.0003 | 0.6037 ±0.0014 |
 
 #### Two-tower seeds and gate (ADR-0006)
@@ -216,6 +236,61 @@ Across seeds: NDCG@10 mean=0.1192, std=0.0001, min=0.1191, max=0.1194.
 
 **Gate: negative result.** Two-tower does **not** beat both item–item bars on ml-1m-style NDCG@10 with CIs taken into account (see ADR-0006). The retriever or candidate set will be chosen in S4 by validation recall.
 
+#### Ranker candidates, seeds, and gate (ADR-0007)
+
+Candidate budget K=200. Selection metric: validation recall@200 (split: validation). Tie-break: recall@200, then recall@100, then union_balanced, item_item, two_tower, union_unbalanced. Winner: `two_tower`.
+
+| candidate set | recall@100 | recall@200 | mean size |
+| --- | --- | --- | --- |
+| item_item | 0.435321 | 0.593272 | 200.000000 |
+| two_tower | 0.489363 | 0.655227 | 200.000000 |
+| union_balanced | 0.485470 | 0.653053 | 200.000000 |
+| union_unbalanced | 0.485470 | 0.651810 | 280.720057 |
+
+Early-stop user fraction=0.2 (split seed=42). Ranker seeds share candidate sets and retriever models.
+
+| seed | best_iteration | ndcg@10 | ndcg@10 CI | recall@10 | coverage@10 |
+| --- | --- | --- | --- | --- | --- |
+| 42 | 95 | 0.1288 | [0.1247, 0.1329] | 0.0943 | 0.3763 |
+| 43 | 94 | 0.1274 | [0.1232, 0.1316] | 0.0917 | 0.3919 |
+| 44 | 43 | 0.1256 | [0.1213, 0.1301] | 0.0925 | 0.4003 |
+
+Across seeds: NDCG@10 mean=0.1273, std=0.0013, min=0.1256, max=0.1288.
+
+**Gate: win on the point estimate.** LambdaRank mean NDCG@10=0.1273 vs item_item_cosine 0.1201 [0.1158, 0.1242] (read from `metrics['item_item_cosine']['ndcg@10']`).
+
+Seed NDCG@10 intervals are not all above the bar CI high (`all_seed_ci_low_above_bar_ci_high=False`).
+
+Ablations are the primary seed, except `ndcg@10`, `recall@10`, and `coverage@10` on the `lambdarank` row, which are means over the three ranker seeds. The `ndcg@10` CI and tail NDCG@10 on that row stay the primary seed; that CI is the primary-seed user bootstrap, not a confidence interval for the 3-seed mean. `no_ranker` keeps the winning candidate order. `lambdarank_drop_retriever_features` drops retriever score and rank.
+
+| ablation | ndcg@10 | ndcg@10 CI | recall@10 | coverage@10 | tail ndcg@10 |
+| --- | --- | --- | --- | --- | --- |
+| lambdarank | 0.1273 | [0.1247, 0.1329] | 0.0928 | 0.3895 | 0.0915 [0.0868, 0.0969] |
+| lambdarank_drop_retriever_features | 0.1000 | [0.0964, 0.1037] | 0.0622 | 0.3736 | 0.0732 [0.0691, 0.0777] |
+| lambdarank_item_item | 0.1264 | [0.1225, 0.1306] | 0.0909 | 0.3270 | 0.0492 [0.0456, 0.0533] |
+| lambdarank_two_tower | 0.1288 | [0.1247, 0.1329] | 0.0943 | 0.3763 | 0.0915 [0.0868, 0.0969] |
+| lambdarank_union_balanced | 0.1245 | [0.1201, 0.1286] | 0.0921 | 0.3744 | 0.0907 [0.0860, 0.0960] |
+| no_ranker | 0.1191 | [0.1150, 0.1230] | 0.0897 | 0.4669 | 0.0825 [0.0782, 0.0873] |
+
+Top feature gains (refit ranker, primary seed):
+
+| feature | gain |
+| --- | --- |
+| two_tower_rank | 12083.8040 |
+| item_item_rank | 5382.0176 |
+| item_item_score | 4988.1077 |
+| item_popularity | 4535.2138 |
+| user_n_ratings | 4488.3243 |
+| two_tower_score | 3534.1110 |
+| item_recency | 2220.1169 |
+| affinity_romance | 2140.1855 |
+| user_mean_rating | 1925.5218 |
+| affinity_comedy | 1850.7273 |
+
+Refit ranker artifact (gitignored): `models/ml-1m/ranker.txt` schema_version=1. Recreate with `movielens-recommender run --config configs/ml-1m.yaml`.
+
+Ranker stage runtime: 335.6810s.
+
 #### Segment NDCG@10
 
 User activity = train rating-count terciles (low/mid/high). Item head = top 20% of train items by popularity; tail = rest. Item-segment metrics restrict **relevant and recommended** items to the segment (users with no relevant items in-segment are excluded).
@@ -226,18 +301,24 @@ User activity = train rating-count terciles (low/mid/high). Item head = top 20% 
 | als_tuned | 0.0893 [0.0823, 0.0960] | 0.0800 [0.0748, 0.0849] | 0.1026 [0.0971, 0.1080] | 0.1034 [0.0993, 0.1074] | 0.0660 [0.0623, 0.0701] |
 | item_item_cosine | 0.0928 [0.0856, 0.1001] | 0.0943 [0.0881, 0.1002] | 0.1734 [0.1654, 0.1817] | 0.1311 [0.1265, 0.1358] | 0.0321 [0.0292, 0.0354] |
 | item_item_cosine_tuned | 0.0917 [0.0844, 0.0988] | 0.0920 [0.0860, 0.0975] | 0.1740 [0.1655, 0.1826] | 0.1307 [0.1260, 0.1352] | 0.0467 [0.0432, 0.0509] |
+| lambdarank (tuned) | 0.1165 [0.1092, 0.1242] | 0.0954 [0.0898, 0.1007] | 0.1745 [0.1657, 0.1829] | 0.1425 [0.1376, 0.1471] | 0.0915 [0.0868, 0.0969] |
+| lambdarank_drop_retriever_features (tuned) | 0.0608 [0.0558, 0.0658] | 0.0759 [0.0709, 0.0814] | 0.1633 [0.1555, 0.1719] | 0.1074 [0.1035, 0.1114] | 0.0732 [0.0691, 0.0777] |
+| lambdarank_item_item (tuned) | 0.1102 [0.1033, 0.1174] | 0.0958 [0.0902, 0.1009] | 0.1731 [0.1651, 0.1809] | 0.1395 [0.1347, 0.1439] | 0.0492 [0.0456, 0.0533] |
+| lambdarank_two_tower (tuned) | 0.1165 [0.1092, 0.1242] | 0.0954 [0.0898, 0.1007] | 0.1745 [0.1657, 0.1829] | 0.1425 [0.1376, 0.1471] | 0.0915 [0.0868, 0.0969] |
+| lambdarank_union_balanced (tuned) | 0.1107 [0.1033, 0.1182] | 0.0928 [0.0875, 0.0983] | 0.1701 [0.1617, 0.1778] | 0.1374 [0.1331, 0.1419] | 0.0907 [0.0860, 0.0960] |
 | most_popular | 0.0395 [0.0351, 0.0440] | 0.0677 [0.0622, 0.0731] | 0.1614 [0.1530, 0.1710] | 0.0946 [0.0908, 0.0988] | 0.0000 [0.0000, 0.0001] |
+| no_ranker | 0.1089 [0.1014, 0.1166] | 0.0932 [0.0874, 0.0990] | 0.1551 [0.1475, 0.1629] | 0.1364 [0.1319, 0.1407] | 0.0825 [0.0782, 0.0873] |
 | two_tower (tuned) | 0.1089 [0.1014, 0.1166] | 0.0932 [0.0874, 0.0990] | 0.1551 [0.1475, 0.1629] | 0.1364 [0.1319, 0.1407] | 0.0825 [0.0782, 0.0873] |
 
 Tuning log: [`results/tuning/ml-1m.json`](results/tuning/ml-1m.json). Chosen ALS={'alpha': 20.0, 'factors': 128, 'iterations': 15, 'regularization': 0.1} (val NDCG@10=0.0646); item–item={'k_neighbors': 200, 'min_common': 1, 'shrinkage': 100.0} (val NDCG@10=0.0810). Two-tower={'batch_size': 1024, 'embedding_dim': 64, 'learning_rate': 0.003, 'max_epochs': 20, 'max_history': 50, 'patience': 3, 'temperature': 0.1, 'weight_decay': 0.0001} (val NDCG@10=0.0826, best_epoch=6; log [`results/tuning/two_tower_ml-1m.json`](results/tuning/two_tower_ml-1m.json)).
 
-Pipeline runtime: 1381.4150s.
+Pipeline runtime: 668.3570s.
 
 ### `ml-latest-small` (from `results/ml-latest-small.json`)
 
 Pinned version: `ml-latest-small@sha256:696d65a3dfceac7c45750ad32df2c259311949efec81f0f144fdfb91ebc9e436`.
 
-Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4.0, seed=42, ks=[10, 20], retrieval_ks=[100, 200], bootstrap=1000 @ alpha=0.05. Primary metric: **ndcg@10**. Coverage@k is a point estimate only (no user-bootstrap CI; see ADR-0003). Names marked **(tuned)** used validation-selected hyperparameters (ADR-0005 / ADR-0006); others are S2 YAML defaults.
+Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4.0, seed=42, ks=[10, 20], retrieval_ks=[100, 200], bootstrap=1000 @ alpha=0.05. Primary metric: **ndcg@10**. Coverage@k is a point estimate only (no user-bootstrap CI; see ADR-0003). Names marked **(tuned)** used validation-selected hyperparameters (ADR-0005 / ADR-0006 / ADR-0007); others are S2 YAML defaults.
 
 | model | ndcg@10 | precision@10 | recall@10 | ndcg@20 | precision@20 | recall@20 | coverage@10 | mean_popularity@10 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -245,7 +326,14 @@ Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4
 | als_tuned | 0.0875 | 0.0653 | 0.0764 | 0.1013 | 0.0553 | 0.1284 | 0.1119 | 96.1963 |
 | item_item_cosine | 0.0899 | 0.0707 | 0.0771 | 0.1017 | 0.0583 | 0.1266 | 0.0565 | 122.4519 |
 | item_item_cosine_tuned | 0.0997 | 0.0763 | 0.0774 | 0.1150 | 0.0674 | 0.1354 | 0.0485 | 160.4564 |
+| lambdarank (tuned) | 0.0990 | 0.0785 | 0.0838 | 0.1151 | 0.0682 | 0.1402 | 0.0972 | 114.9737 |
+| lambdarank_drop_retriever_features (tuned) | 0.0838 | 0.0644 | 0.0647 | 0.1003 | 0.0581 | 0.1258 | 0.1157 | 121.0568 |
+| lambdarank_item_item (tuned) | 0.1071 | 0.0814 | 0.0899 | 0.1262 | 0.0719 | 0.1563 | 0.0924 | 118.4963 |
+| lambdarank_two_tower (tuned) | 0.0933 | 0.0703 | 0.0766 | 0.1064 | 0.0594 | 0.1290 | 0.1003 | 129.1536 |
+| lambdarank_union_balanced (tuned) | 0.1218 | 0.0890 | 0.0975 | 0.1355 | 0.0737 | 0.1539 | 0.0878 | 120.0193 |
+| lambdarank_union_unbalanced (tuned) | 0.0852 | 0.0715 | 0.0692 | 0.1018 | 0.0646 | 0.1243 | 0.0999 | 113.1759 |
 | most_popular | 0.0743 | 0.0563 | 0.0514 | 0.0802 | 0.0466 | 0.0859 | 0.0119 | 216.7525 |
+| no_ranker | 0.0983 | 0.0714 | 0.0803 | 0.1156 | 0.0628 | 0.1415 | 0.1054 | 132.9802 |
 | two_tower (tuned) | 0.0910 | 0.0675 | 0.0869 | 0.1105 | 0.0589 | 0.1487 | 0.1396 | 98.8950 |
 
 95% bootstrap CIs (NDCG@10):
@@ -256,7 +344,14 @@ Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4
 | als_tuned | [0.0768, 0.0982] |
 | item_item_cosine | [0.0784, 0.1011] |
 | item_item_cosine_tuned | [0.0867, 0.1130] |
+| lambdarank (tuned) | mean±std over seeds 0.0990±0.0114; primary-seed CI [0.0734, 0.0968] |
+| lambdarank_drop_retriever_features (tuned) | [0.0722, 0.0960] |
+| lambdarank_item_item (tuned) | [0.0940, 0.1199] |
+| lambdarank_two_tower (tuned) | [0.0813, 0.1057] |
+| lambdarank_union_balanced (tuned) | [0.1078, 0.1354] |
+| lambdarank_union_unbalanced (tuned) | [0.0734, 0.0968] |
 | most_popular | [0.0636, 0.0860] |
+| no_ranker | [0.0860, 0.1110] |
 | two_tower (tuned) | mean±std over seeds 0.0910±0.0023; primary-seed CI [0.0777, 0.1013] |
 
 #### Retrieval recall (candidate generation)
@@ -269,7 +364,14 @@ Recall@100 / Recall@200 for models that report them, evaluated at the same cutof
 | als_tuned | 0.2949 | 0.3848 |
 | item_item_cosine | 0.3306 | 0.4507 |
 | item_item_cosine_tuned | 0.3554 | 0.4773 |
+| lambdarank (tuned) | 0.3650 ±0.0216 | 0.4976 ±0.0198 |
+| lambdarank_drop_retriever_features (tuned) | 0.3282 | 0.4711 |
+| lambdarank_item_item (tuned) | 0.3863 | 0.4773 |
+| lambdarank_two_tower (tuned) | 0.3480 | 0.4712 |
+| lambdarank_union_balanced (tuned) | 0.3948 | 0.4906 |
+| lambdarank_union_unbalanced (tuned) | 0.3351 | 0.4702 |
 | most_popular | 0.2337 | 0.3544 |
+| no_ranker | 0.3667 | 0.4923 |
 | two_tower (tuned) | 0.3559 ±0.0010 | 0.4737 ±0.0019 |
 
 #### Two-tower seeds and gate (ADR-0006)
@@ -286,6 +388,62 @@ Across seeds: NDCG@10 mean=0.0910, std=0.0023, min=0.0890, max=0.0942.
 
 **Gate: negative result.** Two-tower does **not** beat both item–item bars on ml-1m-style NDCG@10 with CIs taken into account (see ADR-0006). The retriever or candidate set will be chosen in S4 by validation recall.
 
+#### Ranker candidates, seeds, and gate (ADR-0007)
+
+Candidate budget K=200. Selection metric: validation recall@200 (split: validation). Tie-break: recall@200, then recall@100, then union_balanced, item_item, two_tower, union_unbalanced. Winner: `union_unbalanced`.
+
+| candidate set | recall@100 | recall@200 | mean size |
+| --- | --- | --- | --- |
+| item_item | 0.415189 | 0.532968 | 200.000000 |
+| two_tower | 0.403221 | 0.526670 | 200.000000 |
+| union_balanced | 0.418921 | 0.553063 | 200.000000 |
+| union_unbalanced | 0.418921 | 0.553083 | 309.819030 |
+
+Early-stop user fraction=0.2 (split seed=42). Ranker seeds share candidate sets and retriever models.
+
+| seed | best_iteration | ndcg@10 | ndcg@10 CI | recall@10 | coverage@10 |
+| --- | --- | --- | --- | --- | --- |
+| 42 | 1 | 0.0852 | [0.0734, 0.0968] | 0.0692 | 0.0999 |
+| 43 | 9 | 0.0987 | [0.0867, 0.1102] | 0.0861 | 0.0931 |
+| 44 | 72 | 0.1131 | [0.0990, 0.1257] | 0.0961 | 0.0985 |
+
+Across seeds: NDCG@10 mean=0.0990, std=0.0114, min=0.0852, max=0.1131.
+
+**Gate: win on the point estimate.** LambdaRank mean NDCG@10=0.0990 vs item_item_cosine 0.0899 [0.0784, 0.1011] (read from `metrics['item_item_cosine']['ndcg@10']`).
+
+Seed NDCG@10 intervals are not all above the bar CI high (`all_seed_ci_low_above_bar_ci_high=False`).
+
+Ablations are the primary seed, except `ndcg@10`, `recall@10`, and `coverage@10` on the `lambdarank` row, which are means over the three ranker seeds. The `ndcg@10` CI and tail NDCG@10 on that row stay the primary seed; that CI is the primary-seed user bootstrap, not a confidence interval for the 3-seed mean. `no_ranker` keeps the winning candidate order. `lambdarank_drop_retriever_features` drops retriever score and rank.
+
+| ablation | ndcg@10 | ndcg@10 CI | recall@10 | coverage@10 | tail ndcg@10 |
+| --- | --- | --- | --- | --- | --- |
+| lambdarank | 0.0990 | [0.0734, 0.0968] | 0.0838 | 0.0972 | 0.0119 [0.0062, 0.0185] |
+| lambdarank_drop_retriever_features | 0.0838 | [0.0722, 0.0960] | 0.0647 | 0.1157 | 0.0088 [0.0051, 0.0131] |
+| lambdarank_item_item | 0.1071 | [0.0940, 0.1199] | 0.0899 | 0.0924 | 0.0015 [0.0000, 0.0041] |
+| lambdarank_two_tower | 0.0933 | [0.0813, 0.1057] | 0.0766 | 0.1003 | 0.0105 [0.0061, 0.0157] |
+| lambdarank_union_balanced | 0.1218 | [0.1078, 0.1354] | 0.0975 | 0.0878 | 0.0227 [0.0134, 0.0340] |
+| lambdarank_union_unbalanced | 0.0852 | [0.0734, 0.0968] | 0.0692 | 0.0999 | 0.0119 [0.0062, 0.0185] |
+| no_ranker | 0.0983 | [0.0860, 0.1110] | 0.0803 | 0.1054 | 0.0114 [0.0062, 0.0175] |
+
+Top feature gains (refit ranker, primary seed):
+
+| feature | gain |
+| --- | --- |
+| in_both | 275.5560 |
+| two_tower_rank | 85.9516 |
+| item_recency | 47.2973 |
+| user_n_ratings | 42.1854 |
+| affinity_drama | 41.1328 |
+| item_item_rank | 32.6754 |
+| affinity_comedy | 28.1487 |
+| affinity_western | 24.4671 |
+| item_item_score | 23.9401 |
+| affinity_musical | 21.2151 |
+
+Refit ranker artifact (gitignored): `models/ml-latest-small/ranker.txt` schema_version=1. Recreate with `movielens-recommender run --config configs/default.yaml`.
+
+Ranker stage runtime: 41.7760s.
+
 #### Segment NDCG@10
 
 User activity = train rating-count terciles (low/mid/high). Item head = top 20% of train items by popularity; tail = rest. Item-segment metrics restrict **relevant and recommended** items to the segment (users with no relevant items in-segment are excluded).
@@ -296,16 +454,23 @@ User activity = train rating-count terciles (low/mid/high). Item head = top 20% 
 | als_tuned | 0.0841 [0.0632, 0.1046] | 0.0744 [0.0587, 0.0919] | 0.1040 [0.0856, 0.1235] | 0.0936 [0.0825, 0.1049] | 0.0363 [0.0255, 0.0468] |
 | item_item_cosine | 0.0815 [0.0601, 0.1030] | 0.0756 [0.0600, 0.0921] | 0.1126 [0.0920, 0.1356] | 0.0961 [0.0839, 0.1077] | 0.0105 [0.0051, 0.0179] |
 | item_item_cosine_tuned | 0.0890 [0.0660, 0.1133] | 0.0756 [0.0603, 0.0924] | 0.1343 [0.1093, 0.1598] | 0.1056 [0.0925, 0.1195] | 0.0010 [0.0000, 0.0026] |
+| lambdarank (tuned) | 0.0638 [0.0448, 0.0838] | 0.0757 [0.0599, 0.0934] | 0.1160 [0.0939, 0.1403] | 0.0920 [0.0805, 0.1037] | 0.0119 [0.0062, 0.0185] |
+| lambdarank_drop_retriever_features (tuned) | 0.0692 [0.0493, 0.0905] | 0.0672 [0.0520, 0.0849] | 0.1150 [0.0896, 0.1402] | 0.0908 [0.0792, 0.1043] | 0.0088 [0.0051, 0.0131] |
+| lambdarank_item_item (tuned) | 0.1040 [0.0801, 0.1294] | 0.0833 [0.0668, 0.1008] | 0.1339 [0.1103, 0.1570] | 0.1136 [0.0998, 0.1284] | 0.0015 [0.0000, 0.0041] |
+| lambdarank_two_tower (tuned) | 0.0841 [0.0642, 0.1043] | 0.0734 [0.0574, 0.0894] | 0.1225 [0.0991, 0.1479] | 0.1004 [0.0882, 0.1132] | 0.0105 [0.0061, 0.0157] |
+| lambdarank_union_balanced (tuned) | 0.1156 [0.0907, 0.1423] | 0.1016 [0.0812, 0.1221] | 0.1481 [0.1241, 0.1748] | 0.1296 [0.1154, 0.1443] | 0.0227 [0.0134, 0.0340] |
+| lambdarank_union_unbalanced (tuned) | 0.0638 [0.0448, 0.0838] | 0.0757 [0.0599, 0.0934] | 0.1160 [0.0939, 0.1403] | 0.0920 [0.0805, 0.1037] | 0.0119 [0.0062, 0.0185] |
 | most_popular | 0.0588 [0.0401, 0.0795] | 0.0610 [0.0461, 0.0779] | 0.1030 [0.0793, 0.1246] | 0.0783 [0.0673, 0.0914] | 0.0000 [0.0000, 0.0000] |
+| no_ranker | 0.0936 [0.0716, 0.1166] | 0.0843 [0.0676, 0.1016] | 0.1170 [0.0948, 0.1380] | 0.1124 [0.0991, 0.1269] | 0.0114 [0.0062, 0.0175] |
 | two_tower (tuned) | 0.0995 [0.0761, 0.1231] | 0.0828 [0.0652, 0.1016] | 0.0847 [0.0664, 0.1037] | 0.1136 [0.1003, 0.1273] | 0.0114 [0.0062, 0.0175] |
 
 Tuning log: [`results/tuning/ml-latest-small.json`](results/tuning/ml-latest-small.json). Chosen ALS={'alpha': 20.0, 'factors': 128, 'iterations': 15, 'regularization': 0.1} (val NDCG@10=0.0750); item–item={'k_neighbors': 40, 'min_common': 1, 'shrinkage': 100.0} (val NDCG@10=0.0873). Two-tower={'batch_size': 1024, 'embedding_dim': 64, 'learning_rate': 0.003, 'max_epochs': 20, 'max_history': 50, 'patience': 3, 'temperature': 0.1, 'weight_decay': 0.0001} (val NDCG@10=0.0819, best_epoch=7; log [`results/tuning/two_tower_ml-latest-small.json`](results/tuning/two_tower_ml-latest-small.json)).
 
-Pipeline runtime: 244.0430s.
+Pipeline runtime: 129.4080s.
 
 ### Global-time-cutoff sanity check (`ml-1m`, secondary)
 
-From `results/global_cutoff/ml-1m.json`. Secondary sanity check: whether model ranking holds when cross-user future signal is removed (ADR-0002). Not the headline table. Hyperparams: Per-user-protocol tuned configs (validation NDCG@10); not re-tuned for the global cutoff. most_popular has no hyperparameters. two_tower uses the per-user-protocol chosen hyperparameters and early-stopping epoch; not re-tuned on the global cutoff. **Not re-tuned** for this protocol (`retuned=False`).
+From `results/global_cutoff/ml-1m.json`. Secondary sanity check: whether model ranking holds when cross-user future signal is removed (ADR-0002). Not the headline table. Hyperparams: Per-user-protocol tuned configs (validation NDCG@10); not re-tuned for the global cutoff. most_popular has no hyperparameters. two_tower uses the per-user-protocol chosen hyperparameters and early-stopping epoch; not re-tuned on the global cutoff. lambdarank reuses the per-user candidate set and primary-seed best_iteration as a fixed num_boost_round. Labels are the chronological tail of the pre-cutoff train; features for that fit come from the head only. Retrievers and features are rebuilt on the full pre-cutoff train before scoring. Post-cutoff labels are not used. Not re-tuned. **Not re-tuned** for this protocol (`retuned=False`).
 
 Cutoff: timestamp quantile=0.8 (cutoff_timestamp=975768738.0). Surviving: train users=5392, train items=3662, test interactions (after user filter)=103937, eval users (warm relevant)=1114.
 
@@ -313,7 +478,9 @@ Cutoff: timestamp quantile=0.8 (cutoff_timestamp=975768738.0). Surviving: train 
 | --- | --- | --- | --- | --- | --- | --- |
 | als | 0.1553 | [0.1449, 0.1669] | 0.1479 | 0.0427 | 0.2613 | 0.3875 |
 | item_item_cosine | 0.2319 | [0.2162, 0.2473] | 0.2104 | 0.0575 | 0.2764 | 0.4171 |
+| lambdarank | 0.2323 | [0.2193, 0.2465] | 0.2085 | 0.0720 | 0.3370 | 0.4801 |
 | most_popular | 0.2136 | [0.1990, 0.2286] | 0.1987 | 0.0490 | 0.2648 | 0.3866 |
+| no_ranker | 0.2140 | [0.2007, 0.2277] | 0.1974 | 0.0655 | 0.3224 | 0.4801 |
 | two_tower | 0.2140 | [0.2007, 0.2277] | 0.1974 | 0.0655 | 0.3224 | 0.4801 |
 
 <!-- END RESULTS TABLE -->

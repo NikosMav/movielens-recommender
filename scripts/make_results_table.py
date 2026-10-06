@@ -32,6 +32,11 @@ def _fmt(value: float) -> str:
     return f"{value:.4f}"
 
 
+def _fmt6(value: float) -> str:
+    """Six decimals so a sub-1e-4 validation margin stays visible."""
+    return f"{value:.6f}"
+
+
 def _fmt_ci(cis: dict, key: str) -> str:
     bounds = cis.get(key)
     if not bounds:
@@ -76,9 +81,9 @@ def render_ranker(payload: dict) -> str:
             + " | ".join(
                 [
                     name,
-                    _fmt(float(block["recall@100"])),
-                    _fmt(float(block["recall@200"])),
-                    _fmt(float(block["mean_size"])),
+                    _fmt6(float(block["recall@100"])),
+                    _fmt6(float(block["recall@200"])),
+                    _fmt6(float(block["mean_size"])),
                 ]
             )
             + " |"
@@ -155,8 +160,12 @@ def render_ranker(payload: dict) -> str:
     ablations = ranker.get("ablations") or {}
     if ablations:
         lines.append(
-            "Ablations (primary seed, except the lambdarank row which is the "
-            "3-seed mean). `no_ranker` keeps the winning candidate order. "
+            "Ablations are the primary seed, except `ndcg@10`, `recall@10`, "
+            "and `coverage@10` on the `lambdarank` row, which are means over "
+            "the three ranker seeds. The `ndcg@10` CI and tail NDCG@10 on that "
+            "row stay the primary seed; that CI is the primary-seed user "
+            "bootstrap, not a confidence interval for the 3-seed mean. "
+            "`no_ranker` keeps the winning candidate order. "
             "`lambdarank_drop_retriever_features` drops retriever score and rank."
         )
         lines.append("")
