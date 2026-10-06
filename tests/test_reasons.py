@@ -101,6 +101,22 @@ def test_negative_contributions_are_not_reasons_and_raw_names_stay_in_details():
     assert any(name == "demo_gender" for name, _value in explanation.details)
 
 
+def test_neighbor_driver_is_similarity_times_rating():
+    history = [
+        HistoryItem(1, "Wayne's World (1992)", "Comedy", 1.0, timestamp=1),
+        HistoryItem(2, "You've Got Mail (1998)", "Comedy|Romance", 4.0, timestamp=2),
+    ]
+    explanation = explain_recommendation(
+        {"item_item_score": 0.5, "item_item_rank": 0.2},
+        history=history,
+        # High similarity on the 1★ title, but 0.4 * 4 beats 0.9 * 1.
+        neighbor_similarity={1: 0.9, 2: 0.4},
+    )
+    assert explanation.reasons[0].text == (
+        "You rated You've Got Mail 4★ and this is one of its nearest neighbours"
+    )
+
+
 def test_missing_neighbor_does_not_invent_a_title():
     explanation = explain_recommendation(
         {"item_item_score": 0.4},

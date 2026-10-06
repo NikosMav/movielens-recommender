@@ -72,6 +72,8 @@ streamlit run app/streamlit_app.py
 
 `build-artifacts` downloads ml-1m if `data/` does not already have it, reads the tuned hyperparameters from `results/tuning/`, and writes `artifacts/ml-1m/`. The first Streamlit load reads that directory once.
 
+![ml-1m user 155: training history and an open explanation for Sleepless in Seattle](docs/demo/streamlit.png)
+
 ## Download data
 
 Archives are fetched from official GroupLens URLs and verified against **pinned SHA-256 checksums** (see ADR-0001).

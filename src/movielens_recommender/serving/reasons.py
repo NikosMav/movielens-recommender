@@ -120,7 +120,9 @@ def _best_neighbor(
         sim = float(similarity.get(int(row.item_id), 0.0))
         if sim <= 0.0:
             continue
-        key = (sim, float(row.rating), int(row.timestamp))
+        # Item–item scores are ``S @ r``, so the driver is similarity times
+        # the rating, not similarity alone.
+        key = (sim * float(row.rating), sim, int(row.timestamp))
         if best_key is None or key > best_key:
             best_key = key
             best = row
