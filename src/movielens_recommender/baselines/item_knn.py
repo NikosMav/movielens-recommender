@@ -192,6 +192,52 @@ class ItemItemCosineRecommender:
             "shrinkage": self.shrinkage,
         }
 
+    def topk_for_user(self, user_id: int, n: int) -> list[tuple[int, float]]:
+        """Top-n ``(item_id, score)`` for one fit user.
+
+        Same score as :meth:`recommend` (``S @ r``, seen items masked). Ties
+        use a stable mergesort.
+        """
+        if n <= 0 or self._similarity is None or self._user_item is None:
+            return []
+        uidx = self._user_index.get(int(user_id))
+        if uidx is None:
+            return []
+        user_vec = self._user_item.getrow(uidx).toarray().ravel()
+        scores = self._similarity @ user_vec
+        scores[user_vec != 0] = -np.inf
+        chosen = _topk_indices(scores, n)
+        return [
+            (int(self._item_ids[j]), float(scores[j]))
+            for j in chosen
+            if np.isfinite(scores[j])
+        ]
+
+    def neighbor_similarities(
+        self, item_id: int, others: Sequence[int]
+    ) -> dict[int, float]:
+        """Similarity of ``item_id`` to each catalog id in ``others``.
+
+        This is the row of ``S`` that :meth:`recommend` dots with the user's
+        ratings: ``S[candidate, history]``. Ids outside the fit catalog are
+        omitted. The item itself is omitted.
+        """
+        if self._similarity is None:
+            return {}
+        row = self._item_index.get(int(item_id))
+        if row is None:
+            return {}
+        out: dict[int, float] = {}
+        for other in others:
+            oid = int(other)
+            if oid == int(item_id):
+                continue
+            col = self._item_index.get(oid)
+            if col is None:
+                continue
+            out[oid] = float(self._similarity[row, col])
+        return out
+
 
 def _topk_indices(scores: np.ndarray, n: int) -> np.ndarray:
     """Indices of the top-n finite scores, ties broken by mergesort."""
