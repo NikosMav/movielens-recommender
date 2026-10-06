@@ -32,6 +32,11 @@ def _fmt(value: float) -> str:
     return f"{value:.4f}"
 
 
+def _fmt6(value: float) -> str:
+    """Six decimals so a sub-1e-4 validation margin stays visible."""
+    return f"{value:.6f}"
+
+
 def _fmt_ci(cis: dict, key: str) -> str:
     bounds = cis.get(key)
     if not bounds:
@@ -48,6 +53,179 @@ def _model_label(name: str, tuned_flags: dict | None) -> str:
     if is_tuned:
         return f"{name} (tuned)"
     return name
+
+
+def render_ranker(payload: dict) -> str:
+    """S4 block. Every number is read from the ranker object in the results JSON."""
+    ranker = payload.get("ranker")
+    if not ranker:
+        return ""
+    lines: list[str] = []
+    lines.append("#### Ranker candidates, seeds, and gate (ADR-0007)")
+    lines.append("")
+    lines.append(
+        f"Candidate budget K={ranker.get('candidate_k')}. "
+        f"Selection metric: validation {ranker.get('selection_metric')} "
+        f"(split: {ranker.get('selection_split')}). "
+        f"Tie-break: {ranker.get('tie_break')}. "
+        f"Winner: `{ranker.get('winner')}`."
+    )
+    lines.append("")
+    lines.append("| candidate set | recall@100 | recall@200 | mean size |")
+    lines.append("| --- | --- | --- | --- |")
+    candidates = ranker.get("candidates") or {}
+    for name in sorted(candidates):
+        block = candidates[name]
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    name,
+                    _fmt6(float(block["recall@100"])),
+                    _fmt6(float(block["recall@200"])),
+                    _fmt6(float(block["mean_size"])),
+                ]
+            )
+            + " |"
+        )
+    lines.append("")
+    lines.append(
+        f"Early-stop user fraction={ranker.get('early_stop_fraction')} "
+        f"(split seed={ranker.get('early_stop_user_split_seed')}). "
+        "Ranker seeds share candidate sets and retriever models."
+    )
+    lines.append("")
+    lines.append(
+        "| seed | best_iteration | ndcg@10 | ndcg@10 CI | recall@10 | coverage@10 |"
+    )
+    lines.append("| --- | --- | --- | --- | --- | --- |")
+    for row in ranker.get("per_seed", []):
+        ci = row.get("ndcg@10_ci") or {}
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    str(row["seed"]),
+                    str(row["best_iteration"]),
+                    _fmt(float(row["ndcg@10"])),
+                    f"[{_fmt(ci['low'])}, {_fmt(ci['high'])}]" if ci else "",
+                    _fmt(float(row["recall@10"])) if row.get("recall@10") is not None else "",
+                    _fmt(float(row["coverage@10"]))
+                    if row.get("coverage@10") is not None
+                    else "",
+                ]
+            )
+            + " |"
+        )
+    across = (ranker.get("across_seeds") or {}).get("ndcg@10") or {}
+    if across:
+        lines.append("")
+        lines.append(
+            f"Across seeds: NDCG@10 mean={_fmt(across['mean'])}, "
+            f"std={_fmt(across['std'])}, "
+            f"min={_fmt(across['min'])}, max={_fmt(across['max'])}."
+        )
+    gate = ranker.get("gate") or {}
+    if gate:
+        lines.append("")
+        bar = gate.get("bar_ndcg@10")
+        mean = gate.get("ranker_mean_ndcg@10")
+        bar_ci = gate.get("bar_ci") or {}
+        comparison = (
+            f"LambdaRank mean NDCG@10={_fmt(float(mean))} vs "
+            f"{gate.get('bar_model')} {_fmt(float(bar))} "
+            f"[{_fmt(float(bar_ci['low']))}, {_fmt(float(bar_ci['high']))}] "
+            f"(read from `{gate.get('bar_source')}`)."
+        )
+        if gate.get("negative_result"):
+            lines.append(
+                f"**Gate: negative result.** {comparison} "
+                "The ranker does not beat the S3 item–item cosine point estimate."
+            )
+        else:
+            lines.append(f"**Gate: win on the point estimate.** {comparison}")
+        if gate.get("all_seed_ci_low_above_bar_ci_high"):
+            lines.append("")
+            lines.append(
+                "Every ranker-seed NDCG@10 CI low sits above the bar CI high."
+            )
+        else:
+            lines.append("")
+            lines.append(
+                "Seed NDCG@10 intervals are not all above the bar CI high "
+                f"(`all_seed_ci_low_above_bar_ci_high="
+                f"{gate.get('all_seed_ci_low_above_bar_ci_high')}`)."
+            )
+    lines.append("")
+    ablations = ranker.get("ablations") or {}
+    if ablations:
+        lines.append(
+            "Ablations are the primary seed, except `ndcg@10`, `recall@10`, "
+            "and `coverage@10` on the `lambdarank` row, which are means over "
+            "the three ranker seeds. The `ndcg@10` CI and tail NDCG@10 on that "
+            "row stay the primary seed; that CI is the primary-seed user "
+            "bootstrap, not a confidence interval for the 3-seed mean. "
+            "`no_ranker` keeps the winning candidate order. "
+            "`lambdarank_drop_retriever_features` drops retriever score and rank."
+        )
+        lines.append("")
+        lines.append(
+            "| ablation | ndcg@10 | ndcg@10 CI | recall@10 | coverage@10 | tail ndcg@10 |"
+        )
+        lines.append("| --- | --- | --- | --- | --- | --- |")
+        for name in sorted(ablations):
+            block = ablations[name]
+            ci = block.get("ndcg@10_ci") or {}
+            tail_ci = block.get("tail_ndcg@10_ci") or {}
+            tail = block.get("tail_ndcg@10")
+            tail_cell = ""
+            if tail is not None:
+                tail_cell = _fmt(float(tail))
+                if tail_ci:
+                    tail_cell += f" [{_fmt(float(tail_ci['low']))}, {_fmt(float(tail_ci['high']))}]"
+            ci_cell = (
+                f"[{_fmt(float(ci['low']))}, {_fmt(float(ci['high']))}]" if ci else ""
+            )
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        name,
+                        _fmt(float(block["ndcg@10"])) if block.get("ndcg@10") is not None else "",
+                        ci_cell,
+                        _fmt(float(block["recall@10"]))
+                        if block.get("recall@10") is not None
+                        else "",
+                        _fmt(float(block["coverage@10"]))
+                        if block.get("coverage@10") is not None
+                        else "",
+                        tail_cell,
+                    ]
+                )
+                + " |"
+            )
+        lines.append("")
+    gains = ranker.get("feature_importance_gain") or []
+    if gains:
+        lines.append("Top feature gains (refit ranker, primary seed):")
+        lines.append("")
+        lines.append("| feature | gain |")
+        lines.append("| --- | --- |")
+        for row in gains[:10]:
+            lines.append(f"| {row['feature']} | {_fmt(float(row['gain']))} |")
+        lines.append("")
+    artifact = ranker.get("model_artifact") or {}
+    if artifact.get("recreate_command"):
+        lines.append(
+            f"Refit ranker artifact (gitignored): `{artifact.get('path')}` "
+            f"schema_version={artifact.get('schema_version')}. "
+            f"Recreate with `{artifact.get('recreate_command')}`."
+        )
+        lines.append("")
+    if ranker.get("runtime_sec") is not None:
+        lines.append(f"Ranker stage runtime: {_fmt(float(ranker['runtime_sec']))}s.")
+        lines.append("")
+    return "\n".join(lines)
 
 
 def load_headline_results() -> list[tuple[str, dict]]:
@@ -85,7 +263,9 @@ def render_headline(filename: str, payload: dict) -> str:
         f"Primary metric: **{payload.get('primary_metric', 'ndcg@10')}**. "
         "Coverage@k is a point estimate only (no user-bootstrap CI; see ADR-0003). "
         "Names marked **(tuned)** used validation-selected hyperparameters "
-        "(ADR-0005 / ADR-0006); others are S2 YAML defaults."
+        "(ADR-0005 / ADR-0006"
+        + (" / ADR-0007" if payload.get("ranker") else "")
+        + "); others are S2 YAML defaults."
     )
     lines.append("")
     header = ["model", *METRIC_COLS]
@@ -105,7 +285,7 @@ def render_headline(filename: str, payload: dict) -> str:
     for model in sorted(metrics):
         cis = metrics[model].get("confidence_intervals", {})
         label = _model_label(model, tuned_flags)
-        if model == "two_tower" and metrics[model].get("seed_summary"):
+        if metrics[model].get("seed_summary"):
             ss = metrics[model]["seed_summary"]["ndcg@10"]
             lines.append(
                 f"| {label} | mean±std over seeds "
@@ -121,8 +301,9 @@ def render_headline(filename: str, payload: dict) -> str:
         lines.append("#### Retrieval recall (candidate generation)")
         lines.append("")
         lines.append(
-            "Recall@100 / Recall@200 for models that report them "
-            "(two-tower and baselines evaluated at the same cutoffs)."
+            "Recall@100 / Recall@200 for models that report them, "
+            "evaluated at the same cutoffs. This is test-list recall, "
+            "not the validation candidate-set recall in the ranker section."
         )
         lines.append("")
         lines.append("| model | recall@100 | recall@200 |")
@@ -134,7 +315,7 @@ def render_headline(filename: str, payload: dict) -> str:
             label = _model_label(model, tuned_flags)
             r100 = m["recall@100"]
             r200 = m["recall@200"]
-            if model == "two_tower" and m.get("seed_summary"):
+            if m.get("seed_summary"):
                 s100 = m["seed_summary"].get("recall@100", {})
                 s200 = m["seed_summary"].get("recall@200", {})
                 cell100 = (
@@ -208,6 +389,10 @@ def render_headline(filename: str, payload: dict) -> str:
                 "bars on NDCG@10 with CIs taken into account."
             )
         lines.append("")
+
+    ranker_section = render_ranker(payload)
+    if ranker_section:
+        lines.append(ranker_section)
 
     # Segment breakdowns (NDCG@10 only).
     if any("segments" in metrics[m] for m in metrics):

@@ -42,6 +42,24 @@ class ItemKNNYAML:
 
 
 @dataclass
+class RankerYAML:
+    """LightGBM LambdaRank (S4). Optional extra: ``pip install -e '.[rank]'``."""
+
+    enabled: bool = True
+    candidate_k: int = 200
+    early_stop_fraction: float = 0.2
+    num_boost_round: int = 200
+    early_stopping_rounds: int = 30
+    learning_rate: float = 0.05
+    num_leaves: int = 31
+    min_data_in_leaf: int = 20
+    feature_fraction: float = 0.9
+    bagging_fraction: float = 0.8
+    # Ranker seeds only. Retrievers stay on the config seed.
+    seeds: list[int] = field(default_factory=lambda: [42, 43, 44])
+
+
+@dataclass
 class TwoTowerYAML:
     enabled: bool = True
     embedding_dim: int = 64
@@ -68,6 +86,7 @@ class ModelsYAML:
     als: ALSYAML = field(default_factory=ALSYAML)
     item_item_cosine: ItemKNNYAML = field(default_factory=ItemKNNYAML)
     two_tower: TwoTowerYAML = field(default_factory=TwoTowerYAML)
+    ranker: RankerYAML = field(default_factory=RankerYAML)
 
 
 @dataclass
@@ -78,6 +97,7 @@ class RunConfig:
     dataset: str = "ml-latest-small"
     data_dir: str = "data"
     results_dir: str = "results"
+    models_dir: str = "models"
     tune: bool = True
     split: SplitYAML = field(default_factory=SplitYAML)
     eval: EvalYAML = field(default_factory=EvalYAML)
@@ -100,12 +120,14 @@ def load_config(path: Path | str | None = None) -> RunConfig:
     als_raw = models_raw.get("als", {})
     knn_raw = models_raw.get("item_item_cosine", {})
     tt_raw = models_raw.get("two_tower", {})
+    rank_raw = models_raw.get("ranker", {})
     gc_raw = raw.get("global_cutoff", {})
     return RunConfig(
         seed=int(raw.get("seed", 42)),
         dataset=str(raw.get("dataset", "ml-latest-small")),
         data_dir=str(raw.get("data_dir", "data")),
         results_dir=str(raw.get("results_dir", "results")),
+        models_dir=str(raw.get("models_dir", "models")),
         tune=bool(raw.get("tune", True)),
         split=SplitYAML(
             min_ratings=int(split_raw.get("min_ratings", 5)),
@@ -142,6 +164,19 @@ def load_config(path: Path | str | None = None) -> RunConfig:
                 patience=int(tt_raw.get("patience", 3)),
                 max_history=int(tt_raw.get("max_history", 50)),
                 seeds=[int(s) for s in tt_raw.get("seeds", [42, 43, 44])],
+            ),
+            ranker=RankerYAML(
+                enabled=bool(rank_raw.get("enabled", True)),
+                candidate_k=int(rank_raw.get("candidate_k", 200)),
+                early_stop_fraction=float(rank_raw.get("early_stop_fraction", 0.2)),
+                num_boost_round=int(rank_raw.get("num_boost_round", 200)),
+                early_stopping_rounds=int(rank_raw.get("early_stopping_rounds", 30)),
+                learning_rate=float(rank_raw.get("learning_rate", 0.05)),
+                num_leaves=int(rank_raw.get("num_leaves", 31)),
+                min_data_in_leaf=int(rank_raw.get("min_data_in_leaf", 20)),
+                feature_fraction=float(rank_raw.get("feature_fraction", 0.9)),
+                bagging_fraction=float(rank_raw.get("bagging_fraction", 0.8)),
+                seeds=[int(s) for s in rank_raw.get("seeds", [42, 43, 44])],
             ),
         ),
         global_cutoff=GlobalCutoffYAML(

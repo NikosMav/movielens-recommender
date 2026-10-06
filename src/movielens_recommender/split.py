@@ -186,6 +186,47 @@ def _holdout_tail(ordered: pd.DataFrame, fraction: float) -> tuple[pd.DataFrame,
     return ordered.iloc[:-n_tail], ordered.iloc[-n_tail:]
 
 
+def chronological_tail_holdout(
+    ratings: pd.DataFrame,
+    fraction: float,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Per-user chronological ``(head, tail)`` split.
+
+    Tail length matches the validation rule: ``max(1, floor(n * fraction))``,
+    and at least one head row is kept. Users with fewer than 2 rows stay
+    entirely in the head and contribute no tail rows.
+
+    The ranker uses this on a later window (the global-cutoff train matrix):
+    the tail is the label window and the head is the only matrix features and
+    retrievers may see. A sealed test set is not an input.
+    """
+    if fraction <= 0 or fraction >= 1:
+        raise ValueError("fraction must be in (0, 1)")
+    required = {"user_id", "item_id", "rating", "timestamp"}
+    missing = required - set(ratings.columns)
+    if missing:
+        raise ValueError(f"ratings missing columns: {sorted(missing)}")
+
+    head_parts: list[pd.DataFrame] = []
+    tail_parts: list[pd.DataFrame] = []
+    for _, group in ratings.groupby("user_id", sort=True):
+        ordered = group.sort_values("timestamp", kind="mergesort")
+        if len(ordered) < 2:
+            head_parts.append(ordered)
+            continue
+        head, tail = _holdout_tail(ordered, fraction)
+        head_parts.append(head)
+        tail_parts.append(tail)
+
+    if not head_parts:
+        raise ValueError("No rows to split")
+    head_df = pd.concat(head_parts, ignore_index=True)
+    tail_df = (
+        pd.concat(tail_parts, ignore_index=True) if tail_parts else head_df.iloc[0:0].copy()
+    )
+    return head_df, tail_df
+
+
 def time_based_split(ratings: pd.DataFrame, config: SplitConfig | None = None) -> SplitResult:
     """Per-user chronological holdout of the latest interactions.
 

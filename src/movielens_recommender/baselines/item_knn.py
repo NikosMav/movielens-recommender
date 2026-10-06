@@ -101,12 +101,55 @@ class ItemItemCosineRecommender:
             order = part[np.argsort(-scores[part], kind="mergesort")]
         return [int(self._item_ids[i]) for i in order[:n] if np.isfinite(scores[i])]
 
+    def topk_with_scores(self, n: int) -> dict[int, list[tuple[int, float]]]:
+        """Batched top-n ``(item_id, score)`` for every fit user.
+
+        Same score as :meth:`recommend` (``S @ r``, seen items masked). The
+        matmul is batched; ties use a stable mergesort, matching ``recommend``.
+        """
+        if n <= 0 or self._similarity is None or self._user_item is None:
+            return {}
+        # scores[u, i] = (S @ r_u)_i, with S stored row-wise (not always symmetric).
+        scores = np.asarray(self._user_item @ self._similarity.T, dtype=np.float64)
+        seen_rows, seen_cols = self._user_item.nonzero()
+        scores[seen_rows, seen_cols] = -np.inf
+
+        inv_users = np.empty(len(self._user_index), dtype=np.int64)
+        for uid, uidx in self._user_index.items():
+            inv_users[uidx] = int(uid)
+
+        out: dict[int, list[tuple[int, float]]] = {}
+        for uidx in range(scores.shape[0]):
+            chosen = _topk_indices(scores[uidx], n)
+            uid = int(inv_users[uidx])
+            out[uid] = [
+                (int(self._item_ids[j]), float(scores[uidx, j]))
+                for j in chosen
+                if np.isfinite(scores[uidx, j])
+            ]
+        return out
+
     def hyperparams(self) -> dict:
         return {
             "min_common": self.min_common,
             "k_neighbors": self.k_neighbors,
             "shrinkage": self.shrinkage,
         }
+
+
+def _topk_indices(scores: np.ndarray, n: int) -> np.ndarray:
+    """Indices of the top-n finite scores, ties broken by mergesort."""
+    finite = np.isfinite(scores)
+    if not finite.any():
+        return np.array([], dtype=np.int64)
+    idx = np.flatnonzero(finite)
+    sc = scores[idx]
+    if n >= len(idx):
+        order = np.argsort(-sc, kind="mergesort")
+        return idx[order]
+    part = np.argpartition(-sc, n - 1)[:n]
+    order = part[np.argsort(-sc[part], kind="mergesort")]
+    return idx[order]
 
 
 def _top_k_neighbors(sim: np.ndarray, k: int) -> np.ndarray:

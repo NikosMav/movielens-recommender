@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "movielens-recommender"
 version = "0.1.0"
-description = "Standalone MovieLens recommender: data/split/eval + classic baselines + two-tower retrieval"
+description = "Standalone MovieLens recommender: data/split/eval, classic baselines, two-tower retrieval, LambdaRank"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -29,6 +29,11 @@ dev = [
 #   pip install -e ".[deep]"
 deep = [
     "torch==2.6.0",
+]
+# LambdaRank (S4). Exact pin:
+#   pip install -e ".[rank]"
+rank = [
+    "lightgbm==4.6.0",
 ]
 
 [project.scripts]

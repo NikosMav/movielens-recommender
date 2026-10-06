@@ -1,6 +1,9 @@
 # Data (never commit MovieLens or derived rating artifacts)
 data/
 
+# Trained ranker binaries (recreate: movielens-recommender run --config configs/<dataset>.yaml)
+models/
+
 # Python
 __pycache__/
 *.py[cod]

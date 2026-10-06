@@ -41,6 +41,21 @@ models:
     - 42
     - 43
     - 44
+  ranker:
+    enabled: true
+    candidate_k: 200
+    early_stop_fraction: 0.2
+    num_boost_round: 200
+    early_stopping_rounds: 30
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 20
+    feature_fraction: 0.9
+    bagging_fraction: 0.8
+    seeds:
+    - 42
+    - 43
+    - 44
 global_cutoff:
   enabled: false
   timestamp_quantile: 0.8

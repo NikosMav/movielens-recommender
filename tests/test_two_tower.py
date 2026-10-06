@@ -131,6 +131,8 @@ def test_model_encode_and_recommend_deterministic():
         n_epochs=2,
     )
     assert rec_a.recommend(1, 3) == rec_b.recommend(1, 3)
+    batch = rec_a.topk_with_scores(3)
+    assert [item for item, _score in batch[1]] == rec_a.recommend(1, 3)
     recs = rec_a.recommend(1, 3)
     assert 1 <= len(recs) <= 3
     assert all(isinstance(x, int) for x in recs)
