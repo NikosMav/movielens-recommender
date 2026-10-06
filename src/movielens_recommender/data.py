@@ -36,6 +36,26 @@ DATASET_VERSION_LABELS: dict[str, str] = {
 LICENSE_URL = "https://grouplens.org/datasets/movielens/"
 DEFAULT_DATA_DIR = Path("data")
 
+# MovieLens 1M age codes are buckets, not raw ages. The labels are the
+# GroupLens README legend. Codes used as LightGBM categoricals are
+# non-negative; unknown sentinels are outside the observed sets.
+AGE_BUCKETS: tuple[int, ...] = (1, 18, 25, 35, 45, 50, 56)
+AGE_BUCKET_LABELS: dict[int, str] = {
+    1: "Under 18",
+    18: "18-24",
+    25: "25-34",
+    35: "35-44",
+    45: "45-49",
+    50: "50-55",
+    56: "56+",
+}
+GENDER_TO_CODE: dict[str, int] = {"M": 0, "F": 1}
+GENDER_UNKNOWN = 2
+AGE_UNKNOWN = 0
+OCCUPATION_MAX = 20
+OCCUPATION_UNKNOWN = 21
+REGION_UNKNOWN = 10
+
 
 @dataclass(frozen=True)
 class CleanStats:
@@ -55,6 +75,117 @@ class CleanStats:
 def dataset_dir(name: str, data_dir: Path | str = DEFAULT_DATA_DIR) -> Path:
     """Return the on-disk directory for a named dataset."""
     return Path(data_dir) / name
+
+
+def users_path(name: str, data_dir: Path | str = DEFAULT_DATA_DIR) -> Path:
+    """Return the expected path to ml-1m ``users.dat``.
+
+    ml-latest-small does not ship demographics. Callers that need them must
+    stay on ml-1m.
+    """
+    if name != "ml-1m":
+        raise ValueError(
+            f"{name} has no users.dat demographics. The demographic experiment is ml-1m only."
+        )
+    return dataset_dir(name, data_dir) / "ml-1m" / "users.dat"
+
+
+def region_from_zip(zip_code: object) -> int:
+    """Coarse US region: the first ZIP digit, or ``REGION_UNKNOWN``.
+
+    The raw ZIP is not a model feature. A non-digit prefix (Canadian and
+    other non-US codes in ml-1m) maps to the unknown sentinel.
+    """
+    text = str(zip_code).strip()
+    if text and text[0].isdigit():
+        return int(text[0])
+    return REGION_UNKNOWN
+
+
+def _code_or_unknown(value: object, allowed: set[int], unknown: int) -> int:
+    try:
+        code = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return unknown
+    if code in allowed:
+        return code
+    return unknown
+
+
+def parse_users(frame: pd.DataFrame) -> pd.DataFrame:
+    """Normalize a users table to the demographic schema.
+
+    Expected columns are ``user_id``, ``gender``, ``age``, ``occupation``,
+    ``zip_code`` (the ``users.dat`` fields). Duplicate user ids keep the
+    first row. Gender, age bucket, occupation, and ZIP region are stored
+    both as raw values and as non-negative categorical codes.
+    """
+    required = ["user_id", "gender", "age", "occupation", "zip_code"]
+    missing = [col for col in required if col not in frame.columns]
+    if missing:
+        raise ValueError(f"users frame is missing columns: {missing}")
+    df = frame.loc[:, required].copy()
+    before = len(df)
+    df = df.dropna(subset=["user_id"])
+    df = df[df["user_id"].astype(float) > 0]
+    df["user_id"] = df["user_id"].astype(int)
+    df["gender"] = df["gender"].astype(str).str.strip().str.upper()
+    df["zip_code"] = df["zip_code"].astype(str).str.strip()
+    df = df.drop_duplicates(subset=["user_id"], keep="first")
+    df = df.reset_index(drop=True)
+
+    age_ok = set(AGE_BUCKETS)
+    occ_ok = set(range(OCCUPATION_MAX + 1))
+    df["gender_code"] = df["gender"].map(
+        lambda g: GENDER_TO_CODE.get(g, GENDER_UNKNOWN)
+    ).astype(int)
+    df["age_code"] = [
+        _code_or_unknown(value, age_ok, AGE_UNKNOWN) for value in df["age"].tolist()
+    ]
+    df["occupation_code"] = [
+        _code_or_unknown(value, occ_ok, OCCUPATION_UNKNOWN) for value in df["occupation"].tolist()
+    ]
+    df["region"] = [region_from_zip(value) for value in df["zip_code"].tolist()]
+    df["region_code"] = df["region"].astype(int)
+    df.attrs["n_dropped"] = before - len(df)
+    return df[
+        [
+            "user_id",
+            "gender",
+            "age",
+            "occupation",
+            "zip_code",
+            "region",
+            "gender_code",
+            "age_code",
+            "occupation_code",
+            "region_code",
+        ]
+    ].copy()
+
+
+def read_users_dat(path: Path | str) -> pd.DataFrame:
+    """Parse an ml-1m ``users.dat`` file (``UserID::Gender::Age::Occupation::Zip``)."""
+    path = Path(path)
+    if not path.is_file():
+        raise FileNotFoundError(f"users.dat not found at {path}")
+    raw = pd.read_csv(
+        path,
+        sep="::",
+        engine="python",
+        names=["user_id", "gender", "age", "occupation", "zip_code"],
+        header=None,
+        encoding="latin-1",
+    )
+    return parse_users(raw)
+
+
+def load_users(
+    name: str = "ml-1m",
+    data_dir: Path | str = DEFAULT_DATA_DIR,
+) -> pd.DataFrame:
+    """Load ml-1m demographics. Other datasets raise; they have no users file."""
+    return read_users_dat(users_path(name, data_dir))
 
 
 def ratings_path(name: str, data_dir: Path | str = DEFAULT_DATA_DIR) -> Path:

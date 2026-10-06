@@ -55,6 +55,7 @@ Committed numbers live in `results/*.json`. Tuning grids and val scores live in 
 | **S3b** | Two-tower retrieval (optional torch extra; tune on val only) |
 | **S3c** | EASE^R and RP3beta baselines (numpy/scipy; tune on val only; ADR-0008) |
 | **S4** | Learned ranker (LightGBM LambdaRank; candidate set by validation recall; ADR-0007) |
+| **S4b** | User demographic features experiment (ml-1m only; ADR-0009). ml-latest-small is unchanged. |
 | **S5** | Serving (inference path, latency budget) |
 | **S6** | Operations (monitoring, refresh, drift) |
 

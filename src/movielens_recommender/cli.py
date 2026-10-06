@@ -959,6 +959,25 @@ def _cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_demographics(args: argparse.Namespace) -> int:
+    """S4b ranker experiment. Refuses anything other than ml-1m."""
+    config = load_config(args.config)
+    if args.data_dir is not None:
+        config.data_dir = args.data_dir
+    if args.results_dir is not None:
+        config.results_dir = args.results_dir
+    if config.dataset != "ml-1m":
+        raise ValueError(
+            "demographics is ml-1m only. ml-latest-small has no users.dat "
+            "and its results must not change."
+        )
+    from movielens_recommender.ranker.demographics import run_demographic_experiment
+
+    out = run_demographic_experiment(config, download=not args.no_download)
+    print(f"Wrote demographic experiment to {out}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="movielens-recommender",
@@ -1030,6 +1049,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="Skip the optional LambdaRank stage even if enabled in YAML",
     )
     p_run.set_defaults(func=_cmd_run)
+
+    p_demo = sub.add_parser(
+        "demographics",
+        help=(
+            "S4b user-demographic ranker experiment "
+            "(ml-1m only; does not rewrite results/ml-1m.json)"
+        ),
+    )
+    p_demo.add_argument(
+        "--config",
+        default="configs/ml-1m.yaml",
+        help="Path to the ml-1m YAML config",
+    )
+    p_demo.add_argument("--data-dir", default=None, help="Override data_dir from config")
+    p_demo.add_argument("--results-dir", default=None, help="Override results_dir from config")
+    p_demo.add_argument(
+        "--no-download",
+        action="store_true",
+        help="Do not download; require ml-1m already on disk",
+    )
+    p_demo.set_defaults(func=_cmd_demographics)
 
     return parser
 

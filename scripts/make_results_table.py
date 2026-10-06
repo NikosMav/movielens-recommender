@@ -537,6 +537,234 @@ def render_global_cutoff() -> str:
     return "\n".join(lines)
 
 
+def _fmt_ci_cell(ci: dict | None) -> str:
+    if not ci:
+        return ""
+    return f"[{_fmt(float(ci['low']))}, {_fmt(float(ci['high']))}]"
+
+
+def render_demographics() -> str:
+    """S4b block. Every number is read from results/demographics/ml-1m.json."""
+    path = RESULTS_DIR / "demographics" / "ml-1m.json"
+    if not path.is_file():
+        return ""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    lines: list[str] = []
+    lines.append("### User demographic features (`ml-1m`, S4b)")
+    lines.append("")
+    lines.append(
+        "From `results/demographics/ml-1m.json`. "
+        f"Candidate set `{payload.get('candidate_set')}` "
+        f"(K={payload.get('candidate_k')}; {payload.get('candidate_set_rule')}). "
+        "Group-affinity statistics use fit-train only. "
+        "NDCG@10 mean and std are over the three ranker seeds. "
+        "The NDCG@10 CI, tail NDCG@10, activity slices, fairness slices, "
+        "and paired difference are the primary seed."
+    )
+    lines.append("")
+    repro = payload.get("reproduction") or {}
+    if repro:
+        lines.append(
+            "S4 LambdaRank reference "
+            f"({repro.get('s4_source')}): "
+            f"NDCG@10 mean={_fmt(float(repro['s4_ndcg@10_mean']))}, "
+            f"std={_fmt(float(repro['s4_ndcg@10_std']))}, "
+            f"winner=`{repro.get('s4_winner')}`. "
+            "This run's baseline: "
+            f"mean={_fmt(float(repro['baseline_ndcg@10_mean']))}, "
+            f"std={_fmt(float(repro['baseline_ndcg@10_std']))}, "
+            f"abs diff={_fmt(float(repro['abs_diff_mean']))}, "
+            f"matches at 4 decimals={repro.get('matches_s4_at_4_decimals')}, "
+            f"candidate set matches={repro.get('candidate_set_matches_s4')}."
+        )
+        lines.append("")
+    lines.append(
+        "| variant | ndcg@10 mean | std | ndcg@10 CI | recall@10 | coverage@10 | tail ndcg@10 |"
+    )
+    lines.append("| --- | --- | --- | --- | --- | --- | --- |")
+    variants = payload.get("variants") or {}
+    for name in ("baseline", "raw", "affinity", "both"):
+        block = variants.get(name)
+        if not block:
+            continue
+        summary = block.get("summary") or {}
+        tail = summary.get("tail_ndcg@10")
+        tail_ci = summary.get("tail_ndcg@10_ci") or {}
+        tail_cell = ""
+        if tail is not None:
+            tail_cell = _fmt(float(tail))
+            if tail_ci:
+                tail_cell += f" {_fmt_ci_cell(tail_ci)}"
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    name,
+                    _fmt(float(summary["ndcg@10_mean"])),
+                    _fmt(float(summary["ndcg@10_std"])),
+                    _fmt_ci_cell(summary.get("ndcg@10_ci")),
+                    _fmt(float(summary["recall@10_mean"])),
+                    _fmt(float(summary["coverage@10_mean"])),
+                    tail_cell,
+                ]
+            )
+            + " |"
+        )
+    lines.append("")
+    paired = payload.get("paired_bootstrap") or {}
+    if paired:
+        lines.append(
+            "Paired bootstrap of NDCG@10 "
+            f"({paired.get('comparison')}, seed {paired.get('seed')}, "
+            f"n={paired.get('n_users')}): "
+            f"mean={_fmt(float(paired['mean']))} "
+            f"[{_fmt(float(paired['low']))}, {_fmt(float(paired['high']))}], "
+            f"excludes_zero={paired.get('excludes_zero')}."
+        )
+        lines.append("")
+    activity = payload.get("activity_segments") or {}
+    if activity:
+        lines.append(
+            "Primary-seed NDCG@10 by the existing user-activity terciles "
+            "(train rating count)."
+        )
+        lines.append("")
+        lines.append("| variant | activity low | activity mid | activity high |")
+        lines.append("| --- | --- | --- | --- |")
+        for name in ("baseline", "raw", "affinity", "both"):
+            block = activity.get(name) or {}
+            cells = []
+            for label in ("low", "mid", "high"):
+                cell = block.get(label) or {}
+                if cell.get("ndcg@10") is None:
+                    cells.append("")
+                else:
+                    cells.append(
+                        f"{_fmt(float(cell['ndcg@10']))} "
+                        f"{_fmt_ci_cell(cell.get('ndcg@10_ci'))}"
+                    )
+            lines.append("| " + " | ".join([name, *cells]) + " |")
+        lines.append("")
+    cold = payload.get("cold_start") or {}
+    cold_rows = cold.get("rows") or []
+    if cold_rows:
+        lines.append(
+            "Simulated cold start: earliest N full-train ratings as the query "
+            "profile. Test targets are unchanged. "
+            "`most_popular` and `group_most_popular` do not use that profile "
+            f"(matrices: {cold.get('most_popular_matrix')}; "
+            f"{cold.get('group_popularity_matrix')})."
+        )
+        lines.append("")
+        lines.append(
+            "| N | model | ndcg@10 | ndcg@10 CI | recall@10 | coverage@10 |"
+        )
+        lines.append("| --- | --- | --- | --- | --- | --- |")
+        for row in cold_rows:
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        str(row["n"]),
+                        str(row["model"]),
+                        _fmt(float(row["ndcg@10"])),
+                        _fmt_ci_cell(row.get("ndcg@10_ci")),
+                        _fmt(float(row["recall@10"])),
+                        _fmt(float(row["coverage@10"])),
+                    ]
+                )
+                + " |"
+            )
+        lines.append("")
+    fairness = payload.get("fairness") or {}
+    by_gender = fairness.get("by_gender") or {}
+    if by_gender:
+        lines.append(
+            "Primary-seed NDCG@10 by gender and by age bucket, baseline ranker "
+            "versus +both. Delta is both minus baseline."
+        )
+        lines.append("")
+        lines.append(
+            "| group | n | baseline ndcg@10 | both ndcg@10 | delta | delta CI |"
+        )
+        lines.append("| --- | --- | --- | --- | --- | --- |")
+        for label in sorted(by_gender):
+            block = by_gender[label]
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        f"gender {label}",
+                        str(block["n_users"]),
+                        _fmt(float(block["baseline_ndcg@10"])),
+                        _fmt(float(block["both_ndcg@10"])),
+                        _fmt(float(block["delta_ndcg@10"])),
+                        _fmt_ci_cell(block.get("delta_ndcg@10_ci")),
+                    ]
+                )
+                + " |"
+            )
+        by_age = fairness.get("by_age") or {}
+        for label in sorted(by_age, key=lambda value: int(value) if str(value).isdigit() else 999):
+            block = by_age[label]
+            pretty = block.get("label") or label
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        f"age {label} ({pretty})",
+                        str(block["n_users"]),
+                        _fmt(float(block["baseline_ndcg@10"])),
+                        _fmt(float(block["both_ndcg@10"])),
+                        _fmt(float(block["delta_ndcg@10"])),
+                        _fmt_ci_cell(block.get("delta_ndcg@10_ci")),
+                    ]
+                )
+                + " |"
+            )
+        lines.append("")
+    gains = payload.get("demographic_feature_importance") or []
+    if gains:
+        lines.append(
+            "Demographic feature gains from the +both primary-seed refit booster. "
+            "Rank is among every feature of that booster (1 = highest gain)."
+        )
+        lines.append("")
+        lines.append("| feature | gain | rank |")
+        lines.append("| --- | --- | --- |")
+        for row in gains:
+            lines.append(
+                f"| {row['feature']} | {_fmt(float(row['gain']))} | {row['rank']} |"
+            )
+        lines.append("")
+    decision = payload.get("decision") or {}
+    if decision:
+        if decision.get("keep_as_default"):
+            lines.append(
+                "**Decision: keep demographic features as the ranker default.** "
+                f"+both mean NDCG@10={_fmt(float(decision['both_mean_ndcg@10']))} "
+                f"versus baseline {_fmt(float(decision['baseline_mean_ndcg@10']))}. "
+                "The paired CI low is above 0."
+            )
+        else:
+            lines.append(
+                "**Decision: negative result for adoption.** "
+                f"+both mean NDCG@10={_fmt(float(decision['both_mean_ndcg@10']))}, "
+                f"baseline {_fmt(float(decision['baseline_mean_ndcg@10']))}, "
+                f"mean_beats_baseline={decision.get('mean_beats_baseline')}, "
+                f"paired CI [{_fmt(float(decision['paired_ci_low']))}, "
+                f"{_fmt(float(decision['paired_ci_high']))}], "
+                f"excludes_zero={decision.get('paired_ci_excludes_zero')}. "
+                "The S4 feature set stays the default "
+                "(`models.ranker.demographics: off`)."
+            )
+        lines.append("")
+    if payload.get("runtime_sec") is not None:
+        lines.append(f"Demographic experiment runtime: {_fmt(float(payload['runtime_sec']))}s.")
+        lines.append("")
+    return "\n".join(lines)
+
+
 def build_section(results: list[tuple[str, dict]]) -> str:
     parts = [BEGIN, ""]
     for filename, payload in results:
@@ -544,6 +772,9 @@ def build_section(results: list[tuple[str, dict]]) -> str:
     gc = render_global_cutoff()
     if gc:
         parts.append(gc)
+    demo = render_demographics()
+    if demo:
+        parts.append(demo)
     parts.append(END)
     return "\n".join(parts) + "\n"
 

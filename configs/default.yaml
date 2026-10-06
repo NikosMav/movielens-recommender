@@ -56,6 +56,8 @@ models:
     - 42
     - 43
     - 44
+    # ml-latest-small has no users.dat. Leave this off.
+    demographics: "off"
 global_cutoff:
   enabled: false
   timestamp_quantile: 0.8

@@ -112,6 +112,37 @@ def mean_popularity(
     return float(np.mean(user_means))
 
 
+def paired_bootstrap_delta_ci(
+    left: Sequence[float],
+    right: Sequence[float],
+    *,
+    n_bootstrap: int = 1000,
+    alpha: float = 0.05,
+    seed: int = 42,
+) -> dict[str, float | int | bool]:
+    """Percentile bootstrap CI for the mean of ``right - left`` on paired users.
+
+    ``left`` and ``right`` are aligned per-user scores. ``excludes_zero`` is
+    true when the interval lies entirely above or entirely below 0.
+    """
+    a = np.asarray(list(left), dtype=np.float64)
+    b = np.asarray(list(right), dtype=np.float64)
+    if a.shape != b.shape or a.ndim != 1:
+        raise ValueError("paired bootstrap requires two equal-length 1-d sequences")
+    if a.size == 0:
+        raise ValueError("paired bootstrap requires at least one user")
+    mean, low, high = bootstrap_mean_ci(
+        b - a, n_bootstrap=n_bootstrap, alpha=alpha, seed=seed
+    )
+    return {
+        "mean": mean,
+        "low": low,
+        "high": high,
+        "n_users": int(a.size),
+        "excludes_zero": bool(low > 0.0 or high < 0.0),
+    }
+
+
 def bootstrap_mean_ci(
     values: Sequence[float],
     *,

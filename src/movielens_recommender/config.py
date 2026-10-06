@@ -8,6 +8,8 @@ from typing import Any
 
 import yaml
 
+from movielens_recommender.ranker.features import DEMO_MODES
+
 
 @dataclass
 class SplitYAML:
@@ -57,6 +59,11 @@ class RankerYAML:
     bagging_fraction: float = 0.8
     # Ranker seeds only. Retrievers stay on the config seed.
     seeds: list[int] = field(default_factory=lambda: [42, 43, 44])
+    # S4b. ``off`` is the S4 feature set. ``raw`` / ``affinity`` / ``both``
+    # add ml-1m demographic features. The dataclass default stays ``off`` so
+    # ml-latest-small cannot enable them. configs/ml-1m.yaml sets ``both``
+    # because ADR-0009's pre-registered rule passed.
+    demographics: str = "off"
 
 
 @dataclass
@@ -106,6 +113,28 @@ class RunConfig:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+def _demographic_mode(value: Any) -> str:
+    """Normalize ``models.ranker.demographics`` to a :data:`DEMO_MODES` value.
+
+    PyYAML 1.1 parses a bare ``off`` as boolean ``False``. ``None`` is a null
+    or omitted value. Both mean the S4 feature set.
+    """
+    if value is False or value is None:
+        return "off"
+    if isinstance(value, bool):
+        raise ValueError(
+            "models.ranker.demographics must be one of "
+            f"{DEMO_MODES}; got boolean {value!r}. "
+            'Quote the value in YAML, for example demographics: "off".'
+        )
+    text = str(value)
+    if text not in DEMO_MODES:
+        raise ValueError(
+            f"models.ranker.demographics must be one of {DEMO_MODES}; got {value!r}"
+        )
+    return text
 
 
 def load_config(path: Path | str | None = None) -> RunConfig:
@@ -177,6 +206,7 @@ def load_config(path: Path | str | None = None) -> RunConfig:
                 feature_fraction=float(rank_raw.get("feature_fraction", 0.9)),
                 bagging_fraction=float(rank_raw.get("bagging_fraction", 0.8)),
                 seeds=[int(s) for s in rank_raw.get("seeds", [42, 43, 44])],
+                demographics=_demographic_mode(rank_raw.get("demographics", "off")),
             ),
         ),
         global_cutoff=GlobalCutoffYAML(

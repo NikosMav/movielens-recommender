@@ -18,6 +18,7 @@ import pandas as pd
 
 from movielens_recommender.baselines.item_knn import ItemItemCosineRecommender
 from movielens_recommender.config import RunConfig
+from movielens_recommender.data import load_users
 from movielens_recommender.evaluate import evaluate_recommender, format_metrics
 from movielens_recommender.ranker.candidates import (
     CANDIDATE_SET_NAMES,
@@ -32,8 +33,10 @@ from movielens_recommender.ranker.explain import recreate_command, save_ranker
 from movielens_recommender.ranker.features import (
     FeatureContext,
     assert_context_uses_only,
+    assert_group_affinity_uses_only,
     build_feature_context,
     build_feature_matrix,
+    categorical_feature_names,
     drop_retriever_score_rank,
     relevance_pairs,
 )
@@ -152,12 +155,14 @@ def _with_columns(matrices: RankerMatrices, names: list[str]) -> RankerMatrices:
     if names == matrices.feature_names:
         return matrices
     index = [matrices.feature_names.index(name) for name in names]
+    kept_cat = [name for name in matrices.categorical_features if name in names]
     return RankerMatrices(
         x=matrices.x[:, index],
         y=matrices.y,
         group=matrices.group,
         user_ids=matrices.user_ids,
         feature_names=list(names),
+        categorical_features=kept_cat,
     )
 
 
@@ -360,6 +365,15 @@ def run_ranker_stage(
             f"ranker seeds {seeds} must include the config seed {primary_seed}"
         )
     t0 = time.perf_counter()
+    demo_mode = str(rank_cfg.demographics)
+    users = None
+    if demo_mode != "off":
+        if config.dataset != "ml-1m":
+            raise ValueError(
+                f"ranker demographics={demo_mode!r} is ml-1m only; "
+                f"dataset is {config.dataset!r}"
+            )
+        users = load_users(config.dataset, config.data_dir)
 
     print(
         "Fitting item-item and two-tower on fit-train for ranker features...",
@@ -392,9 +406,23 @@ def run_ranker_stage(
         flush=True,
     )
 
-    ctx_fit = build_feature_context(split.train, movies)
+    ctx_fit = build_feature_context(
+        split.train,
+        movies,
+        users=users,
+        mode=demo_mode,
+        group_frame=split.train,
+    )
     assert_context_uses_only(ctx_fit, split.train, split.val)
     assert_context_uses_only(ctx_fit, split.train, split.test)
+    if demo_mode in {"affinity", "both"}:
+        assert users is not None
+        assert_group_affinity_uses_only(
+            ctx_fit,
+            split.train,
+            users,
+            pd.concat([split.val, split.test], ignore_index=True),
+        )
     ii_maps_val = score_rank_maps(ii_val)
     tt_maps_val = score_rank_maps(tt_val)
     positives = relevance_pairs(split.val, relevance_threshold=threshold)
@@ -416,6 +444,7 @@ def run_ranker_stage(
             users=label_users,
         )
         matrices = assemble_matrices(blocks, ctx_fit.names)
+        matrices.categorical_features = categorical_feature_names(demo_mode)
         matrices_by_set[name] = matrices
         seed_list = seeds if name == winner else [primary_seed]
         trained[name] = {}
@@ -458,8 +487,17 @@ def run_ranker_stage(
     print("Rebuilding candidate features on full train for test scoring...", flush=True)
     ii_full = full_train_item_model.topk_with_scores(k)
     tt_full = full_train_two_tower.topk_with_scores(k)
-    ctx_full = build_feature_context(split.full_train, movies)
+    ctx_full = build_feature_context(
+        split.full_train,
+        movies,
+        users=users,
+        mode=demo_mode,
+        group_frame=split.train,
+    )
     assert_context_uses_only(ctx_full, split.full_train, split.test)
+    if demo_mode in {"affinity", "both"}:
+        assert users is not None
+        assert_group_affinity_uses_only(ctx_full, split.train, users, split.test)
     ii_maps_full = score_rank_maps(ii_full)
     tt_maps_full = score_rank_maps(tt_full)
     lists_full = {
@@ -734,6 +772,15 @@ def evaluate_ranker_later_window(
     if int(best_iteration) < 1:
         raise ValueError("later-window ranker requires best_iteration >= 1")
     rank_cfg = config.models.ranker
+    demo_mode = str(rank_cfg.demographics)
+    users = None
+    if demo_mode != "off":
+        if config.dataset != "ml-1m":
+            raise ValueError(
+                f"ranker demographics={demo_mode!r} is ml-1m only; "
+                f"dataset is {config.dataset!r}"
+            )
+        users = load_users(config.dataset, config.data_dir)
     k = int(rank_cfg.candidate_k)
     threshold = float(config.eval.relevance_threshold)
     head, tail = chronological_tail_holdout(train, float(config.split.val_fraction))
@@ -757,9 +804,16 @@ def evaluate_ranker_later_window(
     ii_head = item_head.topk_with_scores(k)
     tt_head_scores = tt_head.topk_with_scores(k)
     lists_head = materialize_candidate_set(winner, ii_head, tt_head_scores, k)
-    ctx_head = build_feature_context(head, movies)
+    ctx_head = build_feature_context(
+        head, movies, users=users, mode=demo_mode, group_frame=head
+    )
     assert_context_uses_only(ctx_head, head, tail)
     assert_context_uses_only(ctx_head, head, test)
+    if demo_mode in {"affinity", "both"}:
+        assert users is not None
+        assert_group_affinity_uses_only(
+            ctx_head, head, users, pd.concat([tail, test], ignore_index=True)
+        )
     positives = relevance_pairs(tail, relevance_threshold=threshold)
     label_users = set(int(u) for u in tail["user_id"].unique())
     blocks = _blocks_for_users(
@@ -771,6 +825,7 @@ def evaluate_ranker_later_window(
         users=label_users,
     )
     matrices = assemble_matrices(blocks, ctx_head.names)
+    matrices.categorical_features = categorical_feature_names(demo_mode)
     booster, info = train_fixed_rounds(
         matrices,
         ranker_seed=int(config.seed),
@@ -783,8 +838,13 @@ def evaluate_ranker_later_window(
             f"expected fixed num_boost_round={int(best_iteration)}"
         )
 
-    ctx_full = build_feature_context(train, movies)
+    ctx_full = build_feature_context(
+        train, movies, users=users, mode=demo_mode, group_frame=head
+    )
     assert_context_uses_only(ctx_full, train, test)
+    if demo_mode in {"affinity", "both"}:
+        assert users is not None
+        assert_group_affinity_uses_only(ctx_full, head, users, test)
     ii_full = full_train_item_model.topk_with_scores(k)
     tt_full = full_train_two_tower.topk_with_scores(k)
     lists_full = materialize_candidate_set(winner, ii_full, tt_full, k)

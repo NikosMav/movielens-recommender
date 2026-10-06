@@ -1,6 +1,6 @@
 # movielens-recommender
 
-A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). S3c adds two more classic baselines, EASE^R and RP3beta (ADR-0008), tuned on the same validation split. The two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. The ranker gate against item–item cosine, and the EASE / RP3beta comparison, are in the results table. Serving with an explainable UI, and operations, are planned and not built yet.
+A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). S3c adds two more classic baselines, EASE^R and RP3beta (ADR-0008), tuned on the same validation split. The two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. The ranker gate against item–item cosine, and the EASE / RP3beta comparison, are in the results table. S4b (ADR-0009) tested user demographic features on ml-1m only. The pre-registered rule adopted them, so `configs/ml-1m.yaml` sets `models.ranker.demographics` to `both`. `configs/default.yaml` stays `off` because ml-latest-small has no `users.dat`. The headline LambdaRank row is still the S4 feature set in `results/ml-1m.json`. Serving with an explainable UI, and operations, are planned and not built yet.
 
 The code is MIT, and the MovieLens data is not included: it is downloaded by the script and stays under the [GroupLens terms of use](https://grouplens.org/datasets/movielens/).
 
@@ -22,6 +22,7 @@ The code was written by AI coding agents (Cursor) working from a staged plan wit
 | **S3b** | Done | Two-tower retrieval (optional torch extra; tune on val only) |
 | **S3c** | Done | EASE^R and RP3beta baselines (numpy/scipy; tuned on validation) |
 | **S4** | Done | Learned ranker (LightGBM LambdaRank over a validation-chosen candidate set) |
+| **S4b** | Done | S4b: user demographic features experiment (ml-1m) |
 | **S5** | Planned (not built yet) | Serving with an explainable UI |
 | **S6** | Planned (not built yet) | Operations |
 
@@ -507,5 +508,77 @@ Cutoff: timestamp quantile=0.8 (cutoff_timestamp=975768738.0). Surviving: train 
 | no_ranker | 0.2140 | [0.2007, 0.2277] | 0.1974 | 0.0655 | 0.3224 | 0.4801 |
 | rp3beta | 0.2217 | [0.2064, 0.2364] | 0.1991 | 0.0558 | 0.2579 | 0.3928 |
 | two_tower | 0.2140 | [0.2007, 0.2277] | 0.1974 | 0.0655 | 0.3224 | 0.4801 |
+
+### User demographic features (`ml-1m`, S4b)
+
+From `results/demographics/ml-1m.json`. Candidate set `two_tower` (K=200; validation recall@200, then recall@100, then union_balanced, item_item, two_tower, union_unbalanced). Group-affinity statistics use fit-train only. NDCG@10 mean and std are over the three ranker seeds. The NDCG@10 CI, tail NDCG@10, activity slices, fairness slices, and paired difference are the primary seed.
+
+S4 LambdaRank reference (results/ml-1m.json): NDCG@10 mean=0.1273, std=0.0013, winner=`two_tower`. This run's baseline: mean=0.1267, std=0.0008, abs diff=0.0006, matches at 4 decimals=False, candidate set matches=True.
+
+| variant | ndcg@10 mean | std | ndcg@10 CI | recall@10 | coverage@10 | tail ndcg@10 |
+| --- | --- | --- | --- | --- | --- | --- |
+| baseline | 0.1267 | 0.0008 | [0.1234, 0.1318] | 0.0918 | 0.3842 | 0.0905 [0.0858, 0.0959] |
+| raw | 0.1249 | 0.0027 | [0.1217, 0.1298] | 0.0906 | 0.3811 | 0.0908 [0.0861, 0.0959] |
+| affinity | 0.1317 | 0.0008 | [0.1287, 0.1371] | 0.0969 | 0.4009 | 0.0917 [0.0873, 0.0970] |
+| both | 0.1334 | 0.0009 | [0.1282, 0.1366] | 0.0983 | 0.4012 | 0.0922 [0.0876, 0.0973] |
+
+Paired bootstrap of NDCG@10 (both_minus_baseline, seed 42, n=5958): mean=0.0047 [0.0015, 0.0080], excludes_zero=True.
+
+Primary-seed NDCG@10 by the existing user-activity terciles (train rating count).
+
+| variant | activity low | activity mid | activity high |
+| --- | --- | --- | --- |
+| baseline | 0.1162 [0.1083, 0.1233] | 0.0937 [0.0881, 0.0991] | 0.1732 [0.1647, 0.1813] |
+| raw | 0.1096 [0.1019, 0.1173] | 0.0945 [0.0889, 0.0999] | 0.1730 [0.1652, 0.1813] |
+| affinity | 0.1181 [0.1106, 0.1253] | 0.1032 [0.0975, 0.1091] | 0.1772 [0.1690, 0.1852] |
+| both | 0.1173 [0.1096, 0.1247] | 0.1025 [0.0969, 0.1083] | 0.1773 [0.1687, 0.1850] |
+
+Simulated cold start: earliest N full-train ratings as the query profile. Test targets are unchanged. `most_popular` and `group_most_popular` do not use that profile (matrices: full train; fit-train age-bucket x gender counts).
+
+| N | model | ndcg@10 | ndcg@10 CI | recall@10 | coverage@10 |
+| --- | --- | --- | --- | --- | --- |
+| 5 | most_popular | 0.0895 | [0.0857, 0.0935] | 0.0466 | 0.0325 |
+| 5 | group_most_popular | 0.0960 | [0.0923, 0.1001] | 0.0510 | 0.0614 |
+| 5 | item_item | 0.0815 | [0.0775, 0.0850] | 0.0421 | 0.2345 |
+| 5 | ranker_baseline | 0.0982 | [0.0944, 0.1017] | 0.0696 | 0.4920 |
+| 5 | ranker_both | 0.1024 | [0.0986, 0.1062] | 0.0715 | 0.4688 |
+| 10 | most_popular | 0.0895 | [0.0857, 0.0935] | 0.0466 | 0.0325 |
+| 10 | group_most_popular | 0.0960 | [0.0923, 0.1001] | 0.0510 | 0.0614 |
+| 10 | item_item | 0.0961 | [0.0921, 0.1002] | 0.0560 | 0.1800 |
+| 10 | ranker_baseline | 0.1039 | [0.1002, 0.1077] | 0.0748 | 0.4328 |
+| 10 | ranker_both | 0.1077 | [0.1039, 0.1117] | 0.0770 | 0.4265 |
+
+Primary-seed NDCG@10 by gender and by age bucket, baseline ranker versus +both. Delta is both minus baseline.
+
+| group | n | baseline ndcg@10 | both ndcg@10 | delta | delta CI |
+| --- | --- | --- | --- | --- | --- |
+| gender F | 1689 | 0.1167 | 0.1164 | -0.0003 | [-0.0061, 0.0055] |
+| gender M | 4269 | 0.1321 | 0.1387 | 0.0066 | [0.0032, 0.0102] |
+| age 1 (Under 18) | 220 | 0.1278 | 0.1302 | 0.0024 | [-0.0150, 0.0214] |
+| age 18 (18-24) | 1085 | 0.1385 | 0.1426 | 0.0041 | [-0.0028, 0.0115] |
+| age 25 (25-34) | 2070 | 0.1348 | 0.1376 | 0.0028 | [-0.0020, 0.0081] |
+| age 35 (35-44) | 1180 | 0.1259 | 0.1351 | 0.0092 | [0.0017, 0.0171] |
+| age 45 (45-49) | 543 | 0.1150 | 0.1142 | -0.0009 | [-0.0114, 0.0090] |
+| age 50 (50-55) | 486 | 0.1091 | 0.1204 | 0.0113 | [0.0006, 0.0214] |
+| age 56 (56+) | 374 | 0.1060 | 0.1088 | 0.0028 | [-0.0132, 0.0183] |
+
+Demographic feature gains from the +both primary-seed refit booster. Rank is among every feature of that booster (1 = highest gain).
+
+| feature | gain | rank |
+| --- | --- | --- |
+| demo_occupation | 3922.3723 | 2 |
+| group_gender_pos_rate | 2584.2826 | 7 |
+| group_age_pop_share | 2435.5404 | 8 |
+| group_gender_pop_share | 1673.7744 | 10 |
+| group_occupation_pop_share | 1341.6961 | 12 |
+| group_occupation_pos_rate | 1333.0279 | 13 |
+| group_age_pos_rate | 1324.1932 | 14 |
+| demo_region | 760.1644 | 27 |
+| demo_age | 275.3523 | 37 |
+| demo_gender | 69.9087 | 41 |
+
+**Decision: keep demographic features as the ranker default.** +both mean NDCG@10=0.1334 versus baseline 0.1267. The paired CI low is above 0.
+
+Demographic experiment runtime: 400.0710s.
 
 <!-- END RESULTS TABLE -->
