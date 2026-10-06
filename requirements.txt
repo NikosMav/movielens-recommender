@@ -2,6 +2,7 @@
 # Prefer: pip install -r requirements.txt && pip install -e ".[dev]"
 # Optional two-tower (S3b): pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
 #   && pip install -e ".[deep]"
+# Optional LambdaRank (S4): pip install -e ".[rank]"  (lightgbm==4.6.0)
 numpy==2.2.6
 scipy==1.15.3
 pandas==2.2.3

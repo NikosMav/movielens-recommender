@@ -1,6 +1,6 @@
 # movielens-recommender
 
-A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–3 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, and a two-tower retrieval model. The two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. Ranker, serving with an explainable UI, and operations are planned and not built yet.
+A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). The two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. The ranker gate against item–item cosine is in the results table. Serving with an explainable UI, and operations, are planned and not built yet.
 
 The code is MIT, and the MovieLens data is not included: it is downloaded by the script and stays under the [GroupLens terms of use](https://grouplens.org/datasets/movielens/).
 
@@ -20,7 +20,7 @@ The code was written by AI coding agents (Cursor) working from a staged plan wit
 | **S2** | Done | Classic CF baselines |
 | **S3a** | Done | Validation split + tuned baselines + segments + global-time-cutoff sanity check |
 | **S3b** | Done | Two-tower retrieval (optional torch extra; tune on val only) |
-| **S4** | Planned (not built yet) | Learned ranker |
+| **S4** | Done | Learned ranker (LightGBM LambdaRank over a validation-chosen candidate set) |
 | **S5** | Planned (not built yet) | Serving with an explainable UI |
 | **S6** | Planned (not built yet) | Operations |
 
@@ -42,6 +42,12 @@ Optional **two-tower** extras (S3b; PyTorch CPU wheel):
 ```bash
 pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
 pip install -e ".[deep]"
+```
+
+Optional **ranker** extra (S4; LightGBM pinned to 4.6.0):
+
+```bash
+pip install -e ".[rank]"
 ```
 
 ## Download data
@@ -138,7 +144,20 @@ GitHub Actions installs the CPU PyTorch wheel, runs ruff + pytest (including two
 
 Tuning grids and per-trial validation scores: `results/tuning/*.json` and `results/tuning/two_tower_*.json`.
 
-**S3b gate (ml-1m):** two-tower must beat **both** item–item default and tuned on test NDCG@10 with CIs taken into account, or be written up as a negative result. The retriever or candidate set will be chosen in S4 by validation recall.
+**S3b gate (ml-1m):** two-tower must beat **both** item–item default and tuned on test NDCG@10 with CIs taken into account, or be written up as a negative result. S4 chooses the candidate set by validation Recall@200 (ADR-0007).
+
+## Ranker (S4)
+
+LightGBM LambdaRank in the optional `[rank]` extra. Candidate sets (tuned item–item, two-tower, balanced union, unbalanced union) are compared on **validation** Recall@100/200 at budget K. The winner is the default set. The ranker is trained on validation-window labels with features from fit-train only, early-stops on a held-out slice of validation users, then refits for `num_boost_round = best_iteration`. Before test scoring, both retrievers and all features are rebuilt on full train. Test labels are not used. Details and the later-window (global cutoff) rule are in [ADR-0007](docs/adr/0007-ranker.md).
+
+The same run writes a gitignored refit ranker under `models/<dataset>/` (`ranker.txt`, `ranker_meta.json`, schema version 1). Recreate it with:
+
+```bash
+movielens-recommender run --config configs/default.yaml
+movielens-recommender run --config configs/ml-1m.yaml
+```
+
+`explain_candidates` returns per-candidate LightGBM `pred_contrib=True` contributions (SHAP values plus bias), mapped to feature names, plus which retriever supplied the candidate and that retriever's score and rank. There is no UI in this stage. A small torch MLP ranker on the `[deep]` extra is future work (ADR-0007).
 
 ## Results
 
@@ -172,7 +191,7 @@ Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4
 
 #### Retrieval recall (candidate generation)
 
-Recall@100 / Recall@200 for models that report them (two-tower and baselines evaluated at the same cutoffs).
+Recall@100 / Recall@200 for models that report them, evaluated at the same cutoffs. This is test-list recall, not the validation candidate-set recall in the ranker section.
 
 | model | recall@100 | recall@200 |
 | --- | --- | --- |
@@ -242,7 +261,7 @@ Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4
 
 #### Retrieval recall (candidate generation)
 
-Recall@100 / Recall@200 for models that report them (two-tower and baselines evaluated at the same cutoffs).
+Recall@100 / Recall@200 for models that report them, evaluated at the same cutoffs. This is test-list recall, not the validation candidate-set recall in the ranker section.
 
 | model | recall@100 | recall@200 |
 | --- | --- | --- |

@@ -54,6 +54,9 @@ def library_versions() -> dict[str, str]:
     torch_v = _pkg_version("torch")
     if torch_v != "unknown":
         versions["torch"] = torch_v
+    lgb_v = _pkg_version("lightgbm")
+    if lgb_v != "unknown":
+        versions["lightgbm"] = lgb_v
     return versions
 
 
@@ -65,6 +68,15 @@ def set_seeds(seed: int) -> None:
 def _torch_available() -> bool:
     try:
         import torch  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+def _lightgbm_available() -> bool:
+    try:
+        import lightgbm  # noqa: F401
 
         return True
     except ImportError:
@@ -128,6 +140,7 @@ def run_pipeline(
     *,
     download: bool = True,
     reuse_baseline_tuning: bool = False,
+    reuse_two_tower_tuning: bool = False,
 ) -> Path:
     """Download (optional), clean, split, tune, train, evaluate, write JSON."""
     set_seeds(config.seed)
@@ -260,6 +273,7 @@ def run_pipeline(
     results: dict[str, dict] = {}
     hyperparams: dict[str, dict] = {}
     tuned_flags: dict[str, bool] = {}
+    fitted_models: dict[str, Any] = {}
     eval_ks = _eval_ks(config)
 
     for name, hp, is_tuned in model_specs:
@@ -271,6 +285,7 @@ def run_pipeline(
             relevance_threshold=config.eval.relevance_threshold,
             seed=config.seed,
         )
+        fitted_models[name] = model
         hyperparams[name] = recorded
         tuned_flags[name] = is_tuned
         results[name] = _eval_model(
@@ -284,6 +299,7 @@ def run_pipeline(
         )
 
     two_tower_meta: dict[str, Any] | None = None
+    two_tower_primary: Any | None = None
     if config.models.two_tower.enabled:
         if not _torch_available():
             raise ImportError(
@@ -292,7 +308,12 @@ def run_pipeline(
                 "--index-url https://download.pytorch.org/whl/cpu "
                 "&& pip install -e '.[deep]'"
             )
-        two_tower_meta = _run_two_tower(
+        reused_tt = None
+        tt_tuning_path = tuning_dir / f"two_tower_{dataset}.json"
+        if reuse_two_tower_tuning and tt_tuning_path.is_file():
+            print(f"Reusing two-tower tuning from {tt_tuning_path}", flush=True)
+            reused_tt = json.loads(tt_tuning_path.read_text(encoding="utf-8"))
+        two_tower_meta, two_tower_primary = _run_two_tower(
             split=split,
             eval_split=eval_split,
             full_train=full_train,
@@ -302,7 +323,44 @@ def run_pipeline(
             hyperparams=hyperparams,
             tuned_flags=tuned_flags,
             tuning_dir=tuning_dir,
+            reused_tuning=reused_tt,
         )
+
+    ranker_block: dict[str, Any] | None = None
+    ranker_later: dict[str, Any] | None = None
+    if config.models.ranker.enabled:
+        if not config.tune:
+            raise ValueError(
+                "models.ranker.enabled=true requires tune=true so item-item "
+                "hyperparameters are the validation-chosen ones."
+            )
+        if two_tower_meta is None or two_tower_primary is None:
+            raise ValueError(
+                "models.ranker.enabled=true requires models.two_tower.enabled=true."
+            )
+        if not _lightgbm_available():
+            raise ImportError(
+                "models.ranker.enabled=true but LightGBM is not installed. "
+                "Install with: pip install -e '.[rank]' (lightgbm==4.6.0)."
+            )
+        from movielens_recommender.ranker.pipeline import run_ranker_stage
+
+        ranker_out = run_ranker_stage(
+            split=split,
+            movies=movies,
+            config=config,
+            tuned_item_hp=tuned_hps["item_item_cosine_tuned"],
+            two_tower_hp=two_tower_meta["best_hyperparams"],
+            two_tower_epochs=int(two_tower_meta["best_epoch"]),
+            full_train_item_model=fitted_models["item_item_cosine_tuned"],
+            full_train_two_tower=two_tower_primary,
+            bar_metrics=results["item_item_cosine"],
+        )
+        results.update(ranker_out["metrics"])
+        hyperparams.update(ranker_out["hyperparameters"])
+        tuned_flags.update(ranker_out["tuned"])
+        ranker_block = ranker_out["ranker"]
+        ranker_later = ranker_out["later_window"]
 
     payload: dict[str, Any] = {
         "dataset": dataset,
@@ -346,6 +404,14 @@ def run_pipeline(
                 "Recall@100 / Recall@200 are reported for retrieval comparison "
                 "(candidate generation for S4)."
             ),
+            "ranker": (
+                "Optional LightGBM LambdaRank (ADR-0007). Candidate set chosen "
+                "by validation Recall@200. Ranker labels are the validation "
+                "window; training features come from fit-train only. Before "
+                "test scoring, retrievers and features are rebuilt on full "
+                "train. Test labels never enter ranker training. Ranker seeds "
+                "share retrievers and candidate sets."
+            ),
         },
         "runtime_sec": round(time.perf_counter() - pipeline_t0, 3),
     }
@@ -368,6 +434,8 @@ def run_pipeline(
         ]
         payload["tuning_summary"]["two_tower_best_epoch"] = two_tower_meta["best_epoch"]
         payload["tuning_summary"]["two_tower_tuning_json"] = two_tower_meta["tuning_json"]
+    if ranker_block is not None:
+        payload["ranker"] = ranker_block
 
     results_dir.mkdir(parents=True, exist_ok=True)
     out_path = results_dir / f"{dataset}.json"
@@ -384,6 +452,7 @@ def run_pipeline(
             default_knn=default_knn,
             two_tower_hp=two_tower_meta["best_hyperparams"] if two_tower_meta else None,
             two_tower_epochs=two_tower_meta["best_epoch"] if two_tower_meta else None,
+            ranker_later=ranker_later,
         )
         print(f"Wrote global-cutoff results to {gc_path}", flush=True)
 
@@ -401,47 +470,56 @@ def _run_two_tower(
     hyperparams: dict[str, dict],
     tuned_flags: dict[str, bool],
     tuning_dir: Path,
-) -> dict[str, Any]:
+    reused_tuning: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], Any]:
     from movielens_recommender.two_tower.train import (
         fit_two_tower_recommender,
         tune_two_tower,
     )
 
     dataset = config.dataset
-    print("Tuning two-tower on validation (NDCG@10)...", flush=True)
-    tt_tune = tune_two_tower(
-        split,
-        dataset=dataset,
-        data_dir=config.data_dir,
-        movies=movies,
-        relevance_threshold=config.eval.relevance_threshold,
-        seed=config.seed,
-        show_progress=True,
-    )
     tt_tuning_path = tuning_dir / f"two_tower_{dataset}.json"
-    tt_doc = {
-        "dataset": dataset,
-        "dataset_sha256": DATASET_SHA256[dataset],
-        "seed": config.seed,
-        "protocol": (
-            "Fit each trial on fit-train only; select by validation NDCG@10 "
-            "with early stopping. Never uses test. Refit on full_train for "
-            "best_epoch epochs before test eval (ADR-0005 / ADR-0006)."
-        ),
-        "primary_metric": "ndcg@10",
-        "val_fraction": config.split.val_fraction,
-        "two_tower": tt_tune.to_dict(),
-    }
-    tt_tuning_path.write_text(
-        json.dumps(tt_doc, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
-    print(f"Wrote two-tower tuning results to {tt_tuning_path}", flush=True)
-
-    best_hp = dict(tt_tune.best_hyperparams)
-    best_epoch = int(tt_tune.best_epoch)
+    if reused_tuning is not None:
+        tt_block = reused_tuning["two_tower"]
+        best_hp = dict(tt_block["best_hyperparams"])
+        best_epoch = int(tt_block["best_epoch"])
+        best_val_score = float(tt_block["best_val_score"])
+    else:
+        print("Tuning two-tower on validation (NDCG@10)...", flush=True)
+        tt_tune = tune_two_tower(
+            split,
+            dataset=dataset,
+            data_dir=config.data_dir,
+            movies=movies,
+            relevance_threshold=config.eval.relevance_threshold,
+            seed=config.seed,
+            show_progress=True,
+        )
+        tt_doc = {
+            "dataset": dataset,
+            "dataset_sha256": DATASET_SHA256[dataset],
+            "seed": config.seed,
+            "protocol": (
+                "Fit each trial on fit-train only; select by validation NDCG@10 "
+                "with early stopping. Never uses test. Refit on full_train for "
+                "best_epoch epochs before test eval (ADR-0005 / ADR-0006)."
+            ),
+            "primary_metric": "ndcg@10",
+            "val_fraction": config.split.val_fraction,
+            "two_tower": tt_tune.to_dict(),
+        }
+        tt_tuning_path.write_text(
+            json.dumps(tt_doc, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        print(f"Wrote two-tower tuning results to {tt_tuning_path}", flush=True)
+        best_hp = dict(tt_tune.best_hyperparams)
+        best_epoch = int(tt_tune.best_epoch)
+        best_val_score = float(tt_tune.best_val_score)
     seeds = list(config.models.two_tower.seeds)
     per_seed: list[dict[str, Any]] = []
     eval_ks = _eval_ks(config)
+    primary_seed = config.seed if config.seed in seeds else seeds[0]
+    primary_rec: Any | None = None
 
     for seed in seeds:
         print(
@@ -462,6 +540,8 @@ def _run_two_tower(
             val_split=None,
             show_progress=True,
         )
+        if seed == primary_seed:
+            primary_rec = rec
         metrics = _eval_model(
             rec,
             full_train,
@@ -498,7 +578,6 @@ def _run_two_tower(
 
     # Headline metrics entry: mean across seeds for point estimates; attach
     # CI from the config seed when present, else the first seed.
-    primary_seed = config.seed if config.seed in seeds else seeds[0]
     primary = next(s for s in per_seed if s["seed"] == primary_seed)
     headline = dict(primary["metrics"])
     for key, block in across.items():
@@ -554,9 +633,9 @@ def _run_two_tower(
         for n in beats
     ) if beats else False
 
-    return {
+    meta = {
         "best_hyperparams": best_hp,
-        "best_val_ndcg@10": tt_tune.best_val_score,
+        "best_val_ndcg@10": best_val_score,
         "best_epoch": best_epoch,
         "early_stopping": (
             f"Refit used fixed epoch count = best validation epoch ({best_epoch})."
@@ -583,6 +662,9 @@ def _run_two_tower(
         },
         "tuning_json": f"results/tuning/two_tower_{dataset}.json",
     }
+    if primary_rec is None:
+        raise RuntimeError("two-tower primary-seed model was not retained")
+    return meta, primary_rec
 
 
 def run_global_cutoff(
@@ -596,6 +678,7 @@ def run_global_cutoff(
     default_knn: dict[str, Any],
     two_tower_hp: dict[str, Any] | None = None,
     two_tower_epochs: int | None = None,
+    ranker_later: dict[str, Any] | None = None,
 ) -> Path:
     """Secondary global-time-cutoff evaluation (does not re-tune)."""
     gc_cfg = GlobalCutoffConfig(
@@ -619,6 +702,7 @@ def run_global_cutoff(
 
     results: dict[str, dict] = {}
     hyperparams: dict[str, dict] = {}
+    fitted_gc: dict[str, Any] = {}
     for name, hp, _is_tuned in model_specs:
         print(f"[global_cutoff] Fitting {name}...", flush=True)
         model, recorded = build_model(
@@ -628,6 +712,7 @@ def run_global_cutoff(
             relevance_threshold=config.eval.relevance_threshold,
             seed=config.seed,
         )
+        fitted_gc[name] = model
         hyperparams[name] = recorded
         results[name] = _eval_model(
             model,
@@ -662,6 +747,7 @@ def run_global_cutoff(
             val_split=None,
             show_progress=True,
         )
+        fitted_gc["two_tower"] = rec
         hyperparams["two_tower"] = {
             **dict(two_tower_hp),
             "refit_epochs": two_tower_epochs,
@@ -676,6 +762,40 @@ def run_global_cutoff(
             include_segments=False,
             ks=eval_ks,
         )
+
+    if (
+        ranker_later is not None
+        and "item_item_cosine" in fitted_gc
+        and "two_tower" in fitted_gc
+        and _lightgbm_available()
+    ):
+        from movielens_recommender.ranker.pipeline import evaluate_ranker_later_window
+
+        later_metrics = evaluate_ranker_later_window(
+            train=gc.train,
+            test=gc.test,
+            movies=movies,
+            config=config,
+            tuned_item_hp=ranker_later["tuned_item_hp"],
+            two_tower_hp=ranker_later["two_tower_hp"],
+            two_tower_epochs=int(ranker_later["two_tower_epochs"]),
+            full_train_item_model=fitted_gc["item_item_cosine"],
+            full_train_two_tower=fitted_gc["two_tower"],
+            winner=str(ranker_later["winner"]),
+            best_iteration=int(ranker_later["best_iteration"]),
+            split=eval_split,
+        )
+        results.update(later_metrics)
+        hyperparams["lambdarank"] = {
+            "candidate_set": ranker_later["winner"],
+            "num_boost_round": int(ranker_later["best_iteration"]),
+            "early_stopping": False,
+            "retuned": False,
+        }
+        hyperparams["no_ranker"] = {
+            "candidate_set": ranker_later["winner"],
+            "retuned": False,
+        }
 
     cold = results[next(iter(results))].get("cold_start", {})
     surviving = {
@@ -697,6 +817,15 @@ def run_global_cutoff(
         hp_source += (
             " two_tower uses the per-user-protocol chosen hyperparameters and "
             "early-stopping epoch; not re-tuned on the global cutoff."
+        )
+    if ranker_later is not None:
+        hp_source += (
+            " lambdarank reuses the per-user candidate set and primary-seed "
+            "best_iteration as a fixed num_boost_round. Labels are the "
+            "chronological tail of the pre-cutoff train; features for that "
+            "fit come from the head only. Retrievers and features are rebuilt "
+            "on the full pre-cutoff train before scoring. Post-cutoff labels "
+            "are not used. Not re-tuned."
         )
 
     payload = {
@@ -756,11 +885,14 @@ def _cmd_run(args: argparse.Namespace) -> int:
         config.tune = False
     if args.no_two_tower:
         config.models.two_tower.enabled = False
+    if args.no_ranker:
+        config.models.ranker.enabled = False
 
     out = run_pipeline(
         config,
         download=not args.no_download,
         reuse_baseline_tuning=args.reuse_baseline_tuning,
+        reuse_two_tower_tuning=args.reuse_two_tower_tuning,
     )
     print(f"Wrote results to {out}")
     return 0
@@ -822,6 +954,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-two-tower",
         action="store_true",
         help="Skip the optional two-tower stage even if enabled in YAML",
+    )
+    p_run.add_argument(
+        "--reuse-two-tower-tuning",
+        action="store_true",
+        help="Reuse results/tuning/two_tower_{dataset}.json; still refit and evaluate",
+    )
+    p_run.add_argument(
+        "--no-ranker",
+        action="store_true",
+        help="Skip the optional LambdaRank stage even if enabled in YAML",
     )
     p_run.set_defaults(func=_cmd_run)
 

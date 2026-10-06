@@ -79,6 +79,13 @@ def test_item_item_deterministic():
     assert a == b
 
 
+def test_item_item_batch_topk_matches_recommend():
+    model = ItemItemCosineRecommender().fit(_toy_train())
+    batch = model.topk_with_scores(3)
+    for uid in (1, 2, 3, 4):
+        assert [item for item, _score in batch[uid]] == model.recommend(uid, 3)
+
+
 def test_als_shape_excludes_seen_deterministic():
     train = _toy_train()
     model_a = ALSRecommender(
