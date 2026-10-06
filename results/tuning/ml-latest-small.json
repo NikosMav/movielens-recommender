@@ -196,6 +196,63 @@
   },
   "dataset": "ml-latest-small",
   "dataset_sha256": "696d65a3dfceac7c45750ad32df2c259311949efec81f0f144fdfb91ebc9e436",
+  "ease": {
+    "best_hyperparams": {
+      "l2": 500.0
+    },
+    "best_val_score": 0.088075,
+    "grid": [
+      {
+        "l2": 10.0
+      },
+      {
+        "l2": 50.0
+      },
+      {
+        "l2": 100.0
+      },
+      {
+        "l2": 500.0
+      },
+      {
+        "l2": 1000.0
+      }
+    ],
+    "model": "ease",
+    "primary_metric": "ndcg@10",
+    "trials": [
+      {
+        "hyperparams": {
+          "l2": 10.0
+        },
+        "val_ndcg@10": 0.077199
+      },
+      {
+        "hyperparams": {
+          "l2": 50.0
+        },
+        "val_ndcg@10": 0.081641
+      },
+      {
+        "hyperparams": {
+          "l2": 100.0
+        },
+        "val_ndcg@10": 0.08541
+      },
+      {
+        "hyperparams": {
+          "l2": 500.0
+        },
+        "val_ndcg@10": 0.088075
+      },
+      {
+        "hyperparams": {
+          "l2": 1000.0
+        },
+        "val_ndcg@10": 0.087937
+      }
+    ]
+  },
   "item_item_cosine": {
     "best_hyperparams": {
       "k_neighbors": 40,
@@ -290,6 +347,176 @@
   },
   "primary_metric": "ndcg@10",
   "protocol": "Fit each trial on fit-train only; select by validation NDCG@10 (point estimate, no bootstrap). Never uses test. Chosen configs are refit on full_train (= fit-train \u222a val) before test eval.",
+  "rp3beta": {
+    "best_hyperparams": {
+      "alpha": 0.6,
+      "beta": 0.3,
+      "top_k": 200
+    },
+    "best_val_score": 0.074587,
+    "grid": [
+      {
+        "alpha": 0.6,
+        "beta": 0.0,
+        "top_k": 50
+      },
+      {
+        "alpha": 0.6,
+        "beta": 0.0,
+        "top_k": 200
+      },
+      {
+        "alpha": 0.6,
+        "beta": 0.3,
+        "top_k": 50
+      },
+      {
+        "alpha": 0.6,
+        "beta": 0.3,
+        "top_k": 200
+      },
+      {
+        "alpha": 0.6,
+        "beta": 0.6,
+        "top_k": 50
+      },
+      {
+        "alpha": 0.6,
+        "beta": 0.6,
+        "top_k": 200
+      },
+      {
+        "alpha": 1.0,
+        "beta": 0.0,
+        "top_k": 50
+      },
+      {
+        "alpha": 1.0,
+        "beta": 0.0,
+        "top_k": 200
+      },
+      {
+        "alpha": 1.0,
+        "beta": 0.3,
+        "top_k": 50
+      },
+      {
+        "alpha": 1.0,
+        "beta": 0.3,
+        "top_k": 200
+      },
+      {
+        "alpha": 1.0,
+        "beta": 0.6,
+        "top_k": 50
+      },
+      {
+        "alpha": 1.0,
+        "beta": 0.6,
+        "top_k": 200
+      }
+    ],
+    "model": "rp3beta",
+    "primary_metric": "ndcg@10",
+    "trials": [
+      {
+        "hyperparams": {
+          "alpha": 0.6,
+          "beta": 0.0,
+          "top_k": 50
+        },
+        "val_ndcg@10": 0.07059
+      },
+      {
+        "hyperparams": {
+          "alpha": 0.6,
+          "beta": 0.0,
+          "top_k": 200
+        },
+        "val_ndcg@10": 0.074267
+      },
+      {
+        "hyperparams": {
+          "alpha": 0.6,
+          "beta": 0.3,
+          "top_k": 50
+        },
+        "val_ndcg@10": 0.071999
+      },
+      {
+        "hyperparams": {
+          "alpha": 0.6,
+          "beta": 0.3,
+          "top_k": 200
+        },
+        "val_ndcg@10": 0.074587
+      },
+      {
+        "hyperparams": {
+          "alpha": 0.6,
+          "beta": 0.6,
+          "top_k": 50
+        },
+        "val_ndcg@10": 0.053867
+      },
+      {
+        "hyperparams": {
+          "alpha": 0.6,
+          "beta": 0.6,
+          "top_k": 200
+        },
+        "val_ndcg@10": 0.062345
+      },
+      {
+        "hyperparams": {
+          "alpha": 1.0,
+          "beta": 0.0,
+          "top_k": 50
+        },
+        "val_ndcg@10": 0.068737
+      },
+      {
+        "hyperparams": {
+          "alpha": 1.0,
+          "beta": 0.0,
+          "top_k": 200
+        },
+        "val_ndcg@10": 0.07182
+      },
+      {
+        "hyperparams": {
+          "alpha": 1.0,
+          "beta": 0.3,
+          "top_k": 50
+        },
+        "val_ndcg@10": 0.065111
+      },
+      {
+        "hyperparams": {
+          "alpha": 1.0,
+          "beta": 0.3,
+          "top_k": 200
+        },
+        "val_ndcg@10": 0.069671
+      },
+      {
+        "hyperparams": {
+          "alpha": 1.0,
+          "beta": 0.6,
+          "top_k": 50
+        },
+        "val_ndcg@10": 0.030706
+      },
+      {
+        "hyperparams": {
+          "alpha": 1.0,
+          "beta": 0.6,
+          "top_k": 200
+        },
+        "val_ndcg@10": 0.041322
+      }
+    ]
+  },
   "seed": 42,
   "val_fraction": 0.1
 }

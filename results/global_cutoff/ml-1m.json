@@ -100,6 +100,9 @@
       "random_state": 42,
       "regularization": 0.1
     },
+    "ease": {
+      "l2": 1000.0
+    },
     "item_item_cosine": {
       "k_neighbors": 200,
       "min_common": 1,
@@ -116,6 +119,11 @@
       "candidate_set": "two_tower",
       "retuned": false
     },
+    "rp3beta": {
+      "alpha": 0.6,
+      "beta": 0.6,
+      "top_k": 200
+    },
     "two_tower": {
       "batch_size": 1024,
       "embedding_dim": 64,
@@ -129,7 +137,7 @@
       "weight_decay": 0.0001
     }
   },
-  "hyperparams_source": "Per-user-protocol tuned configs (validation NDCG@10); not re-tuned for the global cutoff. most_popular has no hyperparameters. two_tower uses the per-user-protocol chosen hyperparameters and early-stopping epoch; not re-tuned on the global cutoff. lambdarank reuses the per-user candidate set and primary-seed best_iteration as a fixed num_boost_round. Labels are the chronological tail of the pre-cutoff train; features for that fit come from the head only. Retrievers and features are rebuilt on the full pre-cutoff train before scoring. Post-cutoff labels are not used. Not re-tuned.",
+  "hyperparams_source": "Per-user-protocol tuned configs (validation NDCG@10); not re-tuned for the global cutoff. most_popular has no hyperparameters. two_tower uses the per-user-protocol chosen hyperparameters and early-stopping epoch; not re-tuned on the global cutoff. lambdarank reuses the per-user candidate set and primary-seed best_iteration as a fixed num_boost_round. Labels are the chronological tail of the pre-cutoff train; features for that fit come from the head only. Retrievers and features are rebuilt on the full pre-cutoff train before scoring. Post-cutoff labels are not used. Not re-tuned. ease and rp3beta reuse the per-user-protocol validation-chosen hyperparameters; not re-tuned on the global cutoff.",
   "ks": [
     10,
     20
@@ -257,6 +265,132 @@
       "recall@100": 0.261347,
       "recall@20": 0.081655,
       "recall@200": 0.387466,
+      "uncertainty_policy": {
+        "bootstrap_over_users": [
+          "precision@k",
+          "recall@k",
+          "ndcg@k",
+          "mean_popularity@k"
+        ],
+        "coverage_ci_policy": "point_estimate_only",
+        "coverage_ci_rationale": "Coverage is |union of top-k lists| / |catalog|. User bootstrap with replacement reduces unique users and biases the union downward, so CIs would not contain the full-sample estimate.",
+        "point_estimate_only": [
+          "coverage@k"
+        ]
+      }
+    },
+    "ease": {
+      "cold_start": {
+        "n_cold_items_in_test": 31,
+        "n_eval_users": 1114,
+        "n_relevant_dropped_cold_item": 44,
+        "n_train_items": 3662,
+        "n_train_users": 5392,
+        "n_users_excluded_no_warm_relevant": 21
+      },
+      "confidence_intervals": {
+        "mean_popularity@10": {
+          "high": 1330.533591,
+          "low": 1291.516943,
+          "mean": 1310.731239
+        },
+        "mean_popularity@100": {
+          "high": 883.539985,
+          "low": 865.542253,
+          "mean": 874.88351
+        },
+        "mean_popularity@20": {
+          "high": 1199.269484,
+          "low": 1167.553541,
+          "mean": 1183.346858
+        },
+        "mean_popularity@200": {
+          "high": 739.284492,
+          "low": 725.602187,
+          "mean": 732.795211
+        },
+        "ndcg@10": {
+          "high": 0.225944,
+          "low": 0.198909,
+          "mean": 0.212193
+        },
+        "ndcg@100": {
+          "high": 0.238397,
+          "low": 0.21997,
+          "mean": 0.22867
+        },
+        "ndcg@20": {
+          "high": 0.211471,
+          "low": 0.188505,
+          "mean": 0.199807
+        },
+        "ndcg@200": {
+          "high": 0.287225,
+          "low": 0.26914,
+          "mean": 0.278209
+        },
+        "precision@10": {
+          "high": 0.201346,
+          "low": 0.176928,
+          "mean": 0.188959
+        },
+        "precision@100": {
+          "high": 0.118007,
+          "low": 0.104533,
+          "mean": 0.110781
+        },
+        "precision@20": {
+          "high": 0.174599,
+          "low": 0.154394,
+          "mean": 0.163689
+        },
+        "precision@200": {
+          "high": 0.094032,
+          "low": 0.083052,
+          "mean": 0.088209
+        },
+        "recall@10": {
+          "high": 0.068197,
+          "low": 0.054971,
+          "mean": 0.061392
+        },
+        "recall@100": {
+          "high": 0.303249,
+          "low": 0.277967,
+          "mean": 0.290413
+        },
+        "recall@20": {
+          "high": 0.109304,
+          "low": 0.092797,
+          "mean": 0.10092
+        },
+        "recall@200": {
+          "high": 0.44486,
+          "low": 0.417785,
+          "mean": 0.431204
+        }
+      },
+      "coverage@10": 0.207537,
+      "coverage@100": 0.504369,
+      "coverage@20": 0.280448,
+      "coverage@200": 0.617149,
+      "mean_popularity@10": 1310.731239,
+      "mean_popularity@100": 874.88351,
+      "mean_popularity@20": 1183.346858,
+      "mean_popularity@200": 732.795211,
+      "n_eval_users": 1114.0,
+      "ndcg@10": 0.212193,
+      "ndcg@100": 0.22867,
+      "ndcg@20": 0.199807,
+      "ndcg@200": 0.278209,
+      "precision@10": 0.188959,
+      "precision@100": 0.110781,
+      "precision@20": 0.163689,
+      "precision@200": 0.088209,
+      "recall@10": 0.061392,
+      "recall@100": 0.290413,
+      "recall@20": 0.10092,
+      "recall@200": 0.431204,
       "uncertainty_policy": {
         "bootstrap_over_users": [
           "precision@k",
@@ -770,6 +904,132 @@
       "recall@100": 0.322367,
       "recall@20": 0.108265,
       "recall@200": 0.480061,
+      "uncertainty_policy": {
+        "bootstrap_over_users": [
+          "precision@k",
+          "recall@k",
+          "ndcg@k",
+          "mean_popularity@k"
+        ],
+        "coverage_ci_policy": "point_estimate_only",
+        "coverage_ci_rationale": "Coverage is |union of top-k lists| / |catalog|. User bootstrap with replacement reduces unique users and biases the union downward, so CIs would not contain the full-sample estimate.",
+        "point_estimate_only": [
+          "coverage@k"
+        ]
+      }
+    },
+    "rp3beta": {
+      "cold_start": {
+        "n_cold_items_in_test": 31,
+        "n_eval_users": 1114,
+        "n_relevant_dropped_cold_item": 44,
+        "n_train_items": 3662,
+        "n_train_users": 5392,
+        "n_users_excluded_no_warm_relevant": 21
+      },
+      "confidence_intervals": {
+        "mean_popularity@10": {
+          "high": 1744.238887,
+          "low": 1706.277789,
+          "mean": 1725.682496
+        },
+        "mean_popularity@100": {
+          "high": 1126.153143,
+          "low": 1106.113313,
+          "mean": 1116.262882
+        },
+        "mean_popularity@20": {
+          "high": 1593.222539,
+          "low": 1558.247472,
+          "mean": 1576.240171
+        },
+        "mean_popularity@200": {
+          "high": 917.272804,
+          "low": 901.881264,
+          "mean": 909.834708
+        },
+        "ndcg@10": {
+          "high": 0.239654,
+          "low": 0.210239,
+          "mean": 0.225018
+        },
+        "ndcg@100": {
+          "high": 0.240031,
+          "low": 0.220836,
+          "mean": 0.230545
+        },
+        "ndcg@20": {
+          "high": 0.224558,
+          "low": 0.198402,
+          "mean": 0.211604
+        },
+        "ndcg@200": {
+          "high": 0.285785,
+          "low": 0.266926,
+          "mean": 0.276356
+        },
+        "precision@10": {
+          "high": 0.216254,
+          "low": 0.188858,
+          "mean": 0.201975
+        },
+        "precision@100": {
+          "high": 0.12527,
+          "low": 0.109872,
+          "mean": 0.117316
+        },
+        "precision@20": {
+          "high": 0.190531,
+          "low": 0.167223,
+          "mean": 0.178591
+        },
+        "precision@200": {
+          "high": 0.097873,
+          "low": 0.085893,
+          "mean": 0.091566
+        },
+        "recall@10": {
+          "high": 0.062814,
+          "low": 0.051006,
+          "mean": 0.056945
+        },
+        "recall@100": {
+          "high": 0.286815,
+          "low": 0.264875,
+          "mean": 0.275869
+        },
+        "recall@20": {
+          "high": 0.099782,
+          "low": 0.084779,
+          "mean": 0.09198
+        },
+        "recall@200": {
+          "high": 0.424377,
+          "low": 0.397809,
+          "mean": 0.411741
+        }
+      },
+      "coverage@10": 0.100218,
+      "coverage@100": 0.355543,
+      "coverage@20": 0.150464,
+      "coverage@200": 0.5,
+      "mean_popularity@10": 1725.682496,
+      "mean_popularity@100": 1116.262882,
+      "mean_popularity@20": 1576.240171,
+      "mean_popularity@200": 909.834708,
+      "n_eval_users": 1114.0,
+      "ndcg@10": 0.225018,
+      "ndcg@100": 0.230545,
+      "ndcg@20": 0.211604,
+      "ndcg@200": 0.276356,
+      "precision@10": 0.201975,
+      "precision@100": 0.117316,
+      "precision@20": 0.178591,
+      "precision@200": 0.091566,
+      "recall@10": 0.056945,
+      "recall@100": 0.275869,
+      "recall@20": 0.09198,
+      "recall@200": 0.411741,
       "uncertainty_policy": {
         "bootstrap_over_users": [
           "precision@k",
