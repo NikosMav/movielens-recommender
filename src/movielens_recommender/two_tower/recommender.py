@@ -87,7 +87,13 @@ class TwoTowerRecommender:
             vec = self._model.encode_users(user_t, hist_t, mask_t)
         return vec.detach().cpu().numpy().astype(np.float32)[0]
 
-    def recommend(self, user_id: int, n: int) -> list[int]:
+    def topk_for_user(self, user_id: int, n: int) -> list[tuple[int, float]]:
+        """Top-n ``(item_id, score)`` for one fit user.
+
+        Score is the same unscaled dot product :meth:`recommend` ranks by.
+        Seen train items are masked. Ties use a stable mergesort. Unknown
+        user ids return an empty list: there is no embedding to encode.
+        """
         if n <= 0 or self._item_vectors is None or self._features is None:
             return []
         user_vec = self.encode_user(user_id)
@@ -111,7 +117,14 @@ class TwoTowerRecommender:
         else:
             part = np.argpartition(-cand_scores, n - 1)[:n]
             order = candidates[part[np.argsort(-cand_scores[part], kind="mergesort")]]
-        return [int(self._features.item_ids[i]) for i in order]
+        return [
+            (int(self._features.item_ids[i]), float(scores[i]))
+            for i in order
+            if np.isfinite(scores[i])
+        ]
+
+    def recommend(self, user_id: int, n: int) -> list[int]:
+        return [item_id for item_id, _score in self.topk_for_user(user_id, n)]
 
     def topk_with_scores(self, n: int) -> dict[int, list[tuple[int, float]]]:
         """Batched exact top-n ``(item_id, score)`` for every fit user.

@@ -77,7 +77,10 @@ def test_item_item_shape_and_excludes_seen():
 
 
 def test_item_item_deterministic():
-    a = ItemItemCosineRecommender().fit(_toy_train()).recommend(1, 3)
+    model = ItemItemCosineRecommender().fit(_toy_train())
+    scored = model.topk_for_user(1, 3)
+    assert [item for item, _score in scored] == model.recommend(1, 3)
+    a = model.recommend(1, 3)
     b = ItemItemCosineRecommender().fit(_toy_train()).recommend(1, 3)
     assert a == b
 

@@ -3,6 +3,7 @@
 # Optional two-tower (S3b): pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
 #   && pip install -e ".[deep]"
 # Optional LambdaRank (S4): pip install -e ".[rank]"  (lightgbm==4.6.0)
+# Optional Streamlit demo (S5a): pip install -e ".[ui]"  (streamlit==1.65.0)
 numpy==2.2.6
 scipy==1.15.3
 pandas==2.2.3

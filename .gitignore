@@ -4,6 +4,9 @@ data/
 # Trained ranker binaries (recreate: movielens-recommender run --config configs/<dataset>.yaml)
 models/
 
+# Serving snapshot for the Streamlit demo (recreate: movielens-recommender build-artifacts)
+artifacts/
+
 # Python
 __pycache__/
 *.py[cod]

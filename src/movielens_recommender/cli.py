@@ -978,6 +978,24 @@ def _cmd_demographics(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_build_artifacts(args: argparse.Namespace) -> int:
+    """Fit the serving snapshot. Does not evaluate and does not write results JSON."""
+    config = load_config(args.config)
+    if args.data_dir is not None:
+        config.data_dir = args.data_dir
+    if args.results_dir is not None:
+        config.results_dir = args.results_dir
+    from movielens_recommender.serving.build import build_artifacts
+
+    out = build_artifacts(
+        config,
+        out_dir=args.out_dir,
+        download=not args.no_download,
+    )
+    print(f"Artifacts: {out}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="movielens-recommender",
@@ -1070,6 +1088,36 @@ def build_parser() -> argparse.ArgumentParser:
         help="Do not download; require ml-1m already on disk",
     )
     p_demo.set_defaults(func=_cmd_demographics)
+
+    p_art = sub.add_parser(
+        "build-artifacts",
+        help=(
+            "Fit the production ranker (ADR-0007 refit) and write a gitignored "
+            "serving snapshot for the Streamlit demo"
+        ),
+    )
+    p_art.add_argument(
+        "--config",
+        default="configs/ml-1m.yaml",
+        help="Path to YAML run config (default: configs/ml-1m.yaml)",
+    )
+    p_art.add_argument(
+        "--out-dir",
+        default=None,
+        help="Snapshot directory (default: artifacts/<dataset>)",
+    )
+    p_art.add_argument("--data-dir", default=None, help="Override data_dir from config")
+    p_art.add_argument(
+        "--results-dir",
+        default=None,
+        help="Directory with results/tuning/<dataset>.json (default: from config)",
+    )
+    p_art.add_argument(
+        "--no-download",
+        action="store_true",
+        help="Do not download; require data already on disk",
+    )
+    p_art.set_defaults(func=_cmd_build_artifacts)
 
     return parser
 

@@ -1,6 +1,6 @@
 # movielens-recommender
 
-A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). S3c adds two more classic baselines, EASE^R and RP3beta (ADR-0008), tuned on the same validation split. The two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. The ranker gate against item–item cosine, and the EASE / RP3beta comparison, are in the results table. S4b (ADR-0009) tested user demographic features on ml-1m only. The pre-registered rule adopted them, so `configs/ml-1m.yaml` sets `models.ranker.demographics` to `both`. `configs/default.yaml` stays `off` because ml-latest-small has no `users.dat`. The headline LambdaRank row is still the S4 feature set in `results/ml-1m.json`. Serving with an explainable UI, and operations, are planned and not built yet.
+A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). S3c adds two more classic baselines, EASE^R and RP3beta (ADR-0008), tuned on the same validation split. The two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. The ranker gate against item–item cosine, and the EASE / RP3beta comparison, are in the results table. S4b (ADR-0009) tested user demographic features on ml-1m only. The pre-registered rule adopted them, so `configs/ml-1m.yaml` sets `models.ranker.demographics` to `both`. `configs/default.yaml` stays `off` because ml-latest-small has no `users.dat`. The headline LambdaRank row is still the S4 feature set in `results/ml-1m.json`. S5a is a Streamlit demo of that ml-1m ranker with plain-language reasons (ADR-0010). Batch recommendations, a FastAPI service, and a Dockerfile (S5b) are still planned. Operations (S6) are still planned.
 
 The code is MIT, and the MovieLens data is not included: it is downloaded by the script and stays under the [GroupLens terms of use](https://grouplens.org/datasets/movielens/).
 
@@ -23,7 +23,8 @@ The code was written by AI coding agents (Cursor) working from a staged plan wit
 | **S3c** | Done | EASE^R and RP3beta baselines (numpy/scipy; tuned on validation) |
 | **S4** | Done | Learned ranker (LightGBM LambdaRank over a validation-chosen candidate set) |
 | **S4b** | Done | S4b: user demographic features experiment (ml-1m) |
-| **S5** | Planned (not built yet) | Serving with an explainable UI |
+| **S5a** | Done | Streamlit explainable UI |
+| **S5b** | Planned | Batch recs, FastAPI, Dockerfile |
 | **S6** | Planned (not built yet) | Operations |
 
 Each modeling stage must beat the previous best on **NDCG@10** (same harness) or be written up as a negative result.
@@ -51,6 +52,27 @@ Optional **ranker** extra (S4; LightGBM pinned to 4.6.0):
 ```bash
 pip install -e ".[rank]"
 ```
+
+Optional **demo** extra (S5a; Streamlit pinned to 1.65.0):
+
+```bash
+pip install -e ".[ui]"
+```
+
+## Try the demo
+
+The page recommends for an existing ml-1m user. It loads a local snapshot of the production pipeline: validation-chosen candidates re-ranked by LightGBM LambdaRank, including the demographic group-affinity features from ADR-0009. It does not train. A typed-in profile is not supported; see [ADR-0010](docs/adr/0010-streamlit-ui.md). Metrics stay in the results section below. Nothing under `artifacts/` is committed.
+
+```bash
+pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+pip install -e ".[rank,deep,ui]"
+movielens-recommender build-artifacts --config configs/ml-1m.yaml
+streamlit run app/streamlit_app.py
+```
+
+`build-artifacts` downloads ml-1m if `data/` does not already have it, reads the tuned hyperparameters from `results/tuning/`, and writes `artifacts/ml-1m/`. The first Streamlit load reads that directory once.
+
+![ml-1m user 155: training history and an open explanation for Sleepless in Seattle](docs/demo/streamlit.png)
 
 ## Download data
 
@@ -163,7 +185,7 @@ movielens-recommender run --config configs/default.yaml
 movielens-recommender run --config configs/ml-1m.yaml
 ```
 
-`explain_candidates` returns per-candidate LightGBM `pred_contrib=True` contributions (SHAP values plus bias), mapped to feature names, plus which retriever supplied the candidate and that retriever's score and rank. There is no UI in this stage. A small torch MLP ranker on the `[deep]` extra is future work (ADR-0007).
+`explain_candidates` returns per-candidate LightGBM `pred_contrib=True` contributions (SHAP values plus bias), mapped to feature names, plus which retriever supplied the candidate and that retriever's score and rank. The Streamlit page maps those values to short sentences and does not show the raw names in the main view (ADR-0010). A small torch MLP ranker on the `[deep]` extra is future work (ADR-0007).
 
 ## Results
 
