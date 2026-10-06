@@ -1,6 +1,6 @@
 # movielens-recommender
 
-A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). The two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. The ranker gate against item–item cosine is in the results table. Serving with an explainable UI, and operations, are planned and not built yet.
+A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). S3c adds two more classic baselines, EASE^R and RP3beta (ADR-0008), tuned on the same validation split. The two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. The ranker gate against item–item cosine, and the EASE / RP3beta comparison, are in the results table. Serving with an explainable UI, and operations, are planned and not built yet.
 
 The code is MIT, and the MovieLens data is not included: it is downloaded by the script and stays under the [GroupLens terms of use](https://grouplens.org/datasets/movielens/).
 
@@ -20,6 +20,7 @@ The code was written by AI coding agents (Cursor) working from a staged plan wit
 | **S2** | Done | Classic CF baselines |
 | **S3a** | Done | Validation split + tuned baselines + segments + global-time-cutoff sanity check |
 | **S3b** | Done | Two-tower retrieval (optional torch extra; tune on val only) |
+| **S3c** | Done | EASE^R and RP3beta baselines (numpy/scipy; tuned on validation) |
 | **S4** | Done | Learned ranker (LightGBM LambdaRank over a validation-chosen candidate set) |
 | **S5** | Planned (not built yet) | Serving with an explainable UI |
 | **S6** | Planned (not built yet) | Operations |
@@ -140,9 +141,11 @@ GitHub Actions installs the CPU PyTorch wheel, runs ruff + pytest (including two
 | `item_item_cosine_tuned` | Same model; `k_neighbors` / `shrinkage` chosen on validation NDCG@10. |
 | `als` | `implicit` ALS (factors=64, iterations=15, α=40, seed=42) — S2 defaults. |
 | `als_tuned` | ALS with factors/regularization/α chosen on validation NDCG@10. |
+| `ease` | EASE^R (Steck 2019). λ chosen on validation NDCG@10 (ADR-0008). |
+| `rp3beta` | RP3beta random-walk item similarity. `(alpha, beta, top_k)` chosen on validation NDCG@10 (ADR-0008). |
 | `two_tower` | Optional PyTorch two-tower retrieval (ADR-0006); tuned on val NDCG@10 with early stopping; test over 3 seeds. |
 
-Tuning grids and per-trial validation scores: `results/tuning/*.json` and `results/tuning/two_tower_*.json`.
+Tuning grids and per-trial validation scores: `results/tuning/*.json` and `results/tuning/two_tower_*.json`. EASE and RP3beta trials live in the same `results/tuning/<dataset>.json` files (ADR-0008). The S4 ranker does not use them as candidate sources.
 
 **S3b gate (ml-1m):** two-tower must beat **both** item–item default and tuned on test NDCG@10 with CIs taken into account, or be written up as a negative result. S4 chooses the candidate set by validation Recall@200 (ADR-0007).
 
@@ -175,6 +178,7 @@ Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | als | 0.0686 | 0.0564 | 0.0598 | 0.0847 | 0.0542 | 0.1049 | 0.5198 | 956.1292 |
 | als_tuned | 0.0906 | 0.0740 | 0.0715 | 0.1072 | 0.0677 | 0.1257 | 0.4541 | 1118.0085 |
+| ease (tuned) | 0.1184 | 0.0959 | 0.0861 | 0.1322 | 0.0839 | 0.1473 | 0.2100 | 1575.2565 |
 | item_item_cosine | 0.1201 | 0.0980 | 0.0786 | 0.1284 | 0.0836 | 0.1277 | 0.1274 | 1794.5672 |
 | item_item_cosine_tuned | 0.1192 | 0.0983 | 0.0808 | 0.1313 | 0.0861 | 0.1384 | 0.1721 | 1634.2176 |
 | lambdarank (tuned) | 0.1273 | 0.1031 | 0.0928 | 0.1436 | 0.0917 | 0.1591 | 0.3895 | 1314.6790 |
@@ -184,6 +188,7 @@ Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4
 | lambdarank_union_balanced (tuned) | 0.1245 | 0.1019 | 0.0921 | 0.1412 | 0.0911 | 0.1576 | 0.3744 | 1309.8450 |
 | most_popular | 0.0895 | 0.0787 | 0.0466 | 0.0951 | 0.0698 | 0.0874 | 0.0325 | 2325.9361 |
 | no_ranker | 0.1191 | 0.0972 | 0.0897 | 0.1360 | 0.0872 | 0.1535 | 0.4669 | 1175.1585 |
+| rp3beta (tuned) | 0.1138 | 0.0934 | 0.0782 | 0.1255 | 0.0818 | 0.1334 | 0.1756 | 1750.1566 |
 | two_tower (tuned) | 0.1192 | 0.0966 | 0.0901 | 0.1362 | 0.0865 | 0.1541 | 0.4723 | 1167.6311 |
 
 95% bootstrap CIs (NDCG@10):
@@ -192,6 +197,7 @@ Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4
 | --- | --- |
 | als | [0.0658, 0.0714] |
 | als_tuned | [0.0874, 0.0940] |
+| ease (tuned) | [0.1142, 0.1226] |
 | item_item_cosine | [0.1158, 0.1242] |
 | item_item_cosine_tuned | [0.1147, 0.1233] |
 | lambdarank (tuned) | mean±std over seeds 0.1273±0.0013; primary-seed CI [0.1247, 0.1329] |
@@ -201,6 +207,7 @@ Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4
 | lambdarank_union_balanced (tuned) | [0.1201, 0.1286] |
 | most_popular | [0.0857, 0.0935] |
 | no_ranker | [0.1150, 0.1230] |
+| rp3beta (tuned) | [0.1095, 0.1178] |
 | two_tower (tuned) | mean±std over seeds 0.1192±0.0001; primary-seed CI [0.1150, 0.1230] |
 
 #### Retrieval recall (candidate generation)
@@ -211,6 +218,7 @@ Recall@100 / Recall@200 for models that report them, evaluated at the same cutof
 | --- | --- | --- |
 | als | 0.3609 | 0.5302 |
 | als_tuned | 0.3638 | 0.5014 |
+| ease (tuned) | 0.4314 | 0.6003 |
 | item_item_cosine | 0.3471 | 0.4989 |
 | item_item_cosine_tuned | 0.3828 | 0.5414 |
 | lambdarank (tuned) | 0.4481 ±0.0011 | 0.6025 ±0.0000 |
@@ -220,6 +228,7 @@ Recall@100 / Recall@200 for models that report them, evaluated at the same cutof
 | lambdarank_union_balanced (tuned) | 0.4468 | 0.5971 |
 | most_popular | 0.2599 | 0.3961 |
 | no_ranker | 0.4353 | 0.6025 |
+| rp3beta (tuned) | 0.3723 | 0.5258 |
 | two_tower (tuned) | 0.4354 ±0.0003 | 0.6037 ±0.0014 |
 
 #### Two-tower seeds and gate (ADR-0006)
@@ -299,6 +308,7 @@ User activity = train rating-count terciles (low/mid/high). Item head = top 20% 
 | --- | --- | --- | --- | --- | --- |
 | als | 0.0747 [0.0689, 0.0803] | 0.0591 [0.0549, 0.0635] | 0.0721 [0.0675, 0.0770] | 0.0832 [0.0797, 0.0865] | 0.0600 [0.0561, 0.0638] |
 | als_tuned | 0.0893 [0.0823, 0.0960] | 0.0800 [0.0748, 0.0849] | 0.1026 [0.0971, 0.1080] | 0.1034 [0.0993, 0.1074] | 0.0660 [0.0623, 0.0701] |
+| ease (tuned) | 0.1017 [0.0943, 0.1092] | 0.0904 [0.0847, 0.0959] | 0.1630 [0.1552, 0.1711] | 0.1314 [0.1269, 0.1361] | 0.0743 [0.0699, 0.0788] |
 | item_item_cosine | 0.0928 [0.0856, 0.1001] | 0.0943 [0.0881, 0.1002] | 0.1734 [0.1654, 0.1817] | 0.1311 [0.1265, 0.1358] | 0.0321 [0.0292, 0.0354] |
 | item_item_cosine_tuned | 0.0917 [0.0844, 0.0988] | 0.0920 [0.0860, 0.0975] | 0.1740 [0.1655, 0.1826] | 0.1307 [0.1260, 0.1352] | 0.0467 [0.0432, 0.0509] |
 | lambdarank (tuned) | 0.1165 [0.1092, 0.1242] | 0.0954 [0.0898, 0.1007] | 0.1745 [0.1657, 0.1829] | 0.1425 [0.1376, 0.1471] | 0.0915 [0.0868, 0.0969] |
@@ -308,11 +318,14 @@ User activity = train rating-count terciles (low/mid/high). Item head = top 20% 
 | lambdarank_union_balanced (tuned) | 0.1107 [0.1033, 0.1182] | 0.0928 [0.0875, 0.0983] | 0.1701 [0.1617, 0.1778] | 0.1374 [0.1331, 0.1419] | 0.0907 [0.0860, 0.0960] |
 | most_popular | 0.0395 [0.0351, 0.0440] | 0.0677 [0.0622, 0.0731] | 0.1614 [0.1530, 0.1710] | 0.0946 [0.0908, 0.0988] | 0.0000 [0.0000, 0.0001] |
 | no_ranker | 0.1089 [0.1014, 0.1166] | 0.0932 [0.0874, 0.0990] | 0.1551 [0.1475, 0.1629] | 0.1364 [0.1319, 0.1407] | 0.0825 [0.0782, 0.0873] |
+| rp3beta (tuned) | 0.0914 [0.0846, 0.0986] | 0.0885 [0.0824, 0.0938] | 0.1616 [0.1538, 0.1695] | 0.1243 [0.1197, 0.1287] | 0.0391 [0.0357, 0.0428] |
 | two_tower (tuned) | 0.1089 [0.1014, 0.1166] | 0.0932 [0.0874, 0.0990] | 0.1551 [0.1475, 0.1629] | 0.1364 [0.1319, 0.1407] | 0.0825 [0.0782, 0.0873] |
 
-Tuning log: [`results/tuning/ml-1m.json`](results/tuning/ml-1m.json). Chosen ALS={'alpha': 20.0, 'factors': 128, 'iterations': 15, 'regularization': 0.1} (val NDCG@10=0.0646); item–item={'k_neighbors': 200, 'min_common': 1, 'shrinkage': 100.0} (val NDCG@10=0.0810). Two-tower={'batch_size': 1024, 'embedding_dim': 64, 'learning_rate': 0.003, 'max_epochs': 20, 'max_history': 50, 'patience': 3, 'temperature': 0.1, 'weight_decay': 0.0001} (val NDCG@10=0.0826, best_epoch=6; log [`results/tuning/two_tower_ml-1m.json`](results/tuning/two_tower_ml-1m.json)).
+Tuning log: [`results/tuning/ml-1m.json`](results/tuning/ml-1m.json). Chosen ALS={'alpha': 20.0, 'factors': 128, 'iterations': 15, 'regularization': 0.1} (val NDCG@10=0.0646); item–item={'k_neighbors': 200, 'min_common': 1, 'shrinkage': 100.0} (val NDCG@10=0.0810). EASE={'l2': 5000.0} (val NDCG@10=0.0808); RP3beta={'alpha': 0.4, 'beta': 0.6, 'top_k': 2000} (val NDCG@10=0.0810). Two-tower={'batch_size': 1024, 'embedding_dim': 64, 'learning_rate': 0.003, 'max_epochs': 20, 'max_history': 50, 'patience': 3, 'temperature': 0.1, 'weight_decay': 0.0001} (val NDCG@10=0.0826, best_epoch=6; log [`results/tuning/two_tower_ml-1m.json`](results/tuning/two_tower_ml-1m.json)).
 
 Pipeline runtime: 668.3570s.
+
+EASE/RP3beta tune and test runtime (same harness, not included in the pipeline runtime above): 536.9470s.
 
 ### `ml-latest-small` (from `results/ml-latest-small.json`)
 
@@ -324,6 +337,7 @@ Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | als | 0.0795 | 0.0622 | 0.0693 | 0.0948 | 0.0531 | 0.1268 | 0.0965 | 108.2937 |
 | als_tuned | 0.0875 | 0.0653 | 0.0764 | 0.1013 | 0.0553 | 0.1284 | 0.1119 | 96.1963 |
+| ease (tuned) | 0.1022 | 0.0803 | 0.0855 | 0.1172 | 0.0674 | 0.1458 | 0.0618 | 146.4739 |
 | item_item_cosine | 0.0899 | 0.0707 | 0.0771 | 0.1017 | 0.0583 | 0.1266 | 0.0565 | 122.4519 |
 | item_item_cosine_tuned | 0.0997 | 0.0763 | 0.0774 | 0.1150 | 0.0674 | 0.1354 | 0.0485 | 160.4564 |
 | lambdarank (tuned) | 0.0990 | 0.0785 | 0.0838 | 0.1151 | 0.0682 | 0.1402 | 0.0972 | 114.9737 |
@@ -334,6 +348,7 @@ Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4
 | lambdarank_union_unbalanced (tuned) | 0.0852 | 0.0715 | 0.0692 | 0.1018 | 0.0646 | 0.1243 | 0.0999 | 113.1759 |
 | most_popular | 0.0743 | 0.0563 | 0.0514 | 0.0802 | 0.0466 | 0.0859 | 0.0119 | 216.7525 |
 | no_ranker | 0.0983 | 0.0714 | 0.0803 | 0.1156 | 0.0628 | 0.1415 | 0.1054 | 132.9802 |
+| rp3beta (tuned) | 0.0858 | 0.0690 | 0.0674 | 0.0986 | 0.0591 | 0.1214 | 0.0220 | 187.9454 |
 | two_tower (tuned) | 0.0910 | 0.0675 | 0.0869 | 0.1105 | 0.0589 | 0.1487 | 0.1396 | 98.8950 |
 
 95% bootstrap CIs (NDCG@10):
@@ -342,6 +357,7 @@ Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4
 | --- | --- |
 | als | [0.0692, 0.0902] |
 | als_tuned | [0.0768, 0.0982] |
+| ease (tuned) | [0.0898, 0.1151] |
 | item_item_cosine | [0.0784, 0.1011] |
 | item_item_cosine_tuned | [0.0867, 0.1130] |
 | lambdarank (tuned) | mean±std over seeds 0.0990±0.0114; primary-seed CI [0.0734, 0.0968] |
@@ -352,6 +368,7 @@ Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4
 | lambdarank_union_unbalanced (tuned) | [0.0734, 0.0968] |
 | most_popular | [0.0636, 0.0860] |
 | no_ranker | [0.0860, 0.1110] |
+| rp3beta (tuned) | [0.0735, 0.0985] |
 | two_tower (tuned) | mean±std over seeds 0.0910±0.0023; primary-seed CI [0.0777, 0.1013] |
 
 #### Retrieval recall (candidate generation)
@@ -362,6 +379,7 @@ Recall@100 / Recall@200 for models that report them, evaluated at the same cutof
 | --- | --- | --- |
 | als | 0.3265 | 0.4272 |
 | als_tuned | 0.2949 | 0.3848 |
+| ease (tuned) | 0.4033 | 0.5426 |
 | item_item_cosine | 0.3306 | 0.4507 |
 | item_item_cosine_tuned | 0.3554 | 0.4773 |
 | lambdarank (tuned) | 0.3650 ±0.0216 | 0.4976 ±0.0198 |
@@ -372,6 +390,7 @@ Recall@100 / Recall@200 for models that report them, evaluated at the same cutof
 | lambdarank_union_unbalanced (tuned) | 0.3351 | 0.4702 |
 | most_popular | 0.2337 | 0.3544 |
 | no_ranker | 0.3667 | 0.4923 |
+| rp3beta (tuned) | 0.3133 | 0.4432 |
 | two_tower (tuned) | 0.3559 ±0.0010 | 0.4737 ±0.0019 |
 
 #### Two-tower seeds and gate (ADR-0006)
@@ -452,6 +471,7 @@ User activity = train rating-count terciles (low/mid/high). Item head = top 20% 
 | --- | --- | --- | --- | --- | --- |
 | als | 0.0690 [0.0498, 0.0882] | 0.0770 [0.0611, 0.0936] | 0.0924 [0.0748, 0.1131] | 0.0840 [0.0734, 0.0947] | 0.0313 [0.0207, 0.0441] |
 | als_tuned | 0.0841 [0.0632, 0.1046] | 0.0744 [0.0587, 0.0919] | 0.1040 [0.0856, 0.1235] | 0.0936 [0.0825, 0.1049] | 0.0363 [0.0255, 0.0468] |
+| ease (tuned) | 0.0950 [0.0713, 0.1173] | 0.0780 [0.0626, 0.0945] | 0.1336 [0.1106, 0.1567] | 0.1087 [0.0959, 0.1214] | 0.0303 [0.0177, 0.0441] |
 | item_item_cosine | 0.0815 [0.0601, 0.1030] | 0.0756 [0.0600, 0.0921] | 0.1126 [0.0920, 0.1356] | 0.0961 [0.0839, 0.1077] | 0.0105 [0.0051, 0.0179] |
 | item_item_cosine_tuned | 0.0890 [0.0660, 0.1133] | 0.0756 [0.0603, 0.0924] | 0.1343 [0.1093, 0.1598] | 0.1056 [0.0925, 0.1195] | 0.0010 [0.0000, 0.0026] |
 | lambdarank (tuned) | 0.0638 [0.0448, 0.0838] | 0.0757 [0.0599, 0.0934] | 0.1160 [0.0939, 0.1403] | 0.0920 [0.0805, 0.1037] | 0.0119 [0.0062, 0.0185] |
@@ -462,25 +482,30 @@ User activity = train rating-count terciles (low/mid/high). Item head = top 20% 
 | lambdarank_union_unbalanced (tuned) | 0.0638 [0.0448, 0.0838] | 0.0757 [0.0599, 0.0934] | 0.1160 [0.0939, 0.1403] | 0.0920 [0.0805, 0.1037] | 0.0119 [0.0062, 0.0185] |
 | most_popular | 0.0588 [0.0401, 0.0795] | 0.0610 [0.0461, 0.0779] | 0.1030 [0.0793, 0.1246] | 0.0783 [0.0673, 0.0914] | 0.0000 [0.0000, 0.0000] |
 | no_ranker | 0.0936 [0.0716, 0.1166] | 0.0843 [0.0676, 0.1016] | 0.1170 [0.0948, 0.1380] | 0.1124 [0.0991, 0.1269] | 0.0114 [0.0062, 0.0175] |
+| rp3beta (tuned) | 0.0693 [0.0506, 0.0896] | 0.0658 [0.0507, 0.0835] | 0.1221 [0.0965, 0.1453] | 0.0903 [0.0790, 0.1035] | 0.0000 [0.0000, 0.0000] |
 | two_tower (tuned) | 0.0995 [0.0761, 0.1231] | 0.0828 [0.0652, 0.1016] | 0.0847 [0.0664, 0.1037] | 0.1136 [0.1003, 0.1273] | 0.0114 [0.0062, 0.0175] |
 
-Tuning log: [`results/tuning/ml-latest-small.json`](results/tuning/ml-latest-small.json). Chosen ALS={'alpha': 20.0, 'factors': 128, 'iterations': 15, 'regularization': 0.1} (val NDCG@10=0.0750); item–item={'k_neighbors': 40, 'min_common': 1, 'shrinkage': 100.0} (val NDCG@10=0.0873). Two-tower={'batch_size': 1024, 'embedding_dim': 64, 'learning_rate': 0.003, 'max_epochs': 20, 'max_history': 50, 'patience': 3, 'temperature': 0.1, 'weight_decay': 0.0001} (val NDCG@10=0.0819, best_epoch=7; log [`results/tuning/two_tower_ml-latest-small.json`](results/tuning/two_tower_ml-latest-small.json)).
+Tuning log: [`results/tuning/ml-latest-small.json`](results/tuning/ml-latest-small.json). Chosen ALS={'alpha': 20.0, 'factors': 128, 'iterations': 15, 'regularization': 0.1} (val NDCG@10=0.0750); item–item={'k_neighbors': 40, 'min_common': 1, 'shrinkage': 100.0} (val NDCG@10=0.0873). EASE={'l2': 500.0} (val NDCG@10=0.0881); RP3beta={'alpha': 0.2, 'beta': 0.3, 'top_k': 2000} (val NDCG@10=0.0799). Two-tower={'batch_size': 1024, 'embedding_dim': 64, 'learning_rate': 0.003, 'max_epochs': 20, 'max_history': 50, 'patience': 3, 'temperature': 0.1, 'weight_decay': 0.0001} (val NDCG@10=0.0819, best_epoch=7; log [`results/tuning/two_tower_ml-latest-small.json`](results/tuning/two_tower_ml-latest-small.json)).
 
 Pipeline runtime: 129.4080s.
 
+EASE/RP3beta tune and test runtime (same harness, not included in the pipeline runtime above): 289.6160s.
+
 ### Global-time-cutoff sanity check (`ml-1m`, secondary)
 
-From `results/global_cutoff/ml-1m.json`. Secondary sanity check: whether model ranking holds when cross-user future signal is removed (ADR-0002). Not the headline table. Hyperparams: Per-user-protocol tuned configs (validation NDCG@10); not re-tuned for the global cutoff. most_popular has no hyperparameters. two_tower uses the per-user-protocol chosen hyperparameters and early-stopping epoch; not re-tuned on the global cutoff. lambdarank reuses the per-user candidate set and primary-seed best_iteration as a fixed num_boost_round. Labels are the chronological tail of the pre-cutoff train; features for that fit come from the head only. Retrievers and features are rebuilt on the full pre-cutoff train before scoring. Post-cutoff labels are not used. Not re-tuned. **Not re-tuned** for this protocol (`retuned=False`).
+From `results/global_cutoff/ml-1m.json`. Secondary sanity check: whether model ranking holds when cross-user future signal is removed (ADR-0002). Not the headline table. Hyperparams: Per-user-protocol tuned configs (validation NDCG@10); not re-tuned for the global cutoff. most_popular has no hyperparameters. two_tower uses the per-user-protocol chosen hyperparameters and early-stopping epoch; not re-tuned on the global cutoff. lambdarank reuses the per-user candidate set and primary-seed best_iteration as a fixed num_boost_round. Labels are the chronological tail of the pre-cutoff train; features for that fit come from the head only. Retrievers and features are rebuilt on the full pre-cutoff train before scoring. Post-cutoff labels are not used. Not re-tuned. ease and rp3beta reuse the per-user-protocol validation-chosen hyperparameters; not re-tuned on the global cutoff. **Not re-tuned** for this protocol (`retuned=False`).
 
 Cutoff: timestamp quantile=0.8 (cutoff_timestamp=975768738.0). Surviving: train users=5392, train items=3662, test interactions (after user filter)=103937, eval users (warm relevant)=1114.
 
 | model | ndcg@10 | ndcg@10 CI | precision@10 | recall@10 | recall@100 | recall@200 |
 | --- | --- | --- | --- | --- | --- | --- |
 | als | 0.1553 | [0.1449, 0.1669] | 0.1479 | 0.0427 | 0.2613 | 0.3875 |
+| ease | 0.2259 | [0.2116, 0.2407] | 0.2017 | 0.0613 | 0.2987 | 0.4479 |
 | item_item_cosine | 0.2319 | [0.2162, 0.2473] | 0.2104 | 0.0575 | 0.2764 | 0.4171 |
 | lambdarank | 0.2323 | [0.2193, 0.2465] | 0.2085 | 0.0720 | 0.3370 | 0.4801 |
 | most_popular | 0.2136 | [0.1990, 0.2286] | 0.1987 | 0.0490 | 0.2648 | 0.3866 |
 | no_ranker | 0.2140 | [0.2007, 0.2277] | 0.1974 | 0.0655 | 0.3224 | 0.4801 |
+| rp3beta | 0.2217 | [0.2064, 0.2364] | 0.1991 | 0.0558 | 0.2579 | 0.3928 |
 | two_tower | 0.2140 | [0.2007, 0.2277] | 0.1974 | 0.0655 | 0.3224 | 0.4801 |
 
 <!-- END RESULTS TABLE -->

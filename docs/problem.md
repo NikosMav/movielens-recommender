@@ -53,6 +53,7 @@ Committed numbers live in `results/*.json`. Tuning grids and val scores live in 
 | **S2** | Classic CF baselines (default hyperparams; not tuned on test) |
 | **S3a** | Validation split + tuned baselines + segment breakdowns + global-time-cutoff sanity check on ml-1m |
 | **S3b** | Two-tower retrieval (optional torch extra; tune on val only) |
+| **S3c** | EASE^R and RP3beta baselines (numpy/scipy; tune on val only; ADR-0008) |
 | **S4** | Learned ranker (LightGBM LambdaRank; candidate set by validation recall; ADR-0007) |
 | **S5** | Serving (inference path, latency budget) |
 | **S6** | Operations (monitoring, refresh, drift) |

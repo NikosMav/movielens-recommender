@@ -452,6 +452,13 @@ def render_headline(filename: str, payload: dict) -> str:
                 f"(val NDCG@10="
                 f"{_fmt(float(tuning['item_item_cosine_best_val_ndcg@10']))})."
             )
+        if tuning.get("ease_best") is not None:
+            bits.append(
+                f"EASE={tuning.get('ease_best')} "
+                f"(val NDCG@10={_fmt(float(tuning['ease_best_val_ndcg@10']))}); "
+                f"RP3beta={tuning.get('rp3beta_best')} "
+                f"(val NDCG@10={_fmt(float(tuning['rp3beta_best_val_ndcg@10']))})."
+            )
         if tuning.get("two_tower_best") is not None:
             bits.append(
                 f"Two-tower={tuning.get('two_tower_best')} "
@@ -464,6 +471,13 @@ def render_headline(filename: str, payload: dict) -> str:
         lines.append("")
     if payload.get("runtime_sec") is not None:
         lines.append(f"Pipeline runtime: {_fmt(float(payload['runtime_sec']))}s.")
+        lines.append("")
+    if payload.get("s3c_runtime_sec") is not None:
+        lines.append(
+            "EASE/RP3beta tune and test runtime "
+            f"(same harness, not included in the pipeline runtime above): "
+            f"{_fmt(float(payload['s3c_runtime_sec']))}s."
+        )
         lines.append("")
     return "\n".join(lines)
 
