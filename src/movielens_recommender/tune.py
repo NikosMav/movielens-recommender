@@ -30,16 +30,21 @@ ITEM_KNN_GRID: list[dict[str, Any]] = [
 ]
 
 # First search was {10, 50, 100, 500, 1000}. ml-1m selected the top edge, so the
-# grid was extended upward (ADR-0008). A further one-step value, if the new
-# winner is still at an end, is recorded in the tuning JSON.
+# grid was extended after that test run (ADR-0008). The new ml-1m winner, 5000,
+# is interior.
 EASE_L2_VALUES: tuple[float, ...] = (10.0, 50.0, 100.0, 500.0, 1000.0, 2000.0, 5000.0, 10000.0)
 EASE_GRID: list[dict[str, Any]] = [{"l2": lam} for lam in EASE_L2_VALUES]
 
 # First search was alpha {0.6, 1.0} × beta {0.0, 0.3, 0.6} × top_k {50, 200}.
-# Winners sat on non-natural edges, so each axis was extended (ADR-0008).
+# Those winners sat on non-natural edges, so each axis was extended after the
+# first test run. top_k=1000 still won that extended grid on both datasets, so
+# one further step added 2000. That value is still short of the fit-train
+# catalog; the search stops there (ADR-0008). alpha=0 was the same one step on
+# ml-latest-small only. The winner moved to 0.2, and that trial stays in
+# results/tuning/ml-latest-small.json rather than this shared product.
 RP3BETA_ALPHAS: tuple[float, ...] = (0.2, 0.4, 0.6, 0.8, 1.0)
 RP3BETA_BETAS: tuple[float, ...] = (0.0, 0.3, 0.6, 0.8, 1.0)
-RP3BETA_TOPKS: tuple[int, ...] = (50, 200, 500, 1000)
+RP3BETA_TOPKS: tuple[int, ...] = (50, 200, 500, 1000, 2000)
 RP3BETA_GRID: list[dict[str, Any]] = [
     {"alpha": alpha, "beta": beta, "top_k": top_k}
     for alpha, beta, top_k in itertools.product(RP3BETA_ALPHAS, RP3BETA_BETAS, RP3BETA_TOPKS)

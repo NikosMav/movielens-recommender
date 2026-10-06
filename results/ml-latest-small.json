@@ -216,9 +216,9 @@
       "candidate_set": "union_unbalanced"
     },
     "rp3beta": {
-      "alpha": 0.6,
+      "alpha": 0.2,
       "beta": 0.3,
-      "top_k": 200
+      "top_k": 2000
     },
     "two_tower": {
       "batch_size": 1024,
@@ -3238,107 +3238,107 @@
       },
       "confidence_intervals": {
         "mean_popularity@10": {
-          "high": 188.077131,
-          "low": 182.55711,
-          "mean": 185.265932
+          "high": 190.271377,
+          "low": 185.731263,
+          "mean": 187.945424
         },
         "mean_popularity@100": {
-          "high": 114.801601,
-          "low": 112.385854,
-          "mean": 113.614797
+          "high": 117.14944,
+          "low": 114.79013,
+          "mean": 115.939153
         },
         "mean_popularity@20": {
-          "high": 166.899936,
-          "low": 162.33304,
-          "mean": 164.617373
+          "high": 170.432426,
+          "low": 166.419919,
+          "mean": 168.421356
         },
         "mean_popularity@200": {
-          "high": 92.280288,
-          "low": 90.446528,
-          "mean": 91.36728
+          "high": 93.568987,
+          "low": 91.651689,
+          "mean": 92.596915
         },
         "ndcg@10": {
-          "high": 0.101763,
-          "low": 0.077086,
-          "mean": 0.089442
+          "high": 0.098521,
+          "low": 0.073501,
+          "mean": 0.08579
         },
         "ndcg@100": {
-          "high": 0.181667,
-          "low": 0.157486,
-          "mean": 0.169937
+          "high": 0.16973,
+          "low": 0.145884,
+          "mean": 0.157399
         },
         "ndcg@20": {
-          "high": 0.117176,
-          "low": 0.092787,
-          "mean": 0.105391
+          "high": 0.11002,
+          "low": 0.087423,
+          "mean": 0.098606
         },
         "ndcg@200": {
-          "high": 0.221873,
-          "low": 0.197087,
-          "mean": 0.209733
+          "high": 0.207446,
+          "low": 0.182983,
+          "mean": 0.195064
         },
         "precision@10": {
-          "high": 0.080847,
-          "low": 0.060847,
-          "mean": 0.070847
+          "high": 0.079153,
+          "low": 0.059318,
+          "mean": 0.068983
         },
         "precision@100": {
-          "high": 0.039272,
-          "low": 0.032525,
-          "mean": 0.035729
+          "high": 0.036797,
+          "low": 0.030153,
+          "mean": 0.033339
         },
         "precision@20": {
-          "high": 0.069917,
-          "low": 0.054574,
-          "mean": 0.062203
+          "high": 0.066617,
+          "low": 0.051862,
+          "mean": 0.059068
         },
         "precision@200": {
-          "high": 0.028721,
-          "low": 0.024042,
-          "mean": 0.026297
+          "high": 0.027305,
+          "low": 0.022652,
+          "mean": 0.024898
         },
         "recall@10": {
-          "high": 0.079718,
-          "low": 0.057049,
-          "mean": 0.068568
+          "high": 0.078952,
+          "low": 0.056748,
+          "mean": 0.067432
         },
         "recall@100": {
-          "high": 0.367768,
-          "low": 0.318062,
-          "mean": 0.343387
+          "high": 0.337742,
+          "low": 0.289899,
+          "mean": 0.313253
         },
         "recall@20": {
-          "high": 0.1476,
-          "low": 0.11463,
-          "mean": 0.131431
+          "high": 0.137528,
+          "low": 0.105893,
+          "mean": 0.121367
         },
         "recall@200": {
-          "high": 0.507121,
-          "low": 0.456997,
-          "mean": 0.482161
+          "high": 0.467875,
+          "low": 0.418205,
+          "mean": 0.443196
         }
       },
-      "coverage@10": 0.026922,
-      "coverage@100": 0.101625,
-      "coverage@20": 0.038443,
-      "coverage@200": 0.177177,
-      "mean_popularity@10": 185.265932,
-      "mean_popularity@100": 113.614797,
-      "mean_popularity@20": 164.617373,
-      "mean_popularity@200": 91.36728,
+      "coverage@10": 0.02195,
+      "coverage@100": 0.08877,
+      "coverage@20": 0.03335,
+      "coverage@200": 0.130851,
+      "mean_popularity@10": 187.945424,
+      "mean_popularity@100": 115.939153,
+      "mean_popularity@20": 168.421356,
+      "mean_popularity@200": 92.596915,
       "n_eval_users": 590.0,
-      "ndcg@10": 0.089442,
-      "ndcg@100": 0.169937,
-      "ndcg@20": 0.105391,
-      "ndcg@200": 0.209733,
-      "precision@10": 0.070847,
-      "precision@100": 0.035729,
-      "precision@20": 0.062203,
-      "precision@200": 0.026297,
-      "recall@10": 0.068568,
-      "recall@100": 0.343387,
-      "recall@20": 0.131431,
-      "recall@200": 0.482161,
+      "ndcg@10": 0.08579,
+      "ndcg@100": 0.157399,
+      "ndcg@20": 0.098606,
+      "ndcg@200": 0.195064,
+      "precision@10": 0.068983,
+      "precision@100": 0.033339,
+      "precision@20": 0.059068,
+      "precision@200": 0.024898,
+      "recall@10": 0.067432,
+      "recall@100": 0.313253,
+      "recall@20": 0.121367,
+      "recall@200": 0.443196,
       "segments": {
         "definitions": {
           "head_fraction": 0.2,
@@ -3350,65 +3350,65 @@
           "head": {
             "confidence_intervals": {
               "ndcg@10": {
-                "high": 0.107463,
-                "low": 0.08219,
-                "mean": 0.093725
+                "high": 0.103545,
+                "low": 0.078981,
+                "mean": 0.09034
               }
             },
             "n_segment_items": 1649,
             "n_users": 574,
-            "ndcg@10": 0.093725
+            "ndcg@10": 0.09034
           },
           "tail": {
             "confidence_intervals": {
               "ndcg@10": {
-                "high": 0.022412,
-                "low": 0.005435,
-                "mean": 0.013202
+                "high": 0.0,
+                "low": 0.0,
+                "mean": 0.0
               }
             },
             "n_segment_items": 6597,
             "n_users": 352,
-            "ndcg@10": 0.013202
+            "ndcg@10": 0.0
           }
         },
         "user_activity_terciles": {
           "high": {
             "confidence_intervals": {
               "ndcg@10": {
-                "high": 0.150634,
-                "low": 0.099154,
-                "mean": 0.125629
+                "high": 0.14529,
+                "low": 0.096536,
+                "mean": 0.122139
               }
             },
             "n_users": 197,
-            "ndcg@10": 0.125629,
+            "ndcg@10": 0.122139,
             "train_rating_count_max": 2159,
             "train_rating_count_min": 104
           },
           "low": {
             "confidence_intervals": {
               "ndcg@10": {
-                "high": 0.097931,
-                "low": 0.054193,
-                "mean": 0.074754
+                "high": 0.089604,
+                "low": 0.050599,
+                "mean": 0.069329
               }
             },
             "n_users": 197,
-            "ndcg@10": 0.074754,
+            "ndcg@10": 0.069329,
             "train_rating_count_max": 37,
             "train_rating_count_min": 16
           },
           "mid": {
             "confidence_intervals": {
               "ndcg@10": {
-                "high": 0.085525,
-                "low": 0.052668,
-                "mean": 0.067834
+                "high": 0.083482,
+                "low": 0.050727,
+                "mean": 0.065802
               }
             },
             "n_users": 196,
-            "ndcg@10": 0.067834,
+            "ndcg@10": 0.065802,
             "train_rating_count_max": 103,
             "train_rating_count_min": 37
           }
@@ -4556,7 +4556,7 @@
     200
   ],
   "runtime_sec": 129.408,
-  "s3c_runtime_sec": 77.98,
+  "s3c_runtime_sec": 289.616,
   "seed": 42,
   "split": {
     "config": {
@@ -4614,11 +4614,11 @@
     },
     "item_item_cosine_best_val_ndcg@10": 0.087254,
     "rp3beta_best": {
-      "alpha": 0.6,
+      "alpha": 0.2,
       "beta": 0.3,
-      "top_k": 200
+      "top_k": 2000
     },
-    "rp3beta_best_val_ndcg@10": 0.074587,
+    "rp3beta_best_val_ndcg@10": 0.079885,
     "tuning_json": "results/tuning/ml-latest-small.json",
     "two_tower_best": {
       "batch_size": 1024,
