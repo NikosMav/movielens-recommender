@@ -1,0 +1,298 @@
+{
+  "completed": true,
+  "purpose": "Pre-test budget probe for ml-32m. No NDCG, recall, coverage, or other ranking metric is computed.",
+  "stages": {
+    "als": {
+      "extrapolated_15_iter_sec": 129.6,
+      "factors": 64,
+      "finished_at_unix": 1791288151.4918692,
+      "fit_sec": 17.285,
+      "iterations_run": 2,
+      "note": "Real ALSRecommender.fit on fit-train for 2 iterations. The 15-iteration figure multiplies wall time by 15/2, so it includes setup and overestimates the iteration-only cost. No recommendations or metrics.",
+      "rss": {
+        "commit_headroom_mib": 1609.0,
+        "commit_limit_mib": 8007.0,
+        "committed_as_mib": 6398.0,
+        "hwm_mib": 6640.0,
+        "mem_available_mib": 5160.9,
+        "rss_mib": 4410.1
+      }
+    },
+    "ease_allocations": {
+      "finished_at_unix": 1791288080.3489754,
+      "partial": false,
+      "trials": [
+        {
+          "assumed_matrices": 3,
+          "headroom_before_mib": 4006.5,
+          "n": 30000,
+          "needed_mib": 20599.4,
+          "one_matrix_mib": 6866.5,
+          "status": "skipped_over_commit_headroom"
+        },
+        {
+          "assumed_matrices": 3,
+          "headroom_before_mib": 4006.5,
+          "n": 25000,
+          "needed_mib": 14305.1,
+          "one_matrix_mib": 4768.4,
+          "status": "skipped_over_commit_headroom"
+        },
+        {
+          "assumed_matrices": 3,
+          "headroom_before_mib": 4006.5,
+          "n": 20000,
+          "needed_mib": 9155.3,
+          "one_matrix_mib": 3051.8,
+          "status": "skipped_over_commit_headroom"
+        },
+        {
+          "assumed_matrices": 3,
+          "headroom_before_mib": 4006.5,
+          "n": 16000,
+          "needed_mib": 5859.4,
+          "one_matrix_mib": 1953.1,
+          "status": "skipped_over_commit_headroom"
+        },
+        {
+          "assumed_matrices": 3,
+          "headroom_before_mib": 4006.5,
+          "n": 14000,
+          "needed_mib": 4486.1,
+          "one_matrix_mib": 1495.4,
+          "status": "skipped_over_commit_headroom"
+        },
+        {
+          "alloc_sec": 0.128,
+          "assumed_matrices": 3,
+          "headroom_before_mib": 4006.5,
+          "inv_sec": 13.35,
+          "inv_shape": [
+            12000,
+            12000
+          ],
+          "n": 12000,
+          "needed_mib": 3295.9,
+          "one_matrix_mib": 1098.6,
+          "rss_after_alloc": {
+            "commit_headroom_mib": 710.6,
+            "commit_limit_mib": 8007.0,
+            "committed_as_mib": 7296.4,
+            "hwm_mib": 5553.1,
+            "mem_available_mib": 6276.4,
+            "rss_mib": 3238.2
+          },
+          "rss_after_free": {
+            "commit_headroom_mib": 2869.4,
+            "commit_limit_mib": 8007.0,
+            "committed_as_mib": 5137.6,
+            "hwm_mib": 5553.1,
+            "mem_available_mib": 7470.3,
+            "rss_mib": 2130.5
+          },
+          "status": "allocated_and_inverted"
+        }
+      ]
+    },
+    "ease_fit": {
+      "cache_user_scores": false,
+      "finished_at_unix": 1791288134.179924,
+      "fit_sec": 41.106,
+      "l2": 5000.0,
+      "max_items": 12000,
+      "n_items_before_restriction": 66819,
+      "n_items_fit": 12000,
+      "note": "One fit on fit-train. No recommendations or metrics.",
+      "rss": {
+        "commit_headroom_mib": 2607.1,
+        "commit_limit_mib": 8007.0,
+        "committed_as_mib": 5399.9,
+        "hwm_mib": 6640.0,
+        "mem_available_mib": 5968.5,
+        "rss_mib": 3574.0
+      }
+    },
+    "host": {
+      "commit_headroom_mib": 6189.7,
+      "commit_limit_mib": 8007.0,
+      "committed_as_mib": 1817.3,
+      "cpu_count": 4,
+      "finished_at_unix": 1791287877.22935,
+      "hwm_mib": 103.8,
+      "mem_available_mib": 4872.5,
+      "mem_total_mib": 16014.0,
+      "overcommit": "0",
+      "overcommit_ratio": "50",
+      "rss_mib": 103.8,
+      "swap_total_mib": 0.0
+    },
+    "item_item_blocks": {
+      "block_rows": 251,
+      "build_binary_sec": 1.539,
+      "extrapolated_full_fit_sec": 432.5,
+      "finished_at_unix": 1791288087.6965687,
+      "matrix": "fit_train",
+      "mean_block_sec": 1.62,
+      "n_blocks_full": 267,
+      "n_items": 66819,
+      "note": "Same block matmul as _sparse_topk_cosine (column-normalized cosine plus common counts). Extrapolation is mean of the sampled blocks times n_blocks. No recommendations or metrics.",
+      "rss": {
+        "commit_headroom_mib": 3435.1,
+        "commit_limit_mib": 8007.0,
+        "committed_as_mib": 4571.9,
+        "hwm_mib": 5553.1,
+        "mem_available_mib": 6595.0,
+        "rss_mib": 2666.5
+      },
+      "sampled_blocks": [
+        {
+          "end": 251,
+          "sec": 3.24,
+          "start": 0
+        },
+        {
+          "end": 33660,
+          "sec": 0.874,
+          "start": 33409
+        },
+        {
+          "end": 66819,
+          "sec": 0.745,
+          "start": 66568
+        }
+      ]
+    },
+    "load_split": {
+      "finished_at_unix": 1791287942.5431745,
+      "load_sec": 44.116,
+      "n_dropped_duplicates": 0,
+      "n_dropped_invalid_rating": 0,
+      "n_eligible_eval_users": 196517,
+      "n_fit_train": 23198846,
+      "n_full_train": 25677530,
+      "n_full_train_items": 71364,
+      "n_movies_rows": 87585,
+      "n_ratings_clean": 32000204,
+      "n_test": 6322674,
+      "n_train_items": 66819,
+      "n_train_users": 200948,
+      "n_val": 2478684,
+      "rss_after_load": {
+        "commit_headroom_mib": 5162.5,
+        "commit_limit_mib": 8007.0,
+        "committed_as_mib": 2844.5,
+        "hwm_mib": 5500.6,
+        "mem_available_mib": 8204.6,
+        "rss_mib": 1075.3
+      },
+      "rss_after_split": {
+        "commit_headroom_mib": 4124.6,
+        "commit_limit_mib": 8007.0,
+        "committed_as_mib": 3882.5,
+        "hwm_mib": 5500.6,
+        "mem_available_mib": 7104.8,
+        "rss_mib": 2127.3
+      },
+      "split_sec": 19.86
+    },
+    "rp3beta_blocks": {
+      "block_rows": 502,
+      "build_binary_sec": 1.679,
+      "extrapolated_full_fit_sec": 126.5,
+      "finished_at_unix": 1791288093.0599568,
+      "matrix": "fit_train",
+      "mean_block_sec": 0.938,
+      "n_blocks_full": 134,
+      "n_items": 66819,
+      "normalize_sec": 0.758,
+      "note": "Same blocked P_iu @ P_ui as RP3betaRecommender._fit_blocked. No top-k prune loop, no recommendations, no metrics.",
+      "rss": {
+        "commit_headroom_mib": 3435.1,
+        "commit_limit_mib": 8007.0,
+        "committed_as_mib": 4571.9,
+        "hwm_mib": 5553.1,
+        "mem_available_mib": 6596.7,
+        "rss_mib": 2666.5
+      },
+      "sampled_blocks": [
+        {
+          "end": 502,
+          "sec": 2.544,
+          "shape": [
+            502,
+            66819
+          ],
+          "start": 0
+        },
+        {
+          "end": 33911,
+          "sec": 0.176,
+          "shape": [
+            502,
+            66819
+          ],
+          "start": 33409
+        },
+        {
+          "end": 66819,
+          "sec": 0.095,
+          "shape": [
+            502,
+            66819
+          ],
+          "start": 66317
+        }
+      ]
+    },
+    "two_tower": {
+      "batch_wall_sec": 2.369,
+      "batches_per_epoch": 11575,
+      "batches_timed": 20,
+      "build_features_sec": 23.004,
+      "extrapolated_epoch_train_sec": 1371.2,
+      "extrapolated_recommend_8000_sec": 7.6,
+      "finished_at_unix": 1791288657.3202066,
+      "n_items": 66819,
+      "n_positives": 11852789,
+      "n_users": 200948,
+      "note": "20 AdamW batches on fit-train positives, ml-1m architecture (emb 64, batch 1024, temperature 0.1). recommend() timed on the first 100 fit users at k=10. Scores are discarded. No validation or test metric.",
+      "recommend_users_timed": 100,
+      "recommend_wall_sec": 0.096,
+      "rss": {
+        "commit_headroom_mib": 2656.0,
+        "commit_limit_mib": 8007.0,
+        "committed_as_mib": 5351.0,
+        "hwm_mib": 5583.0,
+        "mem_available_mib": 3587.0,
+        "rss_mib": 3636.7
+      },
+      "sec_per_batch": 0.1185,
+      "seen_storage": "int64_arrays"
+    },
+    "two_tower_python_sets": {
+      "batch_wall_sec": 2.89,
+      "batches_per_epoch": 11575,
+      "batches_timed": 20,
+      "build_features_sec": 30.317,
+      "extrapolated_epoch_train_sec": 1672.8,
+      "extrapolated_recommend_8000_sec": 7.8,
+      "finished_at_unix": 1791288196.2846968,
+      "n_items": 66819,
+      "n_positives": 11852789,
+      "n_users": 200948,
+      "note": "Measured before seen-item ids were stored as int64 arrays. 20 AdamW batches on fit-train positives, ml-1m architecture (emb 64, batch 1024, temperature 0.1). recommend() timed on the first 100 fit users at k=10. Scores are discarded. No validation or test metric.",
+      "recommend_users_timed": 100,
+      "recommend_wall_sec": 0.098,
+      "rss": {
+        "commit_headroom_mib": -12.5,
+        "commit_limit_mib": 8007.0,
+        "committed_as_mib": 8019.5,
+        "hwm_mib": 6810.2,
+        "mem_available_mib": 3600.3,
+        "rss_mib": 6057.7
+      },
+      "sec_per_batch": 0.1445,
+      "seen_storage": "python_sets"
+    }
+  }
+}

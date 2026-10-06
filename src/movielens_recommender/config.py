@@ -26,6 +26,11 @@ class EvalYAML:
     bootstrap_alpha: float = 0.05
     # Extra recall cutoffs for retrieval models (S3b); reported when computed.
     retrieval_ks: list[int] = field(default_factory=lambda: [100, 200])
+    # 0 = score every eligible user. A positive size is a seeded sample
+    # shared by every model (ADR-0011). Histories are not truncated.
+    user_sample_size: int = 0
+    # None uses the run seed.
+    user_sample_seed: int | None = None
 
 
 @dataclass
@@ -41,6 +46,16 @@ class ItemKNNYAML:
     min_common: int = 1
     k_neighbors: int = 0
     shrinkage: float = 0.0
+
+
+@dataclass
+class EaseYAML:
+    """EASE^R. ``max_items`` restricts the closed form to the head catalog.
+
+    ``None`` uses every train item (ml-1m / ml-latest-small).
+    """
+
+    max_items: int | None = None
 
 
 @dataclass
@@ -89,9 +104,21 @@ class GlobalCutoffYAML:
 
 
 @dataclass
+class TuningYAML:
+    """Optional validation grids. ``None`` keeps the module-level default grid."""
+
+    als: list[dict[str, Any]] | None = None
+    item_item_cosine: list[dict[str, Any]] | None = None
+    ease: list[dict[str, Any]] | None = None
+    rp3beta: list[dict[str, Any]] | None = None
+    two_tower: list[dict[str, Any]] | None = None
+
+
+@dataclass
 class ModelsYAML:
     als: ALSYAML = field(default_factory=ALSYAML)
     item_item_cosine: ItemKNNYAML = field(default_factory=ItemKNNYAML)
+    ease: EaseYAML = field(default_factory=EaseYAML)
     two_tower: TwoTowerYAML = field(default_factory=TwoTowerYAML)
     ranker: RankerYAML = field(default_factory=RankerYAML)
 
@@ -110,6 +137,7 @@ class RunConfig:
     eval: EvalYAML = field(default_factory=EvalYAML)
     models: ModelsYAML = field(default_factory=ModelsYAML)
     global_cutoff: GlobalCutoffYAML = field(default_factory=GlobalCutoffYAML)
+    tuning: TuningYAML = field(default_factory=TuningYAML)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -151,6 +179,9 @@ def load_config(path: Path | str | None = None) -> RunConfig:
     tt_raw = models_raw.get("two_tower", {})
     rank_raw = models_raw.get("ranker", {})
     gc_raw = raw.get("global_cutoff", {})
+    ease_raw = models_raw.get("ease") or {}
+    tune_raw = raw.get("tuning") or {}
+    sample_seed = eval_raw.get("user_sample_seed")
     return RunConfig(
         seed=int(raw.get("seed", 42)),
         dataset=str(raw.get("dataset", "ml-latest-small")),
@@ -169,6 +200,8 @@ def load_config(path: Path | str | None = None) -> RunConfig:
             n_bootstrap=int(eval_raw.get("n_bootstrap", 1000)),
             bootstrap_alpha=float(eval_raw.get("bootstrap_alpha", 0.05)),
             retrieval_ks=[int(k) for k in eval_raw.get("retrieval_ks", [100, 200])],
+            user_sample_size=int(eval_raw.get("user_sample_size", 0) or 0),
+            user_sample_seed=None if sample_seed is None else int(sample_seed),
         ),
         models=ModelsYAML(
             als=ALSYAML(
@@ -181,6 +214,13 @@ def load_config(path: Path | str | None = None) -> RunConfig:
                 min_common=int(knn_raw.get("min_common", 1)),
                 k_neighbors=int(knn_raw.get("k_neighbors", 0)),
                 shrinkage=float(knn_raw.get("shrinkage", 0.0)),
+            ),
+            ease=EaseYAML(
+                max_items=(
+                    None
+                    if ease_raw.get("max_items") is None
+                    else int(ease_raw.get("max_items"))
+                ),
             ),
             two_tower=TwoTowerYAML(
                 enabled=bool(tt_raw.get("enabled", True)),
@@ -214,4 +254,18 @@ def load_config(path: Path | str | None = None) -> RunConfig:
             timestamp_quantile=float(gc_raw.get("timestamp_quantile", 0.8)),
             min_train_ratings=int(gc_raw.get("min_train_ratings", 5)),
         ),
+        tuning=TuningYAML(
+            als=_optional_grid(tune_raw, "als"),
+            item_item_cosine=_optional_grid(tune_raw, "item_item_cosine"),
+            ease=_optional_grid(tune_raw, "ease"),
+            rp3beta=_optional_grid(tune_raw, "rp3beta"),
+            two_tower=_optional_grid(tune_raw, "two_tower"),
+        ),
     )
+
+
+def _optional_grid(tune_raw: dict[str, Any], key: str) -> list[dict[str, Any]] | None:
+    """Return a copied grid, or ``None`` when the YAML omits it."""
+    if key not in tune_raw or tune_raw[key] is None:
+        return None
+    return [dict(item) for item in tune_raw[key]]

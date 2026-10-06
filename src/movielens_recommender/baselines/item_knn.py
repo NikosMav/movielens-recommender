@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 from scipy import sparse
 
+from movielens_recommender.scale import SPARSE_CATALOG_ITEMS
+
 
 class ItemItemCosineRecommender:
     """Score candidate items by cosine similarity to the user's train items.
@@ -22,7 +24,10 @@ class ItemItemCosineRecommender:
     For a user with train ratings ``r``, scores are ``S @ r`` (with train items
     zeroed so they are not re-recommended).
 
-    For large catalogs this is O(|I|^2); fine for ml-latest-small / ml-1m.
+    Catalogs larger than :data:`SPARSE_CATALOG_ITEMS` keep a sparse top-k
+    neighbourhood instead of the dense Gram (ADR-0011). ``k_neighbors`` must
+    be positive on that path. ``sparse_topk=True`` forces the block path on
+    small catalogs so tests can compare it with the dense Gram.
     """
 
     def __init__(
@@ -31,10 +36,12 @@ class ItemItemCosineRecommender:
         min_common: int = 1,
         k_neighbors: int = 0,
         shrinkage: float = 0.0,
+        sparse_topk: bool | None = None,
     ) -> None:
         self.min_common = min_common
         self.k_neighbors = k_neighbors
         self.shrinkage = shrinkage
+        self.sparse_topk = sparse_topk
         self._item_ids: np.ndarray = np.array([], dtype=np.int64)
         self._item_index: dict[int, int] = {}
         self._user_index: dict[int, int] = {}
@@ -58,6 +65,24 @@ class ItemItemCosineRecommender:
             dtype=np.float64,
         )
         self._user_item = mat
+        n_items = len(items)
+        use_sparse = self.sparse_topk
+        if use_sparse is None:
+            use_sparse = n_items > SPARSE_CATALOG_ITEMS
+        if use_sparse:
+            if self.k_neighbors <= 0 or self.k_neighbors >= n_items:
+                raise ValueError(
+                    f"Sparse item-item top-k needs 0 < k_neighbors < n_items "
+                    f"(got k_neighbors={self.k_neighbors}, n_items={n_items}). "
+                    "A dense Gram does not fit this catalog."
+                )
+            self._similarity = _sparse_topk_cosine(
+                mat,
+                k_neighbors=self.k_neighbors,
+                min_common=self.min_common,
+                shrinkage=self.shrinkage,
+            )
+            return self
 
         # Binary co-occurrence for min_common filter and shrinkage.
         binary = mat.copy()
@@ -91,7 +116,7 @@ class ItemItemCosineRecommender:
             return []
 
         user_vec = self._user_item.getrow(uidx).toarray().ravel()
-        scores = self._similarity @ user_vec
+        scores = np.asarray(self._similarity @ user_vec).ravel()
         # Never recommend items the user already interacted with in train.
         scores[user_vec != 0] = -np.inf
 
@@ -103,14 +128,22 @@ class ItemItemCosineRecommender:
             order = part[np.argsort(-scores[part], kind="mergesort")]
         return [int(self._item_ids[i]) for i in order[:n] if np.isfinite(scores[i])]
 
-    def topk_with_scores(self, n: int) -> dict[int, list[tuple[int, float]]]:
-        """Batched top-n ``(item_id, score)`` for every fit user.
+    def topk_with_scores(
+        self,
+        n: int,
+        user_ids: Sequence[int] | None = None,
+    ) -> dict[int, list[tuple[int, float]]]:
+        """Batched top-n ``(item_id, score)`` for fit users.
 
         Same score as :meth:`recommend` (``S @ r``, seen items masked). The
         matmul is batched; ties use a stable mergesort, matching ``recommend``.
+        ``user_ids`` restricts the dict. On the sparse path it also avoids
+        materializing a users × items score matrix.
         """
         if n <= 0 or self._similarity is None or self._user_item is None:
             return {}
+        if sparse.issparse(self._similarity):
+            return self._sparse_topk_scores(n, user_ids)
         # scores[u, i] = (S @ r_u)_i, with S stored row-wise (not always symmetric).
         scores = np.asarray(self._user_item @ self._similarity.T, dtype=np.float64)
         seen_rows, seen_cols = self._user_item.nonzero()
@@ -129,6 +162,9 @@ class ItemItemCosineRecommender:
                 for j in chosen
                 if np.isfinite(scores[uidx, j])
             ]
+        if user_ids is not None:
+            want = {int(uid) for uid in user_ids}
+            return {uid: rows for uid, rows in out.items() if uid in want}
         return out
 
     def topk_for_profiles(
@@ -185,6 +221,58 @@ class ItemItemCosineRecommender:
             ]
         return out
 
+    def _sparse_topk_scores(
+        self,
+        n: int,
+        user_ids: Sequence[int] | None,
+    ) -> dict[int, list[tuple[int, float]]]:
+        """Top-n from a sparse neighbourhood without a users × items score matrix."""
+        assert self._similarity is not None and self._user_item is not None
+        if user_ids is None:
+            uids = [int(uid) for uid in self._user_index]
+        else:
+            uids = [int(uid) for uid in user_ids if int(uid) in self._user_index]
+        if not uids:
+            return {}
+        sim_t = self._similarity.T.tocsr()
+        n_items = len(self._item_ids)
+        out: dict[int, list[tuple[int, float]]] = {}
+        chunk = 128
+        for start in range(0, len(uids), chunk):
+            batch = uids[start : start + chunk]
+            rows: list[np.ndarray] = []
+            cols: list[np.ndarray] = []
+            data: list[np.ndarray] = []
+            for row_i, uid in enumerate(batch):
+                stored = self._user_item.getrow(self._user_index[uid])
+                if stored.nnz == 0:
+                    continue
+                rows.append(np.full(stored.nnz, row_i, dtype=np.int32))
+                cols.append(stored.indices.astype(np.int32, copy=False))
+                data.append(stored.data.astype(np.float64, copy=False))
+            if not data:
+                continue
+            mat = sparse.csr_matrix(
+                (
+                    np.concatenate(data),
+                    (np.concatenate(rows), np.concatenate(cols)),
+                ),
+                shape=(len(batch), n_items),
+                dtype=np.float64,
+            )
+            scores = np.asarray(mat @ sim_t, dtype=np.float64)
+            for row_i, uid in enumerate(batch):
+                seen_idx = self._user_item.getrow(self._user_index[uid]).indices
+                if len(seen_idx):
+                    scores[row_i, seen_idx] = -np.inf
+                chosen = _topk_indices(scores[row_i], n)
+                out[uid] = [
+                    (int(self._item_ids[j]), float(scores[row_i, j]))
+                    for j in chosen
+                    if np.isfinite(scores[row_i, j])
+                ]
+        return out
+
     def hyperparams(self) -> dict:
         return {
             "min_common": self.min_common,
@@ -204,7 +292,7 @@ class ItemItemCosineRecommender:
         if uidx is None:
             return []
         user_vec = self._user_item.getrow(uidx).toarray().ravel()
-        scores = self._similarity @ user_vec
+        scores = np.asarray(self._similarity @ user_vec).ravel()
         scores[user_vec != 0] = -np.inf
         chosen = _topk_indices(scores, n)
         return [
@@ -252,6 +340,75 @@ def _topk_indices(scores: np.ndarray, n: int) -> np.ndarray:
     part = np.argpartition(-sc, n - 1)[:n]
     order = part[np.argsort(-sc[part], kind="mergesort")]
     return idx[order]
+
+
+def _sparse_topk_cosine(
+    mat: sparse.csr_matrix,
+    *,
+    k_neighbors: int,
+    min_common: int,
+    shrinkage: float,
+) -> sparse.csr_matrix:
+    """Block-wise cosine Gram, keeping ``k_neighbors`` entries per row.
+
+    Matches the dense path: column-normalize, zero the diagonal, apply
+    ``min_common`` and shrinkage, then :func:`_top_k_neighbors`.
+    """
+    n_items = mat.shape[1]
+    binary = mat.copy()
+    binary.data = np.ones(binary.data.shape, dtype=np.float64)
+    norms = np.sqrt(np.asarray(mat.power(2).sum(axis=0))).ravel()
+    norms[norms == 0.0] = 1.0
+    mat_norm = (mat @ sparse.diags(1.0 / norms)).tocsc()
+    binary_csc = binary.tocsc()
+    row_bytes = max(n_items * 8 * 2, 1)
+    block_rows = max(1, min(n_items, (256 * 1024 * 1024) // row_bytes))
+    if n_items > SPARSE_CATALOG_ITEMS:
+        print(
+            f"  item-item sparse top-k: n_items={n_items} k={k_neighbors} "
+            f"block_rows={block_rows}",
+            flush=True,
+        )
+
+    indptr = [0]
+    indices: list[np.ndarray] = []
+    data: list[np.ndarray] = []
+    nnz = 0
+    for start in range(0, n_items, block_rows):
+        end = min(start + block_rows, n_items)
+        sim = (mat_norm[:, start:end].T @ mat_norm).toarray()
+        common = (binary_csc[:, start:end].T @ binary_csc).toarray()
+        for local, item in enumerate(range(start, end)):
+            sim[local, item] = 0.0
+        if min_common > 1:
+            sim[common < min_common] = 0.0
+        if shrinkage > 0.0:
+            sim *= common / (common + shrinkage)
+            for local, item in enumerate(range(start, end)):
+                sim[local, item] = 0.0
+        for local in range(end - start):
+            row = sim[local]
+            if k_neighbors >= n_items:
+                kept = np.arange(n_items, dtype=np.int32)
+            else:
+                kept = np.argpartition(-row, k_neighbors)[:k_neighbors].astype(np.int32)
+            indices.append(kept)
+            data.append(row[kept])
+            nnz += len(kept)
+            indptr.append(nnz)
+        if n_items > SPARSE_CATALOG_ITEMS:
+            print(f"    item-item block rows {start}:{end}", flush=True)
+    if nnz == 0:
+        return sparse.csr_matrix((n_items, n_items), dtype=np.float64)
+    return sparse.csr_matrix(
+        (
+            np.concatenate(data).astype(np.float64, copy=False),
+            np.concatenate(indices).astype(np.int32, copy=False),
+            np.asarray(indptr, dtype=np.int32),
+        ),
+        shape=(n_items, n_items),
+        dtype=np.float64,
+    )
 
 
 def _top_k_neighbors(sim: np.ndarray, k: int) -> np.ndarray:

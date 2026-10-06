@@ -2,7 +2,7 @@
 
 A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). S3c adds two more classic baselines, EASE^R and RP3beta (ADR-0008), tuned on the same validation split. The two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. The ranker gate against item–item cosine, and the EASE / RP3beta comparison, are in the results table. S4b (ADR-0009) tested user demographic features on ml-1m only. The pre-registered rule adopted them, so `configs/ml-1m.yaml` sets `models.ranker.demographics` to `both`. `configs/default.yaml` stays `off` because ml-latest-small has no `users.dat`. The headline LambdaRank row is still the S4 feature set in `results/ml-1m.json`. S5a is a Streamlit demo of that ml-1m ranker with plain-language reasons (ADR-0010). Batch recommendations, a FastAPI service, and a Dockerfile (S5b) are still planned. Operations (S6) are still planned.
 
-The code is MIT, and the MovieLens data is not included: it is downloaded by the script and stays under the [GroupLens terms of use](https://grouplens.org/datasets/movielens/).
+The code is MIT, and the MovieLens data is not included: it is downloaded by the script and stays under the [GroupLens terms of use](https://grouplens.org/datasets/movielens/). Those terms apply to ml-32M as well as to ml-latest-small and ml-1m. S3d (ADR-0011) repeats the harness on MovieLens 32M.
 
 Raw and derived rating files live under a gitignored `data/` directory and must never be committed. Aggregate EDA stats/figures under `docs/eda/` are fine to commit.
 
@@ -23,6 +23,7 @@ The code was written by AI coding agents (Cursor) working from a staged plan wit
 | **S3c** | Done | EASE^R and RP3beta baselines (numpy/scipy; tuned on validation) |
 | **S4** | Done | Learned ranker (LightGBM LambdaRank over a validation-chosen candidate set) |
 | **S4b** | Done | S4b: user demographic features experiment (ml-1m) |
+| **S3d** | Done | S3d: scale-up to MovieLens 32M |
 | **S5a** | Done | Streamlit explainable UI |
 | **S5b** | Planned | Batch recs, FastAPI, Dockerfile |
 | **S6** | Planned (not built yet) | Operations |
@@ -81,12 +82,16 @@ Archives are fetched from official GroupLens URLs and verified against **pinned 
 ```bash
 movielens-recommender download --dataset ml-latest-small   # default
 movielens-recommender download --dataset ml-1m
+movielens-recommender download --dataset ml-32m
 ```
+
+The GroupLens terms linked above apply to ml-32M too. ml-32M has no user demographics. CI does not download it.
 
 | Dataset | SHA-256 |
 | --- | --- |
 | ml-latest-small | `696d65a3dfceac7c45750ad32df2c259311949efec81f0f144fdfb91ebc9e436` |
 | ml-1m | `a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20` |
+| ml-32m | `e4a68655d7386b8f95f2f2424b2ff975dfdd15ffd59e0d864a14dca43e99d6ee` |
 
 ### Cleaning rules
 

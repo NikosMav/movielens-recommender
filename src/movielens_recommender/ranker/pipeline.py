@@ -48,6 +48,7 @@ from movielens_recommender.ranker.train import (
     train_fixed_rounds,
     train_with_early_stop_then_refit,
 )
+from movielens_recommender.scale import release_memory
 from movielens_recommender.split import (
     SplitConfig,
     SplitResult,
@@ -74,6 +75,28 @@ REFIT_SEMANTICS = (
     "retrievers and features are rebuilt on the full pre-cutoff train. "
     "Post-cutoff labels are never used."
 )
+
+
+def _release_two_tower_pack(model: Any) -> None:
+    """Drop a two-tower feature pack after its top-k lists are stored.
+
+    A second pack (fit-train, while the full-train pack is still live) does
+    not fit in the ml-32M commit limit (ADR-0011).
+    """
+    model._features = None
+    model._seen = {}
+    model._item_vectors = None
+    model._model = None
+
+
+def _sample_user_ids(config: RunConfig, frame: pd.DataFrame) -> list[int] | None:
+    """Users to score when an evaluation sample is configured.
+
+    ``None`` keeps the all-user path used by ml-1m and ml-latest-small.
+    """
+    if int(config.eval.user_sample_size) <= 0:
+        return None
+    return [int(uid) for uid in frame["user_id"].unique()]
 
 
 def _round(value: float, ndigits: int = 6) -> float:
@@ -375,6 +398,15 @@ def run_ranker_stage(
             )
         users = load_users(config.dataset, config.data_dir)
 
+    test_user_ids = _sample_user_ids(config, split.test)
+    print(
+        f"Scoring full-train two-tower top-{k} on the test sample...",
+        flush=True,
+    )
+    tt_full = full_train_two_tower.topk_with_scores(k, user_ids=test_user_ids)
+    _release_two_tower_pack(full_train_two_tower)
+    release_memory()
+
     print(
         "Fitting item-item and two-tower on fit-train for ranker features...",
         flush=True,
@@ -389,8 +421,11 @@ def run_ranker_stage(
         seed=primary_seed,
     )
     print(f"Retrieving top-{k} candidates on the validation window...", flush=True)
-    ii_val = item_fit.topk_with_scores(k)
-    tt_val = tt_fit.topk_with_scores(k)
+    val_user_ids = _sample_user_ids(config, split.val)
+    ii_val = item_fit.topk_with_scores(k, user_ids=val_user_ids)
+    tt_val = tt_fit.topk_with_scores(k, user_ids=val_user_ids)
+    del item_fit, tt_fit, _feat, _tr
+    release_memory()
     reports, lists_val = _candidate_reports(
         ii_val,
         tt_val,
@@ -485,8 +520,7 @@ def run_ranker_stage(
     )
 
     print("Rebuilding candidate features on full train for test scoring...", flush=True)
-    ii_full = full_train_item_model.topk_with_scores(k)
-    tt_full = full_train_two_tower.topk_with_scores(k)
+    ii_full = full_train_item_model.topk_with_scores(k, user_ids=test_user_ids)
     ctx_full = build_feature_context(
         split.full_train,
         movies,

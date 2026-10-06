@@ -268,6 +268,28 @@ def render_headline(filename: str, payload: dict) -> str:
         + "); others are S2 YAML defaults."
     )
     lines.append("")
+    sample = payload.get("eval_user_sample") or {}
+    if sample.get("enabled"):
+        lines.append(
+            "Evaluation users: seeded sample of "
+            f"{sample.get('n_sampled_users')} out of "
+            f"{sample.get('n_eligible_users')} warm-relevant users "
+            f"(seed={sample.get('seed')}, requested={sample.get('requested_users')}, "
+            f"user_ids_sha256=`{sample.get('user_ids_sha256')}`). "
+            "Training uses every training interaction. Sampled users keep full "
+            "histories. Tuning selection and ranker labels use this same sample."
+        )
+        lines.append("")
+    ease_hp = (payload.get("hyperparameters") or {}).get("ease") or {}
+    if ease_hp.get("max_items"):
+        lines.append(
+            "EASE is restricted to the top "
+            f"{ease_hp.get('max_items')} items by train-interaction count "
+            f"(n_items_before={ease_hp.get('n_items_before_restriction')}, "
+            f"n_items_fit={ease_hp.get('n_items_fit')}; ties: smaller item id). "
+            "Items outside that head are not scored."
+        )
+        lines.append("")
     header = ["model", *METRIC_COLS]
     lines.append("| " + " | ".join(header) + " |")
     lines.append("| " + " | ".join(["---"] * len(header)) + " |")
