@@ -16,6 +16,28 @@ from movielens_recommender.ranker.features import slug_genre
 
 _YEAR_SUFFIX = re.compile(r"\s*\(\d{4}\)\s*$")
 
+# MovieLens files the leading article at the end ("Muse, The"). Longer tokens
+# come first so "An" is not consumed by "A", and "Les" is not consumed by "Le".
+_TRAILING_ARTICLES = (
+    "The",
+    "Les",
+    "Das",
+    "Der",
+    "Die",
+    "La",
+    "Le",
+    "Il",
+    "El",
+    "An",
+    "A",
+    "L'",
+)
+_TRAILING_ARTICLE = re.compile(
+    r"^(?P<body>.+), (?P<article>"
+    + "|".join(re.escape(article) for article in _TRAILING_ARTICLES)
+    + r")(?P<rest> \(.*\))?$"
+)
+
 # One sentence per genre family. Built from the canonical genre list so a
 # feature slug cannot leak into the main text as a raw column name.
 _SLUG_TO_GENRE: dict[str, str] = {slug_genre(genre): genre for genre in GENRES}
@@ -67,9 +89,26 @@ class RecommendationExplanation:
 
 
 def display_title(title: str) -> str:
-    """Drop a trailing ``(YYYY)`` so the year is not repeated next to a year column."""
+    """Show a MovieLens title in reading order, without repeating the year.
+
+    The catalog stores a leading article at the end (``Muse, The``). This
+    moves that article back to the front for display only. A trailing
+    ``(YYYY)`` is dropped because the year is already a separate column.
+    Alternate titles in parentheses stay where they are.
+    """
     text = _YEAR_SUFFIX.sub("", str(title)).strip()
-    return text or str(title)
+    if not text:
+        return str(title)
+    match = _TRAILING_ARTICLE.match(text)
+    if match is None:
+        return text
+    article = match.group("article")
+    body = match.group("body").strip()
+    rest = match.group("rest") or ""
+    # French elision: "Enfer, L'" is "L'Enfer", not "L' Enfer".
+    if article.endswith("'"):
+        return f"{article}{body}{rest}"
+    return f"{article} {body}{rest}"
 
 
 def format_stars(rating: float) -> str:

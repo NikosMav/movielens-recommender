@@ -5,7 +5,11 @@ from __future__ import annotations
 import re
 
 from movielens_recommender.ranker.features import feature_names
-from movielens_recommender.serving.reasons import HistoryItem, explain_recommendation
+from movielens_recommender.serving.reasons import (
+    HistoryItem,
+    display_title,
+    explain_recommendation,
+)
 
 _FORBIDDEN = ("shap", "gender", "occupation", "region", "zip", "male", "female")
 _AGE = re.compile(r"\bage\b", re.IGNORECASE)
@@ -125,6 +129,36 @@ def test_missing_neighbor_does_not_invent_a_title():
     )
     assert explanation.reasons[0].text == "Close to movies you have already rated"
     assert "Alien" not in explanation.main_text()
+
+
+def test_display_title_moves_trailing_articles_and_keeps_year_out():
+    assert display_title("Muse, The") == "The Muse"
+    assert display_title("Muse, The (1999)") == "The Muse"
+    assert display_title("Usual Suspects, The (1995)") == "The Usual Suspects"
+    assert display_title("Ciudad, La") == "La Ciudad"
+    assert display_title("Walk in the Clouds, A (1995)") == "A Walk in the Clouds"
+    assert display_title("Awfully Big Adventure, An (1995)") == "An Awfully Big Adventure"
+    assert display_title("Colonel Chabert, Le (1994)") == "Le Colonel Chabert"
+    assert display_title("Misérables, Les (1995)") == "Les Misérables"
+    assert display_title("Postino, Il (1994)") == "Il Postino"
+    assert display_title("Mariachi, El (1992)") == "El Mariachi"
+    assert display_title("Superweib, Das (1996)") == "Das Superweib"
+    assert display_title("Bewegte Mann, Der") == "Der Bewegte Mann"
+    assert display_title("Harder They Come, Die") == "Die Harder They Come"
+    assert display_title("Enfer, L' (1994)") == "L'Enfer"
+    assert display_title("Postino, Il (The Postman) (1994)") == "Il Postino (The Postman)"
+    assert display_title("Sleepless in Seattle (1993)") == "Sleepless in Seattle"
+    assert display_title("Paris, Texas (1984)") == "Paris, Texas"
+    assert display_title("Cry, the Beloved Country (1995)") == "Cry, the Beloved Country"
+
+    explanation = explain_recommendation(
+        {"item_item_score": 0.5},
+        history=[HistoryItem(1, "Mask, The (1994)", "Comedy", 5.0)],
+        neighbor_similarity={1: 0.8},
+    )
+    assert explanation.reasons[0].text == (
+        "You rated The Mask 5★ and this is one of its nearest neighbours"
+    )
 
 
 def test_low_rated_genre_example_is_not_cited_as_liking():
