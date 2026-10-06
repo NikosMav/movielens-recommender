@@ -8,6 +8,8 @@ from typing import Any
 
 import yaml
 
+from movielens_recommender.ranker.features import DEMO_MODES
+
 
 @dataclass
 class SplitYAML:
@@ -113,6 +115,28 @@ class RunConfig:
         return asdict(self)
 
 
+def _demographic_mode(value: Any) -> str:
+    """Normalize ``models.ranker.demographics`` to a :data:`DEMO_MODES` value.
+
+    PyYAML 1.1 parses a bare ``off`` as boolean ``False``. ``None`` is a null
+    or omitted value. Both mean the S4 feature set.
+    """
+    if value is False or value is None:
+        return "off"
+    if isinstance(value, bool):
+        raise ValueError(
+            "models.ranker.demographics must be one of "
+            f"{DEMO_MODES}; got boolean {value!r}. "
+            'Quote the value in YAML, for example demographics: "off".'
+        )
+    text = str(value)
+    if text not in DEMO_MODES:
+        raise ValueError(
+            f"models.ranker.demographics must be one of {DEMO_MODES}; got {value!r}"
+        )
+    return text
+
+
 def load_config(path: Path | str | None = None) -> RunConfig:
     """Load a :class:`RunConfig` from YAML, or return defaults when path is None."""
     if path is None:
@@ -182,7 +206,7 @@ def load_config(path: Path | str | None = None) -> RunConfig:
                 feature_fraction=float(rank_raw.get("feature_fraction", 0.9)),
                 bagging_fraction=float(rank_raw.get("bagging_fraction", 0.8)),
                 seeds=[int(s) for s in rank_raw.get("seeds", [42, 43, 44])],
-                demographics=str(rank_raw.get("demographics", "off")),
+                demographics=_demographic_mode(rank_raw.get("demographics", "off")),
             ),
         ),
         global_cutoff=GlobalCutoffYAML(

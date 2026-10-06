@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
+import yaml
 
 from movielens_recommender.data import (
     AGE_UNKNOWN,
@@ -271,3 +274,54 @@ def test_lambdarank_accepts_demographic_categoricals():
     pred = np.asarray(result.booster.predict(matrices.x), dtype=np.float64)
     assert pred.shape == (matrices.x.shape[0],)
     assert np.isfinite(pred).all()
+
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_shipped_configs_load_demographic_modes() -> None:
+    """Real loader, real YAML. Quoted values stay the mode strings."""
+    from movielens_recommender.config import load_config
+
+    default = load_config(_REPO_ROOT / "configs" / "default.yaml")
+    ml1m = load_config(_REPO_ROOT / "configs" / "ml-1m.yaml")
+    assert default.models.ranker.demographics == "off"
+    assert default.dataset == "ml-latest-small"
+    assert ml1m.models.ranker.demographics == "both"
+    assert ml1m.dataset == "ml-1m"
+
+
+def test_loader_maps_bare_yaml_off_to_off(tmp_path: Path) -> None:
+    """PyYAML parses a bare ``off`` as boolean False. The loader must not."""
+    from movielens_recommender.config import load_config
+
+    path = tmp_path / "bare-off.yaml"
+    path.write_text(
+        "dataset: ml-latest-small\nmodels:\n  ranker:\n    demographics: off\n",
+        encoding="utf-8",
+    )
+    parsed = yaml.safe_load(path.read_text(encoding="utf-8"))
+    assert parsed["models"]["ranker"]["demographics"] is False
+    loaded = load_config(path)
+    assert loaded.models.ranker.demographics == "off"
+
+
+def test_loader_maps_null_demographics_to_off(tmp_path: Path) -> None:
+    from movielens_recommender.config import load_config
+
+    path = tmp_path / "null-demo.yaml"
+    path.write_text("models:\n  ranker:\n    demographics:\n", encoding="utf-8")
+    loaded = load_config(path)
+    assert loaded.models.ranker.demographics == "off"
+
+
+def test_loader_rejects_unknown_demographic_mode(tmp_path: Path) -> None:
+    from movielens_recommender.config import load_config
+
+    path = tmp_path / "bad-demo.yaml"
+    path.write_text(
+        'models:\n  ranker:\n    demographics: "nope"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="DEMO_MODES|must be one of"):
+        load_config(path)
