@@ -32,7 +32,13 @@ from movielens_recommender.split import (
     global_time_cutoff_split,
     time_based_split,
 )
-from movielens_recommender.tune import build_model, tune_als, tune_item_knn
+from movielens_recommender.tune import (
+    build_model,
+    tune_als,
+    tune_ease,
+    tune_item_knn,
+    tune_rp3beta,
+)
 
 
 def _pkg_version(name: str) -> str:
@@ -135,6 +141,26 @@ def _load_baseline_tuning(path: Path) -> dict[str, Any] | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _write_baseline_tuning(
+    path: Path, dataset: str, seed: int, payload: dict[str, Any]
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "dataset": dataset,
+                "dataset_sha256": DATASET_SHA256[dataset],
+                "seed": seed,
+                **payload,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def run_pipeline(
     config: RunConfig,
     *,
@@ -182,7 +208,8 @@ def run_pipeline(
         if split.val is None or split.val.empty:
             raise ValueError("tune=true requires split.val_fraction > 0")
 
-        reused = False
+        need_classic = True
+        need_linear = True
         if reuse_baseline_tuning:
             existing = _load_baseline_tuning(baseline_tuning_path)
             if existing is not None and "als" in existing and "item_item_cosine" in existing:
@@ -202,46 +229,58 @@ def run_pipeline(
                 }
                 tuned_hps["als_tuned"] = dict(als_block["best_hyperparams"])
                 tuned_hps["item_item_cosine_tuned"] = dict(knn_block["best_hyperparams"])
-                reused = True
+                need_classic = False
+                if "ease" in existing and "rp3beta" in existing:
+                    tuning_payload["ease"] = existing["ease"]
+                    tuning_payload["rp3beta"] = existing["rp3beta"]
+                    tuned_hps["ease"] = dict(existing["ease"]["best_hyperparams"])
+                    tuned_hps["rp3beta"] = dict(existing["rp3beta"]["best_hyperparams"])
+                    need_linear = False
 
-        if not reused:
-            print("Tuning ALS on validation (NDCG@10)...", flush=True)
-            als_tune = tune_als(
-                split,
-                relevance_threshold=config.eval.relevance_threshold,
-                seed=config.seed,
-            )
-            print("Tuning item-item on validation (NDCG@10)...", flush=True)
-            knn_tune = tune_item_knn(
-                split,
-                relevance_threshold=config.eval.relevance_threshold,
-            )
-            tuning_payload = {
-                "protocol": (
-                    "Fit each trial on fit-train only; select by validation NDCG@10 "
-                    "(point estimate, no bootstrap). Never uses test. Chosen configs "
-                    "are refit on full_train (= fit-train ∪ val) before test eval."
-                ),
-                "primary_metric": "ndcg@10",
-                "val_fraction": config.split.val_fraction,
-                "als": als_tune.to_dict(),
-                "item_item_cosine": knn_tune.to_dict(),
-            }
-            tuned_hps["als_tuned"] = als_tune.best_hyperparams
-            tuned_hps["item_item_cosine_tuned"] = knn_tune.best_hyperparams
-            baseline_tuning_path.write_text(
-                json.dumps(
-                    {
-                        "dataset": dataset,
-                        "dataset_sha256": DATASET_SHA256[dataset],
-                        "seed": config.seed,
-                        **tuning_payload,
-                    },
-                    indent=2,
-                    sort_keys=True,
+        if need_classic or need_linear:
+            if tuning_payload is None:
+                tuning_payload = {
+                    "protocol": (
+                        "Fit each trial on fit-train only; select by validation NDCG@10 "
+                        "(point estimate, no bootstrap). Never uses test. Chosen configs "
+                        "are refit on full_train (= fit-train ∪ val) before test eval."
+                    ),
+                    "primary_metric": "ndcg@10",
+                    "val_fraction": config.split.val_fraction,
+                }
+            if need_classic:
+                print("Tuning ALS on validation (NDCG@10)...", flush=True)
+                als_tune = tune_als(
+                    split,
+                    relevance_threshold=config.eval.relevance_threshold,
+                    seed=config.seed,
                 )
-                + "\n",
-                encoding="utf-8",
+                print("Tuning item-item on validation (NDCG@10)...", flush=True)
+                knn_tune = tune_item_knn(
+                    split,
+                    relevance_threshold=config.eval.relevance_threshold,
+                )
+                tuning_payload["als"] = als_tune.to_dict()
+                tuning_payload["item_item_cosine"] = knn_tune.to_dict()
+                tuned_hps["als_tuned"] = als_tune.best_hyperparams
+                tuned_hps["item_item_cosine_tuned"] = knn_tune.best_hyperparams
+            if need_linear:
+                print("Tuning EASE on validation (NDCG@10)...", flush=True)
+                ease_tune = tune_ease(
+                    split,
+                    relevance_threshold=config.eval.relevance_threshold,
+                )
+                print("Tuning RP3beta on validation (NDCG@10)...", flush=True)
+                rp3_tune = tune_rp3beta(
+                    split,
+                    relevance_threshold=config.eval.relevance_threshold,
+                )
+                tuning_payload["ease"] = ease_tune.to_dict()
+                tuning_payload["rp3beta"] = rp3_tune.to_dict()
+                tuned_hps["ease"] = ease_tune.best_hyperparams
+                tuned_hps["rp3beta"] = rp3_tune.best_hyperparams
+            _write_baseline_tuning(
+                baseline_tuning_path, dataset, config.seed, tuning_payload
             )
             print(f"Wrote tuning results to {baseline_tuning_path}", flush=True)
 
@@ -267,6 +306,8 @@ def run_pipeline(
             [
                 ("item_item_cosine_tuned", tuned_hps["item_item_cosine_tuned"], True),
                 ("als_tuned", tuned_hps["als_tuned"], True),
+                ("ease", tuned_hps["ease"], True),
+                ("rp3beta", tuned_hps["rp3beta"], True),
             ]
         )
 
@@ -404,6 +445,13 @@ def run_pipeline(
                 "Recall@100 / Recall@200 are reported for retrieval comparison "
                 "(candidate generation for S4)."
             ),
+            "ease_rp3beta": (
+                "EASE^R and RP3beta (ADR-0008): binary interaction matrix "
+                "(any train rating is an edge). λ, and (alpha, beta, top_k), "
+                "are chosen on validation NDCG@10, refit on full_train, and "
+                "evaluated once on test. Seen train items are excluded. "
+                "The S4 ranker is unchanged."
+            ),
             "ranker": (
                 "Optional LightGBM LambdaRank (ADR-0007). Candidate set chosen "
                 "by validation Recall@200. Ranker labels are the validation "
@@ -423,6 +471,10 @@ def run_pipeline(
             "item_item_cosine_best_val_ndcg@10": tuning_payload["item_item_cosine"][
                 "best_val_score"
             ],
+            "ease_best": tuning_payload["ease"]["best_hyperparams"],
+            "ease_best_val_ndcg@10": tuning_payload["ease"]["best_val_score"],
+            "rp3beta_best": tuning_payload["rp3beta"]["best_hyperparams"],
+            "rp3beta_best_val_ndcg@10": tuning_payload["rp3beta"]["best_val_score"],
             "tuning_json": f"results/tuning/{dataset}.json",
         }
     if two_tower_meta is not None:
@@ -694,11 +746,15 @@ def run_global_cutoff(
     used_tuned = bool(tuned_hps)
     eval_ks = _eval_ks(config)
 
-    model_specs = [
+    model_specs: list[tuple[str, dict[str, Any], bool]] = [
         ("most_popular", {}, False),
         ("item_item_cosine", knn_hp, used_tuned),
         ("als", als_hp, used_tuned),
     ]
+    if "ease" in tuned_hps:
+        model_specs.append(("ease", tuned_hps["ease"], True))
+    if "rp3beta" in tuned_hps:
+        model_specs.append(("rp3beta", tuned_hps["rp3beta"], True))
 
     results: dict[str, dict] = {}
     hyperparams: dict[str, dict] = {}
@@ -817,6 +873,11 @@ def run_global_cutoff(
         hp_source += (
             " two_tower uses the per-user-protocol chosen hyperparameters and "
             "early-stopping epoch; not re-tuned on the global cutoff."
+        )
+    if "ease" in tuned_hps or "rp3beta" in tuned_hps:
+        hp_source += (
+            " ease and rp3beta reuse the per-user-protocol validation-chosen "
+            "hyperparameters; not re-tuned on the global cutoff."
         )
     if ranker_later is not None:
         hp_source += (
@@ -948,7 +1009,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument(
         "--reuse-baseline-tuning",
         action="store_true",
-        help="Reuse results/tuning/{dataset}.json for ALS/item-knn; still tune two-tower",
+        help=(
+            "Reuse results/tuning/{dataset}.json for ALS/item-knn/EASE/RP3beta "
+            "when those blocks are present; still tune two-tower"
+        ),
     )
     p_run.add_argument(
         "--no-two-tower",

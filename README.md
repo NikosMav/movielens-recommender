@@ -1,6 +1,6 @@
 # movielens-recommender
 
-A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). The two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. The ranker gate against item–item cosine is in the results table. Serving with an explainable UI, and operations, are planned and not built yet.
+A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). S3c adds two more classic baselines, EASE^R and RP3beta (ADR-0008), tuned on the same validation split. The two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. The ranker gate against item–item cosine, and the EASE / RP3beta comparison, are in the results table. Serving with an explainable UI, and operations, are planned and not built yet.
 
 The code is MIT, and the MovieLens data is not included: it is downloaded by the script and stays under the [GroupLens terms of use](https://grouplens.org/datasets/movielens/).
 
@@ -20,6 +20,7 @@ The code was written by AI coding agents (Cursor) working from a staged plan wit
 | **S2** | Done | Classic CF baselines |
 | **S3a** | Done | Validation split + tuned baselines + segments + global-time-cutoff sanity check |
 | **S3b** | Done | Two-tower retrieval (optional torch extra; tune on val only) |
+| **S3c** | Done | EASE^R and RP3beta baselines (numpy/scipy; tuned on validation) |
 | **S4** | Done | Learned ranker (LightGBM LambdaRank over a validation-chosen candidate set) |
 | **S5** | Planned (not built yet) | Serving with an explainable UI |
 | **S6** | Planned (not built yet) | Operations |
@@ -140,9 +141,11 @@ GitHub Actions installs the CPU PyTorch wheel, runs ruff + pytest (including two
 | `item_item_cosine_tuned` | Same model; `k_neighbors` / `shrinkage` chosen on validation NDCG@10. |
 | `als` | `implicit` ALS (factors=64, iterations=15, α=40, seed=42) — S2 defaults. |
 | `als_tuned` | ALS with factors/regularization/α chosen on validation NDCG@10. |
+| `ease` | EASE^R (Steck 2019). λ chosen on validation NDCG@10 (ADR-0008). |
+| `rp3beta` | RP3beta random-walk item similarity. `(alpha, beta, top_k)` chosen on validation NDCG@10 (ADR-0008). |
 | `two_tower` | Optional PyTorch two-tower retrieval (ADR-0006); tuned on val NDCG@10 with early stopping; test over 3 seeds. |
 
-Tuning grids and per-trial validation scores: `results/tuning/*.json` and `results/tuning/two_tower_*.json`.
+Tuning grids and per-trial validation scores: `results/tuning/*.json` and `results/tuning/two_tower_*.json`. EASE and RP3beta trials live in the same `results/tuning/<dataset>.json` files (ADR-0008). The S4 ranker does not use them as candidate sources.
 
 **S3b gate (ml-1m):** two-tower must beat **both** item–item default and tuned on test NDCG@10 with CIs taken into account, or be written up as a negative result. S4 chooses the candidate set by validation Recall@200 (ADR-0007).
 

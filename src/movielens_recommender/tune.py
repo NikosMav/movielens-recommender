@@ -9,7 +9,12 @@ from typing import Any
 
 import pandas as pd
 
-from movielens_recommender.baselines import ALSRecommender, ItemItemCosineRecommender
+from movielens_recommender.baselines import (
+    ALSRecommender,
+    EASERecommender,
+    ItemItemCosineRecommender,
+    RP3betaRecommender,
+)
 from movielens_recommender.evaluate import ndcg_point_estimate
 from movielens_recommender.split import SplitResult
 
@@ -22,6 +27,16 @@ ALS_GRID: list[dict[str, Any]] = [
 ITEM_KNN_GRID: list[dict[str, Any]] = [
     {"k_neighbors": k, "shrinkage": s, "min_common": 1}
     for k, s in itertools.product([40, 100, 200], [0.0, 100.0])
+]
+
+# λ around the range Steck and later reproducibility grids found useful.
+EASE_GRID: list[dict[str, Any]] = [{"l2": lam} for lam in (10.0, 50.0, 100.0, 500.0, 1000.0)]
+
+# 12-point grid: alpha near 1, beta from none to a moderate popularity penalty,
+# neighbourhood sizes in the same ballpark as tuned item–item.
+RP3BETA_GRID: list[dict[str, Any]] = [
+    {"alpha": alpha, "beta": beta, "top_k": top_k}
+    for alpha, beta, top_k in itertools.product((0.6, 1.0), (0.0, 0.3, 0.6), (50, 200))
 ]
 
 
@@ -163,6 +178,100 @@ def tune_item_knn(
     )
 
 
+def _val_split(split: SplitResult) -> SplitResult:
+    return SplitResult(
+        train=split.train,
+        test=split.val,
+        config=split.config,
+        n_users_kept=split.n_users_kept,
+        n_users_dropped=split.n_users_dropped,
+    )
+
+
+def tune_ease(
+    split: SplitResult,
+    *,
+    relevance_threshold: float = 4.0,
+    grid: Sequence[Mapping[str, Any]] | None = None,
+) -> TuningResult:
+    """Grid-search EASE λ on validation NDCG@10; never touches test."""
+    if split.val is None or split.val.empty:
+        raise ValueError("tune_ease requires a non-empty validation split")
+    configs = [dict(c) for c in (grid if grid is not None else EASE_GRID)]
+    trials: list[dict[str, Any]] = []
+    best_score = float("-inf")
+    best_hp: dict[str, Any] = dict(configs[0])
+    val_split = _val_split(split)
+
+    for _, hp in _iter_with_progress(configs, "ease"):
+        model = EASERecommender(l2=float(hp["l2"])).fit(split.train)
+        score = ndcg_point_estimate(
+            model.recommend,
+            split.train,
+            split.val,
+            relevance_threshold=relevance_threshold,
+            k=10,
+            split=val_split,
+        )
+        trials.append({"hyperparams": hp, "val_ndcg@10": round(score, 6)})
+        if score > best_score:
+            best_score = score
+            best_hp = dict(hp)
+
+    return TuningResult(
+        model="ease",
+        primary_metric="ndcg@10",
+        grid=configs,
+        trials=trials,
+        best_hyperparams=best_hp,
+        best_val_score=best_score,
+    )
+
+
+def tune_rp3beta(
+    split: SplitResult,
+    *,
+    relevance_threshold: float = 4.0,
+    grid: Sequence[Mapping[str, Any]] | None = None,
+) -> TuningResult:
+    """Grid-search RP3beta (alpha, beta, top_k) on validation NDCG@10."""
+    if split.val is None or split.val.empty:
+        raise ValueError("tune_rp3beta requires a non-empty validation split")
+    configs = [dict(c) for c in (grid if grid is not None else RP3BETA_GRID)]
+    trials: list[dict[str, Any]] = []
+    best_score = float("-inf")
+    best_hp: dict[str, Any] = dict(configs[0])
+    val_split = _val_split(split)
+
+    for _, hp in _iter_with_progress(configs, "rp3beta"):
+        model = RP3betaRecommender(
+            alpha=float(hp["alpha"]),
+            beta=float(hp["beta"]),
+            top_k=int(hp["top_k"]),
+        ).fit(split.train)
+        score = ndcg_point_estimate(
+            model.recommend,
+            split.train,
+            split.val,
+            relevance_threshold=relevance_threshold,
+            k=10,
+            split=val_split,
+        )
+        trials.append({"hyperparams": hp, "val_ndcg@10": round(score, 6)})
+        if score > best_score:
+            best_score = score
+            best_hp = dict(hp)
+
+    return TuningResult(
+        model="rp3beta",
+        primary_metric="ndcg@10",
+        grid=configs,
+        trials=trials,
+        best_hyperparams=best_hp,
+        best_val_score=best_score,
+    )
+
+
 def build_model(
     name: str,
     train: pd.DataFrame,
@@ -192,6 +301,16 @@ def build_model(
             alpha=float(hyperparams.get("alpha", 40.0)),
             confidence_threshold=relevance_threshold,
             random_state=seed,
+        ).fit(train)
+        return model, model.hyperparams()
+    if name == "ease":
+        model = EASERecommender(l2=float(hyperparams["l2"])).fit(train)
+        return model, model.hyperparams()
+    if name == "rp3beta":
+        model = RP3betaRecommender(
+            alpha=float(hyperparams["alpha"]),
+            beta=float(hyperparams["beta"]),
+            top_k=int(hyperparams["top_k"]),
         ).fit(train)
         return model, model.hyperparams()
     raise ValueError(f"Unknown model: {name}")
