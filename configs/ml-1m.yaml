@@ -56,8 +56,9 @@ models:
     - 42
     - 43
     - 44
-    # S4b. off keeps the S4 feature set. raw / affinity / both are ml-1m only.
-    demographics: off
+    # S4b (ADR-0009). both is the default because the pre-registered rule passed
+    # after the test run. off / raw / affinity remain available. ml-latest-small stays off.
+    demographics: both
 global_cutoff:
   enabled: true
   timestamp_quantile: 0.8

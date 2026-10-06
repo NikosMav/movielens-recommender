@@ -58,8 +58,9 @@ class RankerYAML:
     # Ranker seeds only. Retrievers stay on the config seed.
     seeds: list[int] = field(default_factory=lambda: [42, 43, 44])
     # S4b. ``off`` is the S4 feature set. ``raw`` / ``affinity`` / ``both``
-    # add ml-1m demographic features. Default stays off unless ADR-0009's
-    # pre-registered rule adopts them.
+    # add ml-1m demographic features. The dataclass default stays ``off`` so
+    # ml-latest-small cannot enable them. configs/ml-1m.yaml sets ``both``
+    # because ADR-0009's pre-registered rule passed.
     demographics: str = "off"
 
 
