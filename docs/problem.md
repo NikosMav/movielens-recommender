@@ -57,6 +57,7 @@ Committed numbers live in `results/*.json`. Tuning grids and val scores live in 
 | **S4** | Learned ranker (LightGBM LambdaRank; candidate set by validation recall; ADR-0007) |
 | **S4b** | User demographic features experiment (ml-1m only; ADR-0009). ml-latest-small is unchanged. |
 | **S3d** | Scale-up to MovieLens 32M (ADR-0011). Same protocol; budget limits are recorded before test metrics. |
+| **S3e** | S3e: full-softmax two-tower (ADR-0013). Loss is a config switch; the default stays the in-batch reference. |
 | **S5** | Serving (inference path, latency budget) |
 | **S5c** | New-user profile (cold start): rate a few films with no MovieLens id (ADR-0012) |
 | **S6** | Operations (monitoring, refresh, drift) |

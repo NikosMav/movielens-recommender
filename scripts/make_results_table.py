@@ -1336,6 +1336,279 @@ def render_cold_start() -> str:
     return "\n".join(lines)
 
 
+def _v2_edges(edges: list[dict]) -> str:
+    if not edges:
+        return "none"
+    parts = []
+    for edge in edges:
+        parts.append(
+            f"{edge['parameter']}={edge['value']} ({edge['edge']} of {edge['grid_values']})"
+        )
+    return "; ".join(parts)
+
+
+def _v2_pair_sentence(label: str, paired: dict) -> str:
+    excludes = "excludes 0" if paired.get("excludes_zero") else "includes 0"
+    return (
+        f"{label} {_fmt(float(paired['mean']))} "
+        f"[{_fmt(float(paired['low']))}, {_fmt(float(paired['high']))}] ({excludes})"
+    )
+
+
+def _answer_full_softmax(payload: dict) -> str:
+    tuning = payload.get("tuning") or {}
+    best = (tuning.get("best_by_loss") or {}).get("full_softmax") or {}
+    ref_val = float(tuning.get("reference_val_ndcg@10"))
+    val = best.get("val_ndcg@10")
+    model = (payload.get("models") or {}).get("full_softmax")
+    if val is None:
+        return "Full softmax has no validation score in this file."
+    val_f = float(val)
+    if model is None:
+        relation = "above" if val_f > ref_val else "not above"
+        return (
+            f"No test score. Full softmax validation NDCG@10 was {_fmt(val_f)}, "
+            f"{relation} the reference {_fmt(ref_val)}. "
+            f"The validation winner was `{tuning.get('selected_loss')}`."
+        )
+    paired = (payload.get("paired_vs_reference") or {}).get("full_softmax", {}).get("ndcg@10") or {}
+    point = float(model["metrics"]["ndcg@10"])
+    ref_point = float(payload["models"]["in_batch"]["metrics"]["ndcg@10"])
+    if float(paired.get("mean", 0.0)) > 0.0 and paired.get("excludes_zero"):
+        verdict = "Yes"
+    elif float(paired.get("mean", 0.0)) > 0.0:
+        verdict = "No clear gain"
+    else:
+        verdict = "No"
+    return (
+        f"{verdict}. Full softmax test NDCG@10 is {_fmt(point)} against the "
+        f"reference rerun {_fmt(ref_point)}. "
+        + _v2_pair_sentence("Paired difference", paired)
+        + f". Validation was {_fmt(val_f)} against reference {_fmt(ref_val)}."
+    )
+
+
+def _answer_tail(payload: dict) -> str:
+    """Compare the scored new tower's tail with the reference and with item-item."""
+    published = payload.get("reference_published") or {}
+    item_tail = published.get("item_item_tail_ndcg@10")
+    ref_tail = published.get("tail_ndcg@10")
+    selected = str((payload.get("tuning") or {}).get("selected_loss"))
+    models = payload.get("models") or {}
+    name = "full_softmax" if "full_softmax" in models else selected
+    model = models.get(name)
+    if model is None or item_tail is None or ref_tail is None:
+        return "Tail NDCG@10 was not measured for a new loss."
+    tail = _segment_value_metrics(model["metrics"], "tail")
+    head = _segment_value_metrics(model["metrics"], "head")
+    paired = ((payload.get("paired_vs_reference") or {}).get(name) or {}).get("tail_ndcg@10") or {}
+    if tail is None or head is None:
+        return "Tail NDCG@10 is missing from this file."
+    if float(tail) >= float(item_tail) and float(tail) > float(ref_tail):
+        verdict = "Yes"
+    elif float(tail) > float(ref_tail):
+        verdict = "It beats the reference two-tower and is still below item-item"
+    else:
+        verdict = "No"
+    text = (
+        f"{verdict}. `{name}` tail NDCG@10 is {_fmt(float(tail))} "
+        f"(head {_fmt(float(head))}). Published reference tail is {_fmt(float(ref_tail))}; "
+        f"item-item tail is {_fmt(float(item_tail))}."
+    )
+    if paired:
+        text += (
+            " "
+            + _v2_pair_sentence("Paired tail difference versus the reference rerun", paired)
+            + "."
+        )
+    return text
+
+
+def _segment_value_metrics(metrics: dict, which: str) -> float | None:
+    cell = ((metrics.get("segments") or {}).get("item_head_tail") or {}).get(which) or {}
+    value = cell.get("ndcg@10")
+    if value is None:
+        return None
+    return float(value)
+
+
+def _answer_ranker(payload: dict) -> str:
+    tuning = payload.get("tuning") or {}
+    ranker = payload.get("ranker")
+    if not ranker:
+        return (
+            "No. The best new two-tower did not beat the reference on validation "
+            f"({_fmt(float(tuning.get('selected_val_ndcg@10')))} versus "
+            f"{_fmt(float(tuning.get('reference_val_ndcg@10')))}), so LambdaRank was not re-run."
+        )
+    new = ranker["new"]
+    no_ranker = float(new["no_ranker_metrics"]["ndcg@10"])
+    new_point = float(new["metrics"]["ndcg@10"])
+    lift = ranker["paired_vs_no_ranker"]["ndcg@10"]
+    versus = ranker["paired_vs_reference_ranker"]["ndcg@10"]
+    published = payload["reference_published"]
+    if new_point > no_ranker and lift.get("excludes_zero") and float(lift["mean"]) > 0:
+        over_list = "Yes, it adds lift over its candidate list"
+    elif new_point > no_ranker:
+        over_list = (
+            "The point estimate is above the candidate list and the paired interval includes 0"
+        )
+    else:
+        over_list = "No lift over its candidate list"
+    if float(versus["mean"]) > 0 and versus.get("excludes_zero"):
+        over_old = "and it beats the reference-tower ranker"
+    elif float(versus["mean"]) > 0:
+        over_old = "and the gain versus the reference-tower ranker includes 0"
+    else:
+        over_old = "and it does not beat the reference-tower ranker"
+    return (
+        f"{over_list} {over_old}. New ranker NDCG@10 {_fmt(new_point)} versus "
+        f"`no_ranker` {_fmt(no_ranker)}. "
+        + _v2_pair_sentence("Paired versus no_ranker", lift)
+        + ". "
+        + _v2_pair_sentence("Paired versus the reference-tower ranker", versus)
+        + f". Published LambdaRank in `{published.get('lambdarank_source')}` is "
+        f"{_fmt(float(published['lambdarank_ndcg@10']))} "
+        f"(demographics {published.get('lambdarank_demographics')})."
+    )
+
+
+def render_two_tower_v2() -> str:
+    """S3e panel. Empty when neither results file exists, so earlier panels stay put."""
+    paths = [
+        RESULTS_DIR / "two-tower-v2" / "ml-1m.json",
+        RESULTS_DIR / "two-tower-v2" / "ml-32m.json",
+    ]
+    present = [path for path in paths if path.is_file()]
+    if not present:
+        return ""
+    lines: list[str] = []
+    lines.append("### Full-softmax two-tower (S3e)")
+    lines.append("")
+    lines.append(
+        "From `results/two-tower-v2/`. The reference loss is the in-batch "
+        "sampled softmax. Temperature, learning rate, and embedding dim were "
+        "chosen on validation only. Paired intervals are the primary seed, "
+        "candidate minus reference."
+    )
+    lines.append("")
+    for path in present:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        dataset = payload["dataset"]
+        lines.append(f"#### `{dataset}`")
+        lines.append("")
+        published = payload["reference_published"]
+        lines.append(
+            f"Published reference two-tower (`{published['source']}`): "
+            f"NDCG@10 {_fmt(float(published['ndcg@10']))} "
+            f"{_fmt_ci_cell(published.get('ndcg@10_ci'))}, "
+            f"Recall@10 {_fmt(float(published['recall@10']))}, "
+            f"Recall@100 {_fmt(float(published['recall@100']))}, "
+            f"Recall@200 {_fmt(float(published['recall@200']))}, "
+            f"Coverage@10 {_fmt(float(published['coverage@10']))}, "
+            f"head {_fmt(float(published['head_ndcg@10']))}, "
+            f"tail {_fmt(float(published['tail_ndcg@10']))}. "
+            f"Validation NDCG@10 {_fmt(float(published['val_ndcg@10']))}."
+        )
+        lines.append("")
+        tuning = payload["tuning"]
+        lines.append("| loss | val NDCG@10 | best epoch | grid edges |")
+        lines.append("| --- | --- | --- | --- |")
+        lines.append(
+            "| reference in_batch | "
+            f"{_fmt(float(tuning['reference_val_ndcg@10']))} | "
+            f"{published['best_epoch']} | published config |"
+        )
+        for name, block in sorted((tuning.get("best_by_loss") or {}).items()):
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        name,
+                        _fmt(float(block["val_ndcg@10"])),
+                        str(block["best_epoch"]),
+                        _v2_edges(block.get("grid_edges") or []),
+                    ]
+                )
+                + " |"
+            )
+        lines.append("")
+        lines.append(
+            f"Validation winner: `{tuning['selected_loss']}` "
+            f"({_fmt(float(tuning['selected_val_ndcg@10']))}). "
+            f"Beats the reference on validation: {tuning['beats_reference_validation']}."
+        )
+        lines.append("")
+        lines.append(
+            "| model | NDCG@10 | 95% CI | Recall@10 | Recall@100 | Recall@200 | "
+            "Coverage@10 | head | tail |"
+        )
+        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+        for name in ("in_batch", "full_softmax", "sampled_softmax"):
+            model = (payload.get("models") or {}).get(name)
+            if not model:
+                continue
+            metrics = model["metrics"]
+            ci = (metrics.get("confidence_intervals") or {}).get("ndcg@10") or {}
+            n_seeds = len(model.get("per_seed") or [])
+            label = name if n_seeds != 1 else f"{name} (1 seed)"
+            if n_seeds > 1:
+                label = f"{name} ({n_seeds}-seed mean)"
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        label,
+                        _fmt(float(metrics["ndcg@10"])),
+                        _fmt_ci_cell(ci),
+                        _fmt(float(metrics["recall@10"])),
+                        _fmt(float(metrics["recall@100"])),
+                        _fmt(float(metrics["recall@200"])),
+                        _fmt(float(metrics["coverage@10"])),
+                        _fmt(float(_segment_value_metrics(metrics, "head"))),
+                        _fmt(float(_segment_value_metrics(metrics, "tail"))),
+                    ]
+                )
+                + " |"
+            )
+        lines.append("")
+        for name, paired in sorted((payload.get("paired_vs_reference") or {}).items()):
+            lines.append(
+                _v2_pair_sentence(f"Paired NDCG@10, {name} minus reference", paired["ndcg@10"])
+                + "."
+            )
+            if paired.get("head_ndcg@10"):
+                lines.append(
+                    _v2_pair_sentence(f"Paired head NDCG@10, {name}", paired["head_ndcg@10"]) + "."
+                )
+            if paired.get("tail_ndcg@10"):
+                lines.append(
+                    _v2_pair_sentence(f"Paired tail NDCG@10, {name}", paired["tail_ndcg@10"]) + "."
+                )
+        lines.append("")
+        lines.append(f"Did full softmax help? {_answer_full_softmax(payload)}")
+        lines.append("")
+        lines.append(f"Does it fix the tail weakness? {_answer_tail(payload)}")
+        lines.append("")
+        lines.append(f"Does the ranker gain? {_answer_ranker(payload)}")
+        lines.append("")
+        compute = payload.get("compute") or {}
+        if compute:
+            lines.append(
+                f"Compute: tune {_fmt(float(compute['tune_wall_sec']))}s, "
+                f"test training {_fmt(float(compute['test_train_sec']))}s, "
+                f"ranker "
+                + (
+                    f"{_fmt(float(compute['ranker_wall_sec']))}s"
+                    if compute.get("ranker_wall_sec") is not None
+                    else "not run"
+                )
+                + f", seeds {compute.get('seeds')}."
+            )
+            lines.append("")
+    return "\n".join(lines)
+
+
 def build_section(results: list[tuple[str, dict]]) -> str:
     parts = [BEGIN, ""]
     for filename, payload in results:
@@ -1349,6 +1622,9 @@ def build_section(results: list[tuple[str, dict]]) -> str:
     cold = render_cold_start()
     if cold:
         parts.append(cold)
+    v2 = render_two_tower_v2()
+    if v2:
+        parts.append(v2)
     parts.append(END)
     return "\n".join(parts) + "\n"
 

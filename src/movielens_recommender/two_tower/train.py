@@ -57,6 +57,31 @@ def set_torch_seed(seed: int) -> None:
     torch.manual_seed(seed)
 
 
+# ``in_batch`` is the ADR-0006 objective and the default. The other two are
+# ADR-0013. Omitting ``loss`` must keep the in-batch path.
+LOSS_IN_BATCH = "in_batch"
+LOSS_FULL_SOFTMAX = "full_softmax"
+LOSS_SAMPLED_SOFTMAX = "sampled_softmax"
+TWO_TOWER_LOSSES: tuple[str, ...] = (
+    LOSS_IN_BATCH,
+    LOSS_FULL_SOFTMAX,
+    LOSS_SAMPLED_SOFTMAX,
+)
+DEFAULT_N_NEGATIVES = 256
+
+
+def resolve_two_tower_loss(hyperparams: Mapping[str, Any] | None) -> str:
+    """Return the training loss name. Missing means the in-batch reference."""
+    if not hyperparams or hyperparams.get("loss") in (None, ""):
+        return LOSS_IN_BATCH
+    name = str(hyperparams["loss"])
+    if name not in TWO_TOWER_LOSSES:
+        raise ValueError(
+            f"two-tower loss must be one of {TWO_TOWER_LOSSES}; got {name!r}"
+        )
+    return name
+
+
 def sampled_softmax_loss(
     logits: torch.Tensor,
     log_q: torch.Tensor,
@@ -72,6 +97,165 @@ def sampled_softmax_loss(
     return nn.functional.cross_entropy(corrected, targets)
 
 
+def full_softmax_loss(logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    """Softmax cross-entropy over every catalog item.
+
+    ``logits`` is ``(batch, n_items)`` and already temperature-scaled.
+    ``targets`` is the positive catalog index per row. There is no log-q
+    term: the denominator is the whole catalog.
+    """
+    return nn.functional.cross_entropy(logits, targets)
+
+
+def sampled_softmax_logq_loss(
+    positive_logits: torch.Tensor,
+    negative_logits: torch.Tensor,
+    positive_log_q: torch.Tensor,
+    negative_log_q: torch.Tensor,
+    *,
+    positive_index: torch.Tensor | None = None,
+    negative_index: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Sampled softmax with a log-q popularity correction.
+
+    ``positive_logits`` is ``(batch,)``. ``negative_logits`` is ``(batch, K)``.
+    ``positive_log_q`` is ``(batch,)``. ``negative_log_q`` is ``(K,)`` or
+    ``(batch, K)``. The corrected logit is ``score - log q``. The positive is
+    class 0. When both index tensors are set, a negative that equals that
+    row's positive is masked so the label is not copied into the denominator.
+    """
+    if positive_logits.ndim != 1:
+        raise ValueError("positive_logits must have shape (batch,)")
+    if negative_logits.ndim != 2 or negative_logits.shape[0] != positive_logits.shape[0]:
+        raise ValueError("negative_logits must have shape (batch, K)")
+    pos = (positive_logits - positive_log_q).unsqueeze(1)
+    neg_log_q = negative_log_q.unsqueeze(0) if negative_log_q.ndim == 1 else negative_log_q
+    neg = negative_logits - neg_log_q
+    if positive_index is not None and negative_index is not None:
+        collision = negative_index.unsqueeze(0) == positive_index.unsqueeze(1)
+        neg = neg.masked_fill(collision, torch.finfo(neg.dtype).min)
+    logits = torch.cat([pos, neg], dim=1)
+    targets = torch.zeros(logits.shape[0], dtype=torch.long, device=logits.device)
+    return nn.functional.cross_entropy(logits, targets)
+
+
+@dataclass
+class CatalogTensors:
+    """Catalog-side tensors reused by full softmax and sampled softmax."""
+
+    idx: torch.Tensor
+    genres: torch.Tensor
+    years: torch.Tensor
+    q: torch.Tensor
+    log_q: torch.Tensor
+
+
+def build_catalog_tensors(
+    features: TwoTowerFeatures, device: torch.device
+) -> CatalogTensors:
+    """Move catalog features and the popularity distribution onto ``device``.
+
+    ``q`` is renormalized after the float32 cast so multinomial gets a
+    probability vector. The in-batch loss does not use this helper.
+    """
+    q = torch.from_numpy(np.ascontiguousarray(features.item_q, dtype=np.float32))
+    q = q.clamp(min=1e-12)
+    q = q / q.sum()
+    return CatalogTensors(
+        idx=torch.arange(features.n_items, device=device),
+        genres=torch.from_numpy(
+            np.ascontiguousarray(features.genres, dtype=np.float32)
+        ).to(device),
+        years=torch.from_numpy(
+            np.ascontiguousarray(features.years, dtype=np.float32)
+        ).to(device),
+        q=q.to(device),
+        log_q=torch.log(q).to(device),
+    )
+
+
+def _encode_batch_users(
+    model: TwoTowerModel,
+    features: TwoTowerFeatures,
+    user_idx: torch.Tensor,
+    item_idx: torch.Tensor,
+    device: torch.device,
+    max_history: int,
+    user_id_dropout: float,
+) -> torch.Tensor:
+    """User vectors for one batch, positive item removed from history."""
+    u_np = user_idx.detach().cpu().numpy()
+    i_np = item_idx.detach().cpu().numpy()
+    hist, mask = pad_histories(
+        u_np, features, exclude_item_idx=i_np, max_history=max_history
+    )
+    zero_user_id = None
+    if user_id_dropout > 0.0 and model.training and not model.history_only:
+        zero_user_id = torch.bernoulli(
+            torch.full((user_idx.shape[0],), float(user_id_dropout), device=device)
+        )
+    return model.encode_users(
+        user_idx,
+        torch.from_numpy(hist).to(device),
+        torch.from_numpy(mask).to(device),
+        zero_user_id=zero_user_id,
+    )
+
+
+def _full_softmax_batch_loss(
+    model: TwoTowerModel,
+    features: TwoTowerFeatures,
+    user_idx: torch.Tensor,
+    item_idx: torch.Tensor,
+    device: torch.device,
+    max_history: int,
+    user_id_dropout: float,
+    catalog: CatalogTensors,
+) -> torch.Tensor:
+    user_vec = _encode_batch_users(
+        model, features, user_idx, item_idx, device, max_history, user_id_dropout
+    )
+    item_vec = model.encode_items(catalog.idx, catalog.genres, catalog.years)
+    logits = (user_vec @ item_vec.T) / model.temperature
+    return full_softmax_loss(logits, item_idx)
+
+
+def _sampled_softmax_batch_loss(
+    model: TwoTowerModel,
+    features: TwoTowerFeatures,
+    user_idx: torch.Tensor,
+    item_idx: torch.Tensor,
+    device: torch.device,
+    max_history: int,
+    user_id_dropout: float,
+    catalog: CatalogTensors,
+    n_negatives: int,
+) -> torch.Tensor:
+    """Negatives are shared across the batch and drawn from ``q``."""
+    k = min(int(n_negatives), int(features.n_items) - 1)
+    if k < 1:
+        raise ValueError("sampled softmax needs at least two catalog items")
+    user_vec = _encode_batch_users(
+        model, features, user_idx, item_idx, device, max_history, user_id_dropout
+    )
+    neg_idx = torch.multinomial(catalog.q, k, replacement=False)
+    all_idx = torch.cat([item_idx, neg_idx], dim=0)
+    vecs = model.encode_items(all_idx, catalog.genres[all_idx], catalog.years[all_idx])
+    n_pos = int(item_idx.shape[0])
+    pos_vec = vecs[:n_pos]
+    neg_vec = vecs[n_pos:]
+    pos_logit = (user_vec * pos_vec).sum(dim=-1) / model.temperature
+    neg_logit = (user_vec @ neg_vec.T) / model.temperature
+    return sampled_softmax_logq_loss(
+        pos_logit,
+        neg_logit,
+        catalog.log_q[item_idx],
+        catalog.log_q[neg_idx],
+        positive_index=item_idx,
+        negative_index=neg_idx,
+    )
+
+
 def _batch_loss(
     model: TwoTowerModel,
     features: TwoTowerFeatures,
@@ -80,7 +264,41 @@ def _batch_loss(
     device: torch.device,
     max_history: int,
     user_id_dropout: float = 0.0,
+    *,
+    loss: str = LOSS_IN_BATCH,
+    n_negatives: int = DEFAULT_N_NEGATIVES,
+    catalog: CatalogTensors | None = None,
 ) -> torch.Tensor:
+    # The default branch below is the ADR-0006 in-batch loss, unchanged.
+    if loss != LOSS_IN_BATCH:
+        if catalog is None:
+            raise ValueError(f"loss={loss!r} requires catalog tensors")
+        if loss == LOSS_FULL_SOFTMAX:
+            return _full_softmax_batch_loss(
+                model,
+                features,
+                user_idx,
+                item_idx,
+                device,
+                max_history,
+                user_id_dropout,
+                catalog,
+            )
+        if loss == LOSS_SAMPLED_SOFTMAX:
+            return _sampled_softmax_batch_loss(
+                model,
+                features,
+                user_idx,
+                item_idx,
+                device,
+                max_history,
+                user_id_dropout,
+                catalog,
+                n_negatives,
+            )
+        raise ValueError(
+            f"two-tower loss must be one of {TWO_TOWER_LOSSES}; got {loss!r}"
+        )
     u_np = user_idx.cpu().numpy()
     i_np = item_idx.cpu().numpy()
     hist, mask = pad_histories(
@@ -155,6 +373,10 @@ def train_two_tower(
     user_id_dropout = float(hyperparams.get("user_id_dropout", 0.0))
     history_only = bool(hyperparams.get("history_only", False))
     cold_eval = bool(score_without_user_id) or history_only
+    loss_name = resolve_two_tower_loss(hyperparams)
+    n_negatives = int(hyperparams.get("n_negatives", DEFAULT_N_NEGATIVES))
+    if n_negatives < 1:
+        raise ValueError("n_negatives must be >= 1")
 
     model = TwoTowerModel(
         n_users=features.n_users,
@@ -176,6 +398,8 @@ def train_two_tower(
         drop_last=True if len(dataset) > batch_size else False,
     )
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    # Built only for the ADR-0013 losses. The in-batch path does not read it.
+    catalog = None if loss_name == LOSS_IN_BATCH else build_catalog_tensors(features, dev)
 
     best_state: dict[str, Any] | None = None
     best_epoch = 0
@@ -191,6 +415,13 @@ def train_two_tower(
             user_idx = user_idx.to(dev)
             item_idx = item_idx.to(dev)
             opt.zero_grad(set_to_none=True)
+            loss_kwargs: dict[str, Any] = {}
+            if loss_name != LOSS_IN_BATCH:
+                loss_kwargs = {
+                    "loss": loss_name,
+                    "n_negatives": n_negatives,
+                    "catalog": catalog,
+                }
             loss = _batch_loss(
                 model,
                 features,
@@ -199,6 +430,7 @@ def train_two_tower(
                 dev,
                 max_history,
                 user_id_dropout=user_id_dropout,
+                **loss_kwargs,
             )
             loss.backward()
             opt.step()

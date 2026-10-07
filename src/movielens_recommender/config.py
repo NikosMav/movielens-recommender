@@ -81,6 +81,10 @@ class RankerYAML:
     demographics: str = "off"
 
 
+# Kept here so config loading does not import torch. Must match train.py.
+TWO_TOWER_LOSS_NAMES: tuple[str, ...] = ("in_batch", "full_softmax", "sampled_softmax")
+
+
 @dataclass
 class TwoTowerYAML:
     enabled: bool = True
@@ -92,6 +96,10 @@ class TwoTowerYAML:
     max_epochs: int = 20
     patience: int = 3
     max_history: int = 50
+    # ADR-0006 default. ADR-0013 adds full_softmax and sampled_softmax.
+    loss: str = "in_batch"
+    # Used by sampled_softmax. Ignored by the in-batch reference loss.
+    n_negatives: int = 256
     # Test-time seeds for variance reporting (ADR-0006).
     seeds: list[int] = field(default_factory=lambda: [42, 43, 44])
 
@@ -143,6 +151,19 @@ class RunConfig:
         return asdict(self)
 
 
+def _two_tower_loss(value: Any) -> str:
+    """Normalize ``models.two_tower.loss``. Omitted means the in-batch reference."""
+    if value is None:
+        return "in_batch"
+    name = str(value)
+    if name not in TWO_TOWER_LOSS_NAMES:
+        raise ValueError(
+            "two-tower loss must be one of "
+            f"{TWO_TOWER_LOSS_NAMES}; got {value!r}"
+        )
+    return name
+
+
 def _demographic_mode(value: Any) -> str:
     """Normalize ``models.ranker.demographics`` to a :data:`DEMO_MODES` value.
 
@@ -182,6 +203,9 @@ def load_config(path: Path | str | None = None) -> RunConfig:
     ease_raw = models_raw.get("ease") or {}
     tune_raw = raw.get("tuning") or {}
     sample_seed = eval_raw.get("user_sample_seed")
+    n_negatives = int(tt_raw.get("n_negatives", 256))
+    if n_negatives < 1:
+        raise ValueError(f"models.two_tower.n_negatives must be >= 1; got {n_negatives}")
     return RunConfig(
         seed=int(raw.get("seed", 42)),
         dataset=str(raw.get("dataset", "ml-latest-small")),
@@ -232,6 +256,8 @@ def load_config(path: Path | str | None = None) -> RunConfig:
                 max_epochs=int(tt_raw.get("max_epochs", 20)),
                 patience=int(tt_raw.get("patience", 3)),
                 max_history=int(tt_raw.get("max_history", 50)),
+                loss=_two_tower_loss(tt_raw.get("loss", "in_batch")),
+                n_negatives=n_negatives,
                 seeds=[int(s) for s in tt_raw.get("seeds", [42, 43, 44])],
             ),
             ranker=RankerYAML(
