@@ -85,7 +85,7 @@ The new-user pipeline does not beat popularity, and it does not beat the unranke
 
 ## Round 2
 
-The round 1 pipeline loses to most-popular at every N. This section was written before the held-out 604 were scored again. Round 1 stays in the JSON under `round1` and is not recomputed. The choices below are locked on validation. The held-out ratings are read only after that, once.
+The round 1 pipeline loses to most-popular at every N. Round 2 was redesigned after those results, on the same 604 held-out users: p=0.0 and p=0.1, the short-profile ranker, and the per-N serving rule. Round 1 stays in the JSON under `round1` and is not recomputed. The new choices were locked on validation users carved from the 90%, and the held-out ratings were scored again only after that. That second score is not a fully fresh test.
 
 **Dropout grid.** The round 1 grid was {0.25, 0.5, 0.75}, and 0.25 was the low edge. Round 2 adds p=0.1 and p=0.0. p=0.0 is the same training loop with the id mask never applied. Scoring still zeros the id embedding. History-only stays in the comparison. The winner is still higher validation NDCG@10, then history-only, then lower p. An edge is now the first or last dropout value, 0.0 or 0.75. The grid is not extended after the held-out scores exist.
 
@@ -103,11 +103,11 @@ The round 1 pipeline loses to most-popular at every N. This section was written 
 
 ### Round 2 outcome
 
-Copied from `results/cold-start/ml-1m.json` after the single held-out pass. These numbers were not available when the choices above were fixed, and they were not used to change them.
+Copied from `results/cold-start/ml-1m.json` after the round-2 score of the same 604 users. The design of this round used the round-1 held-out table. The validation choices below were not changed after the round-2 score.
 
 **Validation choices.** The expanded dropout search still selects `dropout_0.25` (validation NDCG@10 0.071919, epoch 2). p=0.0 is 0.068959 (epoch 6), p=0.1 is 0.068212 (epoch 2), history-only is 0.069339 (epoch 1), p=0.5 is 0.070440, p=0.75 is 0.069066. 0.25 is no longer a grid edge. `dropout_best_at_edge` and `selected_at_grid_edge` are both false.
 
-Ranker validation is 1087 users carved from the 4349 other users in the 90%. Mean validation NDCG@10 of the short-profile ranker is 0.410981 at K=50 (88 trees), 0.410656 at K=100, and 0.410938 at K=200. K=50 wins. On that same validation slice the ranker is ahead of most-popular, item-item fold-in, and the history two-tower at every N, so the serving rule is the cold-start ranker at N=1, 3, 5, and 10. Validation NDCG@10 for that ranker is 0.405740, 0.407085, 0.405488, and 0.425611.
+Ranker validation is 1087 of the 5436 users in the 90%; the other 4349 train the ranker. Mean validation NDCG@10 of the short-profile ranker is 0.410981 at K=50 (88 trees), 0.410656 at K=100, and 0.410938 at K=200. K=50 wins. On that same validation slice the ranker is ahead of most-popular, item-item fold-in, and the history two-tower at every N, so the serving rule is the cold-start ranker at N=1, 3, 5, and 10. Validation NDCG@10 for that ranker is 0.405740, 0.407085, 0.405488, and 0.425611.
 
 **Held-out NDCG@10**, primary protocol (all later ratings, 604 users, user bootstrap 1000, alpha 0.05, seed 42). `pipeline_v1` is the copied round-1 number. The served method is the cold-start ranker at every N.
 
@@ -157,4 +157,5 @@ Cold-start popularity remains higher than the known-user most-popular number (0.
 - The paired baseline is chosen on the table it is compared against.
 - EASE fold-in is binary. A 5-star and a 1-star rating both contribute 1.
 - "Because you rated … highly" needs a stored item-item similarity above 0 and a rating of at least 4.
+- The held-out 604 were reused. Round 2 was redesigned after round 1's results on that same set: dropout p=0.0 and p=0.1, the short-profile ranker, and the per-N rule. The round-2 held-out numbers are not a fully fresh test, even though every choice was frozen on validation before the second score.
 - The sensitivity tail was added after the first held-out table. It does not choose the serving rule.

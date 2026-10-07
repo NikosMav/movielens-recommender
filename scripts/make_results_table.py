@@ -998,6 +998,41 @@ def _beats_popularity_sentence(block: dict) -> str:
     return f"N={n}: `{method}` does not beat most-popular. Difference {gap}."
 
 
+def _coverage_tradeoff(by_n: list) -> str:
+    """Served Coverage@10 against popularity and the fold-in lists."""
+
+    def _cov(block: dict, name: str) -> str:
+        return _fmt(float(block["models"][name]["coverage@10"]))
+
+    ns = ", ".join(str(int(block["n"])) for block in by_n)
+    served = ", ".join(_cov(block, "served") for block in by_n)
+    popular = ", ".join(_cov(block, "most_popular") for block in by_n)
+    item_item = ", ".join(_cov(block, "item_item_fold_in") for block in by_n)
+    ease = ", ".join(_cov(block, "ease_fold_in") for block in by_n)
+    return (
+        f"Coverage trade-off: the served ranker's Coverage@10 is {served} at "
+        f"N={ns}. Most-popular is {popular}. Item-item fold-in is {item_item} "
+        f"and EASE fold-in is {ease}. The served list stays close to popularity "
+        "and far below those fold-in methods, so it leans on popular titles."
+    )
+
+
+def _sensitivity_n10_note(block: dict) -> str:
+    """Point comparison at N=10 on the harness tail, from the JSON."""
+    if int(block["n"]) != 10:
+        return ""
+    models = block.get("models") or {}
+    served = float(models["served"]["ndcg@10"])
+    item_item = float(models["item_item_fold_in"]["ndcg@10"])
+    tower = float(models["history_two_tower"]["ndcg@10"])
+    if served >= item_item or served >= tower:
+        return ""
+    return (
+        f" The served ranker ({_fmt(served)}) is below item-item fold-in "
+        f"({_fmt(item_item)}) and the history two-tower ({_fmt(tower)})."
+    )
+
+
 def _render_cold_start_round2(payload: dict) -> str:
     """Panel once a round-2 measurement is in the JSON. Round 1 stays visible."""
     lines: list[str] = []
@@ -1008,9 +1043,11 @@ def _render_cold_start_round2(payload: dict) -> str:
     lines.append(
         "The first pipeline is a negative result. It was trained on long "
         "histories and re-ranked one candidate source. Those numbers are copied "
-        "below as `pipeline_v1` and were not recomputed. Round 2 chooses a "
-        "short-profile ranker and a per-N serving rule on validation users "
-        "carved from the 90%, then scores the same held-out users once."
+        "below as `pipeline_v1` and were not recomputed. Round 2 was redesigned "
+        "after those results on the same 604 held-out users: dropout p=0.0 and "
+        "p=0.1, the short-profile ranker, and the per-N rule. The round-2 "
+        "held-out numbers are not a fully fresh test. Every choice was frozen "
+        "on validation before that second score."
     )
     lines.append("")
     round2 = payload.get("round2") or {}
@@ -1087,9 +1124,16 @@ def _render_cold_start_round2(payload: dict) -> str:
             metrics = models.get(name) or {}
             lines.append(_cold_metric_row(n, name, metrics, n_users))
     lines.append("")
-    for block in payload.get("by_n") or []:
+    primary = list(payload.get("by_n") or [])
+    if primary:
+        lines.append(_coverage_tradeoff(primary))
+        lines.append("")
+    for block in primary:
         lines.append(_beats_popularity_sentence(block))
         paired = block.get("paired_bootstrap") or {}
+        # Same gap as the popularity sentence when most-popular is the best simple baseline.
+        if paired.get("baseline") == "most_popular":
+            continue
         n = int(block["n"])
         excludes = "excludes 0" if paired.get("excludes_zero") else "includes 0"
         lines.append(
@@ -1145,7 +1189,9 @@ def _render_cold_start_round2(payload: dict) -> str:
             lines.append(_cold_metric_row(n, name, metrics, n_users))
     lines.append("")
     for block in sens.get("by_n") or []:
-        lines.append("Sensitivity " + _beats_popularity_sentence(block))
+        lines.append(
+            "Sensitivity " + _beats_popularity_sentence(block) + _sensitivity_n10_note(block)
+        )
     lines.append("")
     serving_latency = payload.get("serving") or {}
     if serving_latency.get("latency_sec") is not None:

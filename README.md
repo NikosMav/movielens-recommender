@@ -779,7 +779,7 @@ Demographic experiment runtime: 400.0710s.
 
 This is not the S4b simulated cold start. S4b keeps each evaluated user in the training matrices, truncates the query to the earliest N full-train ratings (N of 5 and 10), and scores the original per-user test split. The user-id embedding is the one learned for that user, and item-item similarities include that user's later train ratings. Here the user is absent from every training row. The model sees only the first N chronological ratings, N in {1, 3, 5, 10}, and is scored on the later ratings with relevance at least 4. There is no user-id embedding at score time, and demographic features are not used.
 
-The first pipeline is a negative result. It was trained on long histories and re-ranked one candidate source. Those numbers are copied below as `pipeline_v1` and were not recomputed. Round 2 chooses a short-profile ranker and a per-N serving rule on validation users carved from the 90%, then scores the same held-out users once.
+The first pipeline is a negative result. It was trained on long histories and re-ranked one candidate source. Those numbers are copied below as `pipeline_v1` and were not recomputed. Round 2 was redesigned after those results on the same 604 held-out users: dropout p=0.0 and p=0.1, the short-profile ranker, and the per-N rule. The round-2 held-out numbers are not a fully fresh test. Every choice was frozen on validation before that second score.
 
 Round 2 representation: `dropout_0.25` (validation NDCG@10 0.0719). Dropout grid edge: best p=0.25 (at edge: False); selected model at edge: False.
 
@@ -829,12 +829,11 @@ Primary protocol, fixed before this run: the model sees the first N chronologica
 | 10 | history_two_tower | 0.3716 | [0.3490, 0.3938] | 0.0614 | 0.0561 | 604 |
 | 10 | ease_fold_in | 0.3588 | [0.3390, 0.3800] | 0.0650 | 0.0859 | 604 |
 
+Coverage trade-off: the served ranker's Coverage@10 is 0.0109, 0.0139, 0.0175, 0.0604 at N=1, 3, 5, 10. Most-popular is 0.0030, 0.0033, 0.0036, 0.0044. Item-item fold-in is 0.3317, 0.1351, 0.1058, 0.0878 and EASE fold-in is 0.2819, 0.1526, 0.1129, 0.0859. The served list stays close to popularity and far below those fold-in methods, so it leans on popular titles.
+
 N=1: `cold_start_ranker` is above most-popular by 0.0091, and the interval [-0.0001, 0.0184] includes 0.
-N=1: served minus `most_popular` NDCG@10 0.0091 [-0.0001, 0.0184] (includes 0).
 N=3: the served method `cold_start_ranker` beats most-popular. Difference 0.0218 [0.0115, 0.0319] (excludes 0).
-N=3: served minus `most_popular` NDCG@10 0.0218 [0.0115, 0.0319] (excludes 0).
 N=5: the served method `cold_start_ranker` beats most-popular. Difference 0.0309 [0.0204, 0.0416] (excludes 0).
-N=5: served minus `most_popular` NDCG@10 0.0309 [0.0204, 0.0416] (excludes 0).
 N=10: the served method `cold_start_ranker` beats most-popular. Difference 0.0577 [0.0424, 0.0740] (excludes 0).
 N=10: served minus `item_item_fold_in` NDCG@10 0.0271 [0.0151, 0.0382] (excludes 0).
 
@@ -877,7 +876,7 @@ Sensitivity view, added after the first results. Targets are only each held-out 
 Sensitivity N=1: `cold_start_ranker` is above most-popular by 0.0028, and the interval [-0.0017, 0.0075] includes 0.
 Sensitivity N=3: the served method `cold_start_ranker` beats most-popular. Difference 0.0053 [0.0008, 0.0103] (excludes 0).
 Sensitivity N=5: `cold_start_ranker` is above most-popular by 0.0029, and the interval [-0.0025, 0.0083] includes 0.
-Sensitivity N=10: `cold_start_ranker` does not beat most-popular. Difference -0.0029 [-0.0095, 0.0038] (includes 0).
+Sensitivity N=10: `cold_start_ranker` does not beat most-popular. Difference -0.0029 [-0.0095, 0.0038] (includes 0). The served ranker (0.0414) is below item-item fold-in (0.0457) and the history two-tower (0.0450).
 
 Warmed new-user top-10 latency (five popular titles rated 5): 0.0850s. Method `cold_start_ranker`.
 
