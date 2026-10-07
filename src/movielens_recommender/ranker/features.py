@@ -135,6 +135,44 @@ def cold_start_feature_names(mode: str = "off") -> list[str]:
     return names
 
 
+def cold_start_ranker_feature_names() -> list[str]:
+    """Short-profile ranker columns. Demographics stay off.
+
+    ``profile_n`` is the number of ratings in the truncated profile.
+    ``from_ease``, ``from_most_popular``, and ``from_history_tower`` are 1
+    when that source contributed the candidate. ``item_popularity`` is already
+    in the off set. Headline ``feature_names`` is unchanged.
+    """
+    names = cold_start_feature_names("off")
+    extra = ("profile_n", "from_ease", "from_most_popular", "from_history_tower")
+    return names + [name for name in extra if name not in names]
+
+
+def annotate_cold_start_ranker_rows(
+    matrix: np.ndarray,
+    names: list[str],
+    item_ids: Sequence[int],
+    *,
+    profile_n: int,
+    ease_ids: set[int],
+    popular_ids: set[int],
+    tower_ids: set[int],
+) -> np.ndarray:
+    """Fill profile size and source flags. Other columns are left as built."""
+    col = {name: i for i, name in enumerate(names)}
+    out = np.array(matrix, copy=True)
+    out[:, col["profile_n"]] = float(profile_n)
+    ease_col = col["from_ease"]
+    pop_col = col["from_most_popular"]
+    tower_col = col["from_history_tower"]
+    for row, item in enumerate(item_ids):
+        iid = int(item)
+        out[row, ease_col] = 1.0 if iid in ease_ids else 0.0
+        out[row, pop_col] = 1.0 if iid in popular_ids else 0.0
+        out[row, tower_col] = 1.0 if iid in tower_ids else 0.0
+    return out
+
+
 def categorical_feature_names(mode: str = "off") -> list[str]:
     """Demographic columns LightGBM should split as categoricals."""
     mode = _check_mode(mode)

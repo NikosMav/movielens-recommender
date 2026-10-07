@@ -53,6 +53,7 @@ _EASE_TEXT = "Lines up with movies you have already rated"
 _NEIGHBOR_FALLBACK = "Close to movies you have already rated"
 _IN_BOTH_TEXT = "Both the neighbourhood model and the neural retriever suggested it"
 _POPULARITY_TEXT = "Widely rated by other viewers"
+POPULAR_WITH_MANY_VIEWERS = "Popular with many viewers"
 _RECENCY_TEXT = "Recently active in other viewers' ratings"
 _YEAR_TEXT = "Its release year fits the films you rate"
 _ACTIVITY_TEXT = "Your rating history is a pattern this ranker scores up"
@@ -244,6 +245,7 @@ def explain_recommendation(
     affinity_positive: Mapping[str, bool] | None = None,
     include_demographics: bool = True,
     because_rated: bool = False,
+    popularity_text: str | None = None,
 ) -> RecommendationExplanation:
     """Turn positive contributions into at most ``top_k`` sentences.
 
@@ -280,7 +282,13 @@ def explain_recommendation(
     for family, mass in ranked:
         if len(reasons) >= top_k:
             break
-        text = _render(family, history, sims, affinity_pos)
+        text = _render(
+            family,
+            history,
+            sims,
+            affinity_pos,
+            popularity_text=popularity_text,
+        )
         if text is None:
             continue
         reasons.append(Reason(text=text, contribution=float(mass)))
@@ -323,6 +331,8 @@ def _render(
     history: Sequence[HistoryItem],
     similarity: Mapping[int, float],
     affinity_pos: Mapping[str, bool],
+    *,
+    popularity_text: str | None = None,
 ) -> str | None:
     if family == "neighbor":
         return _neighbor_text(history, similarity)
@@ -333,7 +343,7 @@ def _render(
     if family == "in_both":
         return _IN_BOTH_TEXT
     if family == "popularity":
-        return _POPULARITY_TEXT
+        return popularity_text or _POPULARITY_TEXT
     if family == "recency":
         return _RECENCY_TEXT
     if family == "year":

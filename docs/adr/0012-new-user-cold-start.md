@@ -83,9 +83,32 @@ The new-user pipeline does not beat popularity, and it does not beat the unranke
 
 **What this does not change.** The candidate source and the ranker stay the validation winners. The held-out gap is the reason the validation query (full fit-train profile) is listed as a limitation, not a reason to pick a different model after seeing the test table.
 
+## Round 2
+
+The round 1 pipeline loses to most-popular at every N. This section was written before the held-out 604 were scored again. Round 1 stays in the JSON under `round1` and is not recomputed. The choices below are locked on validation. The held-out ratings are read only after that, once.
+
+**Dropout grid.** The round 1 grid was {0.25, 0.5, 0.75}, and 0.25 was the low edge. Round 2 adds p=0.1 and p=0.0. p=0.0 is the same training loop with the id mask never applied. Scoring still zeros the id embedding. History-only stays in the comparison. The winner is still higher validation NDCG@10, then history-only, then lower p. An edge is now the first or last dropout value, 0.0 or 0.75. The grid is not extended after the held-out scores exist.
+
+**Who the ranker is validated on.** From the 90% full-train users only, hold out `early_stop_fraction` (0.2) with `select_held_out_user_ids`, seed 42. Those ranker-validation users are disjoint from the 604. Retrievers used for the selection metric are fit on the other ranker-train users' full train, so the validation users are absent. A further early-stop split, same fraction and seed, is taken from the ranker-train users only. Ranker-train users' later full-train ratings can still sit in the item similarity. That can bias the fit. It does not enter the selection metric.
+
+**Simulated profiles.** For each ranker-train user and each N in {1, 3, 5, 10}, the profile is the first N ratings of that user's full chronology. Every history feature (activity, genre affinity, and the retriever scores) is recomputed from that prefix. Labels are later ratings with relevance at least 4, in the ranker-train catalog. N is a feature. Item popularity is a feature. Demographics stay off.
+
+**Candidates and K.** The pool is the union of EASE fold-in, most-popular, and the history two-tower, in that order, duplicates kept once. Each source contributes a flag. Item-item fold-in does not add candidates. It is a feature when the item is in its top K, and it is a serving option. K is chosen from {50, 100, 200} by the mean validation NDCG@10 of this ranker across N. A tie keeps the smaller K. Lists are retrieved once at 200 and truncated, so a rank is the rank inside that prefix.
+
+**What the page serves.** For each N, serve whichever of {cold-start ranker, most-popular, item-item fold-in, history two-tower} has the higher validation NDCG@10. A tie prefers most-popular, then item-item fold-in, then the history two-tower, then the ranker. A live profile of length n uses the largest grid N that is at most n. The ranker, when it is the one served, still sees the actual profile length as `profile_n`. The page says in plain words which method it used. A popularity reason reads "Popular with many viewers". It never reads a demographic reason. After the choices are frozen, retrievers and the ranker are refit on the whole 90% for `best_iteration` trees, with no second early stop.
+
+**Held-out score, once.** The primary target is unchanged: all later ratings, relevance at least 4. The sensitivity view, added after the first results, keeps only each held-out user's harness tail (the last `max(1, int(n_ratings * 0.2))` ratings, leaving at least one head row) where that tail is after the first N. The serving rule is not re-chosen on the sensitivity view, and pipeline v1 is not invented on that target. Paired intervals compare the served list, and the new ranker, with the best simple baseline on that same table, and again with most-popular. If the served method does not beat popularity at a small N, the page still serves the validation winner. Serving popularity there is a legitimate outcome.
+
+**Why cold-start popularity looks higher than the known-user number.** The cold-start target is every later rating, a long tail, and the short profile has not consumed the popular titles. The known-user most-popular number is a short per-user test tail after a long history. Those are not a paired test.
+
+### Round 2 outcome
+
+Filled from `results/cold-start/ml-1m.json` after the single held-out pass. Not an input to the choices above.
+
 ## Limitations
 
-- Validation candidate and ranker selection uses each validation user's full fit-train profile. The reported test is N-shot. Those are different queries.
+- Round 1's candidate and ranker selection used each validation user's full fit-train profile, while the reported test was N-shot. That pipeline is the negative result under `round1`. Round 2 selects the new ranker and the per-N rule on truncated profiles.
+- Ranker-train users' later full-train ratings can sit in the item similarity used to fit the ranker. Ranker-validation users are absent from that fit.
 - Two-tower, item-item, and EASE hyperparameters were not searched again.
 - The ranker is one seed.
 - The app model was trained without the held-out 10%. It is the measured model, not a second fit on every ml-1m user.
@@ -93,3 +116,4 @@ The new-user pipeline does not beat popularity, and it does not beat the unranke
 - The paired baseline is chosen on the table it is compared against.
 - EASE fold-in is binary. A 5-star and a 1-star rating both contribute 1.
 - "Because you rated … highly" needs a stored item-item similarity above 0 and a rating of at least 4.
+- The sensitivity tail was added after the first held-out table. It does not choose the serving rule.

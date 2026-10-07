@@ -218,6 +218,7 @@ def _new_user(path: Path) -> None:
                 {"item_id": int(chosen), "title": labels[int(chosen)], "rating": int(stars)}
             )
             st.session_state["new_user_ratings"] = rows
+            st.session_state["new_user_result"] = None
 
     ratings = list(st.session_state["new_user_ratings"])
     if ratings:
@@ -229,6 +230,7 @@ def _new_user(path: Path) -> None:
         )
         if st.button("Clear ratings"):
             st.session_state["new_user_ratings"] = []
+            st.session_state["new_user_result"] = None
             st.rerun()
     else:
         st.caption("No ratings yet.")
@@ -248,6 +250,9 @@ def _new_user(path: Path) -> None:
     if not result:
         return
     latency = float(result["latency_sec"])
+    sentence = result.get("method_sentence")
+    if sentence:
+        st.markdown(str(sentence))
     st.caption(f"Scored in {latency:.3f}s. Rated movies are left out of the list.")
     st.subheader("Top 10")
     _show_list(result["recommendations"], explain=True)

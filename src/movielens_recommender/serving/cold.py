@@ -18,14 +18,17 @@ import pandas as pd
 
 from movielens_recommender.baselines.ease import EASERecommender
 from movielens_recommender.baselines.item_knn import ItemItemCosineRecommender
+from movielens_recommender.cold_start_rank import profile_bucket, union_candidate_ids
 from movielens_recommender.ranker.candidates import score_rank_maps
 from movielens_recommender.ranker.explain import explain_candidates
 from movielens_recommender.ranker.features import (
     FeatureContext,
+    annotate_cold_start_ranker_rows,
     build_feature_matrix,
     history_user_stats,
 )
 from movielens_recommender.serving.reasons import (
+    POPULAR_WITH_MANY_VIEWERS,
     HistoryItem,
     RecommendationExplanation,
     display_title,
@@ -50,6 +53,7 @@ class ColdStartBundle:
     two_tower: TwoTowerRecommender
     booster: Any
     context: FeatureContext
+    popular_item_ids: np.ndarray | None = None
 
     @property
     def candidate_source(self) -> str:
@@ -70,6 +74,7 @@ def save_cold_start_bundle(
     booster: Any,
     context: FeatureContext,
     manifest: Mapping[str, Any],
+    popular_item_ids: np.ndarray | None = None,
 ) -> Path:
     """Write the new-user snapshot. ``directory`` is created and gitignored."""
     from movielens_recommender.ranker.explain import save_ranker
@@ -103,6 +108,11 @@ def save_cold_start_bundle(
             "demographics": payload.get("ranker_mode"),
         },
     )
+    if popular_item_ids is not None:
+        np.save(
+            directory / "popular_items.npy",
+            np.asarray(popular_item_ids, dtype=np.int64),
+        )
     (directory / "manifest.json").write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -140,6 +150,10 @@ def load_cold_start_bundle(directory: Path | str) -> ColdStartBundle:
     model_names = list(booster.feature_name())
     if model_names != list(context.names):
         raise ValueError("ranker feature names do not match the feature context")
+    popular_path = directory / "popular_items.npy"
+    if manifest.get("serving_by_n") is not None and not popular_path.is_file():
+        raise FileNotFoundError(f"cold-start snapshot at {directory} is missing popular_items.npy")
+    popular = np.load(popular_path).astype(np.int64) if popular_path.is_file() else None
     return ColdStartBundle(
         manifest=manifest,
         movies=movies,
@@ -148,6 +162,28 @@ def load_cold_start_bundle(directory: Path | str) -> ColdStartBundle:
         two_tower=_load_two_tower(directory),
         booster=booster,
         context=context,
+        popular_item_ids=popular,
+    )
+
+
+def method_sentence(method: str, n_ratings: int, bucket: int) -> str:
+    """Plain description of the method chosen for this profile length."""
+    sentences = {
+        "most_popular": "The list is the titles most people have rated.",
+        "item_item_fold_in": "The list is neighbours of the films you rated.",
+        "history_two_tower": (
+            "The list comes from the neural retriever, using only the films you rated."
+        ),
+        "cold_start_ranker": (
+            "The list is a ranker trained on short profiles. "
+            "It re-ranks popular titles and neighbours of the films you rated."
+        ),
+    }
+    if method not in sentences:
+        raise ValueError(f"unknown serving method {method!r}")
+    return (
+        f"{sentences[method]} For a profile of {int(n_ratings)} ratings, "
+        f"using the rule chosen for N={int(bucket)}."
     )
 
 
@@ -161,11 +197,28 @@ def recommend_new_user(
 
     Rated items are excluded. Reasons never include demographic or group
     feature names. ``latency_sec`` is the wall time of this call.
+
+    Snapshots without ``serving_by_n`` keep the single-source ranker path.
     """
     started = time.perf_counter()
     profile = _collapse_profile(ratings)
     if not profile:
         raise ValueError("a new-user profile needs at least one rating")
+    serving = bundle.manifest.get("serving_by_n")
+    if serving:
+        result = _recommend_served(bundle, profile, serving, n=n)
+    else:
+        result = _recommend_v1(bundle, profile, n=n)
+    result["latency_sec"] = time.perf_counter() - started
+    return result
+
+
+def _recommend_v1(
+    bundle: ColdStartBundle,
+    profile: list[tuple[int, float]],
+    *,
+    n: int,
+) -> dict[str, Any]:
     rated = [item for item, _rating in profile]
     rated_set = set(rated)
     k = bundle.candidate_k
@@ -219,8 +272,166 @@ def recommend_new_user(
         "n_ratings": len(profile),
         "candidate_source": source,
         "recommendations": cards,
-        "latency_sec": time.perf_counter() - started,
     }
+
+
+def _recommend_served(
+    bundle: ColdStartBundle,
+    profile: list[tuple[int, float]],
+    serving: Mapping[str, str],
+    *,
+    n: int,
+) -> dict[str, Any]:
+    """Per-N rule. The ranker, when selected, sees the union candidate pool."""
+    rated = [item for item, _rating in profile]
+    rated_set = set(rated)
+    bucket = profile_bucket(len(profile))
+    method = str(serving[str(bucket)])
+    history = _history_items(bundle, profile)
+    if method == "cold_start_ranker":
+        cards = _ranker_union_cards(bundle, profile, history, n=n)
+    elif method == "most_popular":
+        cards = [
+            _plain_card(bundle, item, history, method)
+            for item in _popular_top(bundle, rated_set, n)
+        ]
+    elif method == "item_item_fold_in":
+        rows = bundle.item_item.topk_for_profiles({_NEW_USER_ID: profile}, n).get(_NEW_USER_ID, [])
+        cards = [
+            _plain_card(bundle, int(item), history, method)
+            for item, _score in rows
+            if int(item) not in rated_set
+        ]
+    elif method == "history_two_tower":
+        rows = bundle.two_tower.topk_for_new_histories({_NEW_USER_ID: rated}, n).get(
+            _NEW_USER_ID, []
+        )
+        cards = [
+            _plain_card(bundle, int(item), history, method)
+            for item, _score in rows
+            if int(item) not in rated_set
+        ]
+    else:
+        raise ValueError(f"unknown serving method {method!r}")
+    cards = cards[:n]
+    for card in cards:
+        if int(card["item_id"]) in rated_set:
+            raise AssertionError("a rated movie was recommended")
+        _assert_no_demographic_reason(card)
+    return {
+        "n_ratings": len(profile),
+        "profile_bucket": int(bucket),
+        "method": method,
+        "method_sentence": method_sentence(method, len(profile), bucket),
+        "candidate_source": method,
+        "recommendations": cards,
+    }
+
+
+def _popular_top(bundle: ColdStartBundle, banned: set[int], n: int) -> list[int]:
+    ranked = bundle.popular_item_ids
+    if ranked is None:
+        raise ValueError("this snapshot has no popularity ranking")
+    picked: list[int] = []
+    for item in ranked.tolist():
+        iid = int(item)
+        if iid in banned:
+            continue
+        picked.append(iid)
+        if len(picked) >= n:
+            break
+    return picked
+
+
+def _plain_card(
+    bundle: ColdStartBundle,
+    item_id: int,
+    history: list[HistoryItem],
+    method: str,
+) -> dict[str, Any]:
+    """A reason sentence without presenting a fake ranker contribution."""
+    contributions = {
+        "most_popular": {"item_popularity": 1.0},
+        "item_item_fold_in": {"item_item_score": 1.0},
+        "history_two_tower": {"two_tower_score": 1.0},
+    }
+    sims = bundle.item_item.neighbor_similarities(
+        int(item_id), [item.item_id for item in history]
+    )
+    explanation = explain_recommendation(
+        contributions[method],
+        history=history,
+        neighbor_similarity=sims,
+        include_demographics=False,
+        because_rated=True,
+        popularity_text=POPULAR_WITH_MANY_VIEWERS,
+    )
+    card = _card(bundle, int(item_id), explanation)
+    card["details"] = []
+    card["bias"] = None
+    card["raw_score"] = None
+    return card
+
+
+def _ranker_union_cards(
+    bundle: ColdStartBundle,
+    profile: list[tuple[int, float]],
+    history: list[HistoryItem],
+    *,
+    n: int,
+) -> list[dict[str, Any]]:
+    rated = [item for item, _rating in profile]
+    rated_set = set(rated)
+    k = bundle.candidate_k
+    uid = _NEW_USER_ID
+    ii_rows = bundle.item_item.topk_for_profiles({uid: profile}, k).get(uid, [])
+    ease_rows = bundle.ease.topk_for_profiles({uid: profile}, k).get(uid, [])
+    tt_rows = bundle.two_tower.topk_for_new_histories({uid: rated}, k).get(uid, [])
+    popular_ids = _popular_top(bundle, rated_set, k)
+    items, ease_set, pop_set, tower_set = union_candidate_ids(
+        [int(item) for item, _score in ease_rows],
+        popular_ids,
+        [int(item) for item, _score in tt_rows],
+        banned=rated_set,
+    )
+    ii_map = score_rank_maps({uid: ii_rows}).get(uid, {})
+    ease_map = score_rank_maps({uid: ease_rows}).get(uid, {})
+    tt_map = score_rank_maps({uid: tt_rows}).get(uid, {})
+    stats = history_user_stats(
+        bundle.context,
+        rated,
+        [rating for _item, rating in profile],
+    )
+    names = list(bundle.context.names)
+    matrix = build_feature_matrix(
+        bundle.context,
+        uid,
+        items,
+        ii_map,
+        tt_map,
+        user_stats=stats,
+        ease=ease_map,
+        demographics_missing=False,
+    )
+    matrix = annotate_cold_start_ranker_rows(
+        matrix,
+        names,
+        items,
+        profile_n=len(profile),
+        ease_ids=ease_set,
+        popular_ids=pop_set,
+        tower_ids=tower_set,
+    )
+    return _rank_and_explain(
+        bundle,
+        items,
+        matrix,
+        history,
+        ii_map,
+        tt_map,
+        ease_map,
+        n=n,
+    )
 
 
 def measure_new_user_latency(directory: Path | str, train: pd.DataFrame) -> dict[str, Any]:
@@ -237,7 +448,7 @@ def measure_new_user_latency(directory: Path | str, train: pd.DataFrame) -> dict
     profile = [(item, 5.0) for item in chosen]
     recommend_new_user(bundle, profile, n=10)
     result = recommend_new_user(bundle, profile, n=10)
-    return {
+    payload = {
         "latency_sec": round(float(result["latency_sec"]), 6),
         "n_ratings": 5,
         "rating": 5.0,
@@ -250,6 +461,11 @@ def measure_new_user_latency(directory: Path | str, train: pd.DataFrame) -> dict
             "common training items, ties broken by item id, each rated 5."
         ),
     }
+    if result.get("method"):
+        payload["method"] = result["method"]
+        payload["profile_bucket"] = int(result["profile_bucket"])
+        payload["method_sentence"] = result["method_sentence"]
+    return payload
 
 
 def _collapse_profile(ratings: Sequence[tuple[int, float]]) -> list[tuple[int, float]]:
@@ -347,6 +563,7 @@ def _rank_and_explain(
             raw_score=float(row["raw_score"]),
             include_demographics=False,
             because_rated=True,
+            popularity_text=POPULAR_WITH_MANY_VIEWERS,
         )
         cards.append(_card(bundle, item_id, explanation))
     return cards

@@ -21,6 +21,7 @@ from movielens_recommender.ranker.features import (
     FeatureContext,
     build_feature_matrix,
     cold_start_feature_names,
+    cold_start_ranker_feature_names,
     feature_names,
 )
 from movielens_recommender.serving.reasons import (
@@ -600,6 +601,8 @@ def _save_context(ctx: FeatureContext, directory: Path) -> None:
     allowed = [expected]
     if ctx.demo_mode in {"off", "both"}:
         allowed.append(cold_start_feature_names(ctx.demo_mode))
+    if ctx.demo_mode == "off":
+        allowed.append(cold_start_ranker_feature_names())
     if list(ctx.names) not in allowed:
         raise ValueError("feature context names drifted from feature_names(mode)")
     (directory / "feature_context_meta.json").write_text(

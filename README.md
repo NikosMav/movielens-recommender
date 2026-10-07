@@ -63,7 +63,7 @@ pip install -e ".[ui]"
 
 ## Try the demo
 
-The page recommends for an existing ml-1m user, and it has a New user mode. Existing users load a local snapshot of the production pipeline: validation-chosen candidates re-ranked by LightGBM LambdaRank, including the demographic group-affinity features from ADR-0009. A new user searches titles, rates at least three films (about five is a good start), and gets a top 10 with plain-language reasons. The page does not ask for gender, age, occupation, or ZIP, and it does not save the profile. See [ADR-0010](docs/adr/0010-streamlit-ui.md) and [ADR-0012](docs/adr/0012-new-user-cold-start.md). Metrics stay in the results section below. Nothing under `artifacts/` is committed.
+The page recommends for an existing ml-1m user, and it has a New user mode. Existing users load a local snapshot of the production pipeline: validation-chosen candidates re-ranked by LightGBM LambdaRank, including the demographic group-affinity features from ADR-0009. A new user searches titles, rates at least three films (about five is a good start), and gets a top 10 with plain-language reasons. The page says, in plain words, which method produced the list for that profile size. The page does not ask for gender, age, occupation, or ZIP, and it does not save the profile. See [ADR-0010](docs/adr/0010-streamlit-ui.md) and [ADR-0012](docs/adr/0012-new-user-cold-start.md). Metrics stay in the results section below. Nothing under `artifacts/` is committed.
 
 ```bash
 pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
