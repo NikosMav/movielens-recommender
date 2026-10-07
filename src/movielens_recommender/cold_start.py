@@ -636,13 +636,18 @@ def run_cold_start_experiment(
     winner_tower = None
     best_key = (float("-inf"), -1, float("-inf"))
     rep_trials: list[dict[str, Any]] = []
+    # ``val`` must be set. train_two_tower early-stops only when val_split.val
+    # is present. ``test`` is the same window because ndcg_point_estimate reads it.
     val_split = SplitResult(
         train=split.train,
         test=split.val,
+        val=split.val,
         config=split.config,
         n_users_kept=split.n_users_kept,
         n_users_dropped=split.n_users_dropped,
     )
+    if val_split.val is None or val_split.val.empty:
+        raise ValueError("representation early stopping requires a validation window")
     for variant in _representation_grid(tower_hp):
         name = str(variant["name"])
         print(f"  representation {name}", flush=True)
