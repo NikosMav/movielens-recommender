@@ -103,7 +103,48 @@ The round 1 pipeline loses to most-popular at every N. This section was written 
 
 ### Round 2 outcome
 
-Filled from `results/cold-start/ml-1m.json` after the single held-out pass. Not an input to the choices above.
+Copied from `results/cold-start/ml-1m.json` after the single held-out pass. These numbers were not available when the choices above were fixed, and they were not used to change them.
+
+**Validation choices.** The expanded dropout search still selects `dropout_0.25` (validation NDCG@10 0.071919, epoch 2). p=0.0 is 0.068959 (epoch 6), p=0.1 is 0.068212 (epoch 2), history-only is 0.069339 (epoch 1), p=0.5 is 0.070440, p=0.75 is 0.069066. 0.25 is no longer a grid edge. `dropout_best_at_edge` and `selected_at_grid_edge` are both false.
+
+Ranker validation is 1087 users carved from the 4349 other users in the 90%. Mean validation NDCG@10 of the short-profile ranker is 0.410981 at K=50 (88 trees), 0.410656 at K=100, and 0.410938 at K=200. K=50 wins. On that same validation slice the ranker is ahead of most-popular, item-item fold-in, and the history two-tower at every N, so the serving rule is the cold-start ranker at N=1, 3, 5, and 10. Validation NDCG@10 for that ranker is 0.405740, 0.407085, 0.405488, and 0.425611.
+
+**Held-out NDCG@10**, primary protocol (all later ratings, 604 users, user bootstrap 1000, alpha 0.05, seed 42). `pipeline_v1` is the copied round-1 number. The served method is the cold-start ranker at every N.
+
+| N | pipeline v1 | cold-start ranker (served) | most-popular | item-item fold-in | history two-tower |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 0.134591 [0.118512, 0.151437] | 0.403491 [0.381732, 0.422841] | 0.394351 [0.373228, 0.414514] | 0.214050 [0.190999, 0.236713] | 0.244827 [0.222933, 0.265197] |
+| 3 | 0.244204 [0.225151, 0.263132] | 0.408116 [0.385520, 0.428813] | 0.386298 [0.364612, 0.406805] | 0.308793 [0.286262, 0.330203] | 0.325211 [0.302732, 0.347518] |
+| 5 | 0.282941 [0.263355, 0.303226] | 0.407593 [0.385452, 0.428085] | 0.376660 [0.355133, 0.396619] | 0.335085 [0.312266, 0.358069] | 0.358266 [0.336460, 0.379757] |
+| 10 | 0.338091 [0.317881, 0.358199] | 0.404614 [0.384251, 0.426581] | 0.346903 [0.325275, 0.367036] | 0.377477 [0.355073, 0.399054] | 0.371606 [0.349003, 0.393841] |
+
+EASE fold-in is unchanged from round 1 (0.203732, 0.292558, 0.323677, 0.358806) and is in the JSON.
+
+Does the served method beat most-popular? Paired NDCG@10, served minus most-popular:
+
+| N | difference | beats popularity |
+| --- | --- | --- |
+| 1 | 0.009141 [-0.000148, 0.018419], includes 0 | no |
+| 3 | 0.021817 [0.011524, 0.031947], excludes 0 | yes |
+| 5 | 0.030933 [0.020420, 0.041617], excludes 0 | yes |
+| 10 | 0.057711 [0.042425, 0.073973], excludes 0 | yes |
+
+At N=1 the point estimate is higher than most-popular and the interval includes zero, so it does not beat popularity. The page still serves the ranker there, because that is what validation selected (0.405740 against 0.402050 for most-popular). The held-out table was not used to switch the rule. At N=10 the best simple baseline is item-item fold-in, and the served list beats that too: 0.027137 [0.015067, 0.038201].
+
+**Sensitivity, added after the first results.** Targets are the harness tail only. 599 users have a warm relevant item in that tail at every N. The serving rule was not re-chosen. NDCG@10 is much smaller because the target list is short.
+
+| N | served (ranker) | most-popular | served minus most-popular |
+| --- | --- | --- | --- |
+| 1 | 0.042489 [0.036072, 0.049444] | 0.039669 [0.032775, 0.046604] | 0.002820 [-0.001724, 0.007538], includes 0 |
+| 3 | 0.045866 [0.038843, 0.052758] | 0.040520 [0.033649, 0.047619] | 0.005346 [0.000797, 0.010280], excludes 0 |
+| 5 | 0.044282 [0.037923, 0.051032] | 0.041404 [0.034470, 0.048744] | 0.002878 [-0.002454, 0.008315], includes 0 |
+| 10 | 0.041365 [0.035084, 0.047985] | 0.044243 [0.036946, 0.051756] | -0.002879 [-0.009460, 0.003770], includes 0 |
+
+On this tail the served method beats popularity only at N=3. At N=10 the point estimate is below most-popular and below item-item fold-in (0.045713). Those intervals include zero. This view does not change what the page serves.
+
+**Latency.** One warmed top-10 call, five most-common training titles rated 5, took 0.084979 seconds. That profile has length 5, so the page uses the N=5 rule: the short-profile ranker.
+
+Cold-start popularity remains higher than the known-user most-popular number (0.089508) because the primary target is the long remainder of the history and the short profile has not consumed those titles. The sensitivity numbers, on a short tail, sit below the known-user headline. That is the same distinction, measured on the held-out users.
 
 ## Limitations
 

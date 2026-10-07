@@ -779,11 +779,13 @@ Demographic experiment runtime: 400.0710s.
 
 This is not the S4b simulated cold start. S4b keeps each evaluated user in the training matrices, truncates the query to the earliest N full-train ratings (N of 5 and 10), and scores the original per-user test split. The user-id embedding is the one learned for that user, and item-item similarities include that user's later train ratings. Here the user is absent from every training row. The model sees only the first N chronological ratings, N in {1, 3, 5, 10}, and is scored on the later ratings with relevance at least 4. There is no user-id embedding at score time, and demographic features are not used.
 
-Choices were fixed on the validation window of the users who stayed in training, before the held-out ratings were scored.
+The first pipeline is a negative result. It was trained on long histories and re-ranked one candidate source. Those numbers are copied below as `pipeline_v1` and were not recomputed. Round 2 chooses a short-profile ranker and a per-N serving rule on validation users carved from the 90%, then scores the same held-out users once.
 
-User representation: `dropout_0.25` (validation NDCG@10 0.0719). Dropout grid edge: best p=0.25 (at edge: True); selected model at edge: True.
+Round 2 representation: `dropout_0.25` (validation NDCG@10 0.0719). Dropout grid edge: best p=0.25 (at edge: False); selected model at edge: False.
 
-Candidate source: `ease_fold_in` (K=200). Ranker: `demographics_off` (32 trees).
+Cold-start ranker K=50 (88 trees, demographics off). Served method by profile size: N=1 `cold_start_ranker`, N=3 `cold_start_ranker`, N=5 `cold_start_ranker`, N=10 `cold_start_ranker`.
+
+Cold-start most-popular NDCG is higher than the known-user most-popular number because the targets are every later rating, a long tail, and the short profile has not consumed the popular titles. The known-user number is a short per-user test tail after a long history.
 
 Known users below are copied from `results/ml-1m.json`. They were in the training matrix. The new-user rows were not.
 
@@ -794,38 +796,91 @@ Known users below are copied from `results/ml-1m.json`. They were in the trainin
 | two_tower | 0.1192 | [0.1150, 0.1230] | 0.0901 | 0.4723 |
 | lambdarank | 0.1273 | [0.1247, 0.1329] | 0.0928 | 0.3895 |
 
-For a brand-new user the model sees only the first N chronological ratings. NDCG@10, Recall@10, and Coverage@10 are on the later ratings (relevance at least 4). Coverage has no interval.
+Primary protocol, fixed before this run: the model sees the first N chronological ratings, and the targets are all later ratings (relevance at least 4). Coverage has no interval.
 
 | N | model | NDCG@10 | 95% CI | Recall@10 | Coverage@10 | eval users |
 | --- | --- | --- | --- | --- | --- | --- |
+| 1 | pipeline_v1 | 0.1346 | [0.1185, 0.1514] | 0.0159 | 0.3763 | 604 |
+| 1 | cold_start_ranker | 0.4035 | [0.3817, 0.4228] | 0.0577 | 0.0109 | 604 |
+| 1 | served | 0.4035 | [0.3817, 0.4228] | 0.0577 | 0.0109 | 604 |
 | 1 | most_popular | 0.3944 | [0.3732, 0.4145] | 0.0570 | 0.0030 | 604 |
 | 1 | item_item_fold_in | 0.2140 | [0.1910, 0.2367] | 0.0270 | 0.3317 | 604 |
-| 1 | ease_fold_in | 0.2037 | [0.1829, 0.2253] | 0.0257 | 0.2819 | 604 |
 | 1 | history_two_tower | 0.2448 | [0.2229, 0.2652] | 0.0331 | 0.2929 | 604 |
-| 1 | pipeline | 0.1346 | [0.1185, 0.1514] | 0.0159 | 0.3763 | 604 |
+| 1 | ease_fold_in | 0.2037 | [0.1829, 0.2253] | 0.0257 | 0.2819 | 604 |
+| 3 | pipeline_v1 | 0.2442 | [0.2252, 0.2631] | 0.0303 | 0.2893 | 604 |
+| 3 | cold_start_ranker | 0.4081 | [0.3855, 0.4288] | 0.0586 | 0.0139 | 604 |
+| 3 | served | 0.4081 | [0.3855, 0.4288] | 0.0586 | 0.0139 | 604 |
 | 3 | most_popular | 0.3863 | [0.3646, 0.4068] | 0.0555 | 0.0033 | 604 |
 | 3 | item_item_fold_in | 0.3088 | [0.2863, 0.3302] | 0.0391 | 0.1351 | 604 |
-| 3 | ease_fold_in | 0.2926 | [0.2706, 0.3143] | 0.0376 | 0.1526 | 604 |
 | 3 | history_two_tower | 0.3252 | [0.3027, 0.3475] | 0.0466 | 0.1381 | 604 |
-| 3 | pipeline | 0.2442 | [0.2252, 0.2631] | 0.0303 | 0.2893 | 604 |
+| 3 | ease_fold_in | 0.2926 | [0.2706, 0.3143] | 0.0376 | 0.1526 | 604 |
+| 5 | pipeline_v1 | 0.2829 | [0.2634, 0.3032] | 0.0383 | 0.2289 | 604 |
+| 5 | cold_start_ranker | 0.4076 | [0.3855, 0.4281] | 0.0596 | 0.0175 | 604 |
+| 5 | served | 0.4076 | [0.3855, 0.4281] | 0.0596 | 0.0175 | 604 |
 | 5 | most_popular | 0.3767 | [0.3551, 0.3966] | 0.0534 | 0.0036 | 604 |
 | 5 | item_item_fold_in | 0.3351 | [0.3123, 0.3581] | 0.0458 | 0.1058 | 604 |
-| 5 | ease_fold_in | 0.3237 | [0.3015, 0.3465] | 0.0442 | 0.1129 | 604 |
 | 5 | history_two_tower | 0.3583 | [0.3365, 0.3798] | 0.0503 | 0.0998 | 604 |
-| 5 | pipeline | 0.2829 | [0.2634, 0.3032] | 0.0383 | 0.2289 | 604 |
+| 5 | ease_fold_in | 0.3237 | [0.3015, 0.3465] | 0.0442 | 0.1129 | 604 |
+| 10 | pipeline_v1 | 0.3381 | [0.3179, 0.3582] | 0.0612 | 0.1627 | 604 |
+| 10 | cold_start_ranker | 0.4046 | [0.3843, 0.4266] | 0.0697 | 0.0604 | 604 |
+| 10 | served | 0.4046 | [0.3843, 0.4266] | 0.0697 | 0.0604 | 604 |
 | 10 | most_popular | 0.3469 | [0.3253, 0.3670] | 0.0508 | 0.0044 | 604 |
 | 10 | item_item_fold_in | 0.3775 | [0.3551, 0.3991] | 0.0621 | 0.0878 | 604 |
-| 10 | ease_fold_in | 0.3588 | [0.3390, 0.3800] | 0.0650 | 0.0859 | 604 |
 | 10 | history_two_tower | 0.3716 | [0.3490, 0.3938] | 0.0614 | 0.0561 | 604 |
-| 10 | pipeline | 0.3381 | [0.3179, 0.3582] | 0.0612 | 0.1627 | 604 |
+| 10 | ease_fold_in | 0.3588 | [0.3390, 0.3800] | 0.0650 | 0.0859 | 604 |
 
-N=1: pipeline minus `most_popular` NDCG@10 -0.2598 [-0.2809, -0.2388] (excludes 0).
-N=3: pipeline minus `most_popular` NDCG@10 -0.1421 [-0.1620, -0.1241] (excludes 0).
-N=5: pipeline minus `most_popular` NDCG@10 -0.0937 [-0.1104, -0.0762] (excludes 0).
-N=10: pipeline minus `item_item_fold_in` NDCG@10 -0.0394 [-0.0532, -0.0262] (excludes 0).
+N=1: `cold_start_ranker` is above most-popular by 0.0091, and the interval [-0.0001, 0.0184] includes 0.
+N=1: served minus `most_popular` NDCG@10 0.0091 [-0.0001, 0.0184] (includes 0).
+N=3: the served method `cold_start_ranker` beats most-popular. Difference 0.0218 [0.0115, 0.0319] (excludes 0).
+N=3: served minus `most_popular` NDCG@10 0.0218 [0.0115, 0.0319] (excludes 0).
+N=5: the served method `cold_start_ranker` beats most-popular. Difference 0.0309 [0.0204, 0.0416] (excludes 0).
+N=5: served minus `most_popular` NDCG@10 0.0309 [0.0204, 0.0416] (excludes 0).
+N=10: the served method `cold_start_ranker` beats most-popular. Difference 0.0577 [0.0424, 0.0740] (excludes 0).
+N=10: served minus `item_item_fold_in` NDCG@10 0.0271 [0.0151, 0.0382] (excludes 0).
 
-Warmed new-user top-10 latency (five popular titles rated 5): 0.0847s.
+Round 1 paired gaps (pipeline minus the best simple baseline on that table) stay the recorded miss:
 
-Cold-start experiment runtime: 203.5906s.
+N=1: pipeline_v1 minus `most_popular` NDCG@10 -0.2598 [-0.2809, -0.2388] (excludes 0).
+N=3: pipeline_v1 minus `most_popular` NDCG@10 -0.1421 [-0.1620, -0.1241] (excludes 0).
+N=5: pipeline_v1 minus `most_popular` NDCG@10 -0.0937 [-0.1104, -0.0762] (excludes 0).
+N=10: pipeline_v1 minus `item_item_fold_in` NDCG@10 -0.0394 [-0.0532, -0.0262] (excludes 0).
+
+Sensitivity view, added after the first results. Targets are only each held-out user's last 20% of ratings (the harness tail), and only where that tail is after the first N. The serving rule was not re-chosen here. Pipeline v1 is not scored on this target.
+
+| N | model | NDCG@10 | 95% CI | Recall@10 | Coverage@10 | eval users |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | cold_start_ranker | 0.0425 | [0.0361, 0.0494] | 0.0312 | 0.0109 | 599 |
+| 1 | served | 0.0425 | [0.0361, 0.0494] | 0.0312 | 0.0109 | 599 |
+| 1 | most_popular | 0.0397 | [0.0328, 0.0466] | 0.0289 | 0.0030 | 599 |
+| 1 | item_item_fold_in | 0.0264 | [0.0213, 0.0326] | 0.0163 | 0.3311 | 599 |
+| 1 | history_two_tower | 0.0281 | [0.0225, 0.0338] | 0.0187 | 0.2918 | 599 |
+| 1 | ease_fold_in | 0.0287 | [0.0231, 0.0357] | 0.0181 | 0.2817 | 599 |
+| 3 | cold_start_ranker | 0.0459 | [0.0388, 0.0528] | 0.0324 | 0.0139 | 599 |
+| 3 | served | 0.0459 | [0.0388, 0.0528] | 0.0324 | 0.0139 | 599 |
+| 3 | most_popular | 0.0405 | [0.0336, 0.0476] | 0.0293 | 0.0033 | 599 |
+| 3 | item_item_fold_in | 0.0398 | [0.0320, 0.0484] | 0.0240 | 0.1351 | 599 |
+| 3 | history_two_tower | 0.0420 | [0.0350, 0.0494] | 0.0296 | 0.1375 | 599 |
+| 3 | ease_fold_in | 0.0382 | [0.0313, 0.0461] | 0.0219 | 0.1520 | 599 |
+| 5 | cold_start_ranker | 0.0443 | [0.0379, 0.0510] | 0.0325 | 0.0175 | 599 |
+| 5 | served | 0.0443 | [0.0379, 0.0510] | 0.0325 | 0.0175 | 599 |
+| 5 | most_popular | 0.0414 | [0.0345, 0.0487] | 0.0296 | 0.0036 | 599 |
+| 5 | item_item_fold_in | 0.0412 | [0.0338, 0.0498] | 0.0259 | 0.1050 | 599 |
+| 5 | history_two_tower | 0.0418 | [0.0352, 0.0494] | 0.0295 | 0.0990 | 599 |
+| 5 | ease_fold_in | 0.0421 | [0.0347, 0.0500] | 0.0258 | 0.1121 | 599 |
+| 10 | cold_start_ranker | 0.0414 | [0.0351, 0.0480] | 0.0304 | 0.0604 | 599 |
+| 10 | served | 0.0414 | [0.0351, 0.0480] | 0.0304 | 0.0604 | 599 |
+| 10 | most_popular | 0.0442 | [0.0369, 0.0518] | 0.0320 | 0.0044 | 599 |
+| 10 | item_item_fold_in | 0.0457 | [0.0386, 0.0541] | 0.0319 | 0.0861 | 599 |
+| 10 | history_two_tower | 0.0450 | [0.0382, 0.0523] | 0.0330 | 0.0558 | 599 |
+| 10 | ease_fold_in | 0.0379 | [0.0313, 0.0445] | 0.0262 | 0.0859 | 599 |
+
+Sensitivity N=1: `cold_start_ranker` is above most-popular by 0.0028, and the interval [-0.0017, 0.0075] includes 0.
+Sensitivity N=3: the served method `cold_start_ranker` beats most-popular. Difference 0.0053 [0.0008, 0.0103] (excludes 0).
+Sensitivity N=5: `cold_start_ranker` is above most-popular by 0.0029, and the interval [-0.0025, 0.0083] includes 0.
+Sensitivity N=10: `cold_start_ranker` does not beat most-popular. Difference -0.0029 [-0.0095, 0.0038] (includes 0).
+
+Warmed new-user top-10 latency (five popular titles rated 5): 0.0850s. Method `cold_start_ranker`.
+
+Cold-start experiment runtime: 501.8226s.
 
 <!-- END RESULTS TABLE -->
