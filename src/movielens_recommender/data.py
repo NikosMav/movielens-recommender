@@ -4,23 +4,27 @@ from __future__ import annotations
 
 import hashlib
 import io
+import os
 import zipfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from urllib.request import urlopen
 
+import numpy as np
 import pandas as pd
 
 # Official GroupLens URLs — see https://grouplens.org/datasets/movielens/
 DATASET_URLS: dict[str, str] = {
     "ml-latest-small": "https://files.grouplens.org/datasets/movielens/ml-latest-small.zip",
     "ml-1m": "https://files.grouplens.org/datasets/movielens/ml-1m.zip",
+    "ml-32m": "https://files.grouplens.org/datasets/movielens/ml-32m.zip",
 }
 
 # SHA-256 of the official zip bytes (computed from GroupLens archives at pin time).
 DATASET_SHA256: dict[str, str] = {
     "ml-latest-small": "696d65a3dfceac7c45750ad32df2c259311949efec81f0f144fdfb91ebc9e436",
     "ml-1m": "a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20",
+    "ml-32m": "e4a68655d7386b8f95f2f2424b2ff975dfdd15ffd59e0d864a14dca43e99d6ee",
 }
 
 DATASET_VERSION_LABELS: dict[str, str] = {
@@ -31,7 +35,13 @@ DATASET_VERSION_LABELS: dict[str, str] = {
     "ml-1m": (
         "ml-1m@sha256:a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20"
     ),
+    "ml-32m": (
+        "ml-32m@sha256:e4a68655d7386b8f95f2f2424b2ff975dfdd15ffd59e0d864a14dca43e99d6ee"
+    ),
 }
+
+# CSV layout shared by ml-latest-small and ml-32m (userId, movieId, rating, timestamp).
+CSV_DATASETS = frozenset({"ml-latest-small", "ml-32m"})
 
 LICENSE_URL = "https://grouplens.org/datasets/movielens/"
 DEFAULT_DATA_DIR = Path("data")
@@ -191,8 +201,8 @@ def load_users(
 def ratings_path(name: str, data_dir: Path | str = DEFAULT_DATA_DIR) -> Path:
     """Return the expected path to the ratings file after download/extract."""
     root = dataset_dir(name, data_dir)
-    if name == "ml-latest-small":
-        return root / "ml-latest-small" / "ratings.csv"
+    if name in CSV_DATASETS:
+        return root / name / "ratings.csv"
     if name == "ml-1m":
         return root / "ml-1m" / "ratings.dat"
     raise ValueError(f"Unknown dataset: {name!r}. Choose from {sorted(DATASET_URLS)}")
@@ -224,6 +234,11 @@ def download_dataset(
     Path
         Path to the ratings file.
     """
+    if os.environ.get("MOVIELENS_ALLOW_DOWNLOAD") == "0":
+        raise RuntimeError(
+            "MovieLens download is disabled (MOVIELENS_ALLOW_DOWNLOAD=0). "
+            "CI must not fetch GroupLens archives."
+        )
     if name not in DATASET_URLS:
         raise ValueError(f"Unknown dataset: {name!r}. Choose from {sorted(DATASET_URLS)}")
 
@@ -267,8 +282,16 @@ def load_raw_ratings(
             f"(e.g. `movielens-recommender download --dataset {name}`)."
         )
 
-    if name == "ml-latest-small":
-        df = pd.read_csv(path)
+    if name in CSV_DATASETS:
+        df = pd.read_csv(
+            path,
+            dtype={
+                "userId": np.int32,
+                "movieId": np.int32,
+                "rating": np.float32,
+                "timestamp": np.int64,
+            },
+        )
         df = df.rename(
             columns={
                 "userId": "user_id",

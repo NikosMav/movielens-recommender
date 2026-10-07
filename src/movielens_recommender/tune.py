@@ -16,6 +16,7 @@ from movielens_recommender.baselines import (
     RP3betaRecommender,
 )
 from movielens_recommender.evaluate import ndcg_point_estimate
+from movielens_recommender.scale import release_memory
 from movielens_recommender.split import SplitResult
 
 # Small grids sized for a reasonable ml-1m run. Primary selection metric: NDCG@10.
@@ -127,6 +128,8 @@ def tune_als(
         if score > best_score:
             best_score = score
             best_hp = dict(hp)
+        del model
+        release_memory()
 
     return TuningResult(
         model="als",
@@ -178,6 +181,8 @@ def tune_item_knn(
         if score > best_score:
             best_score = score
             best_hp = dict(hp)
+        del model
+        release_memory()
 
     return TuningResult(
         model="item_item_cosine",
@@ -204,18 +209,25 @@ def tune_ease(
     *,
     relevance_threshold: float = 4.0,
     grid: Sequence[Mapping[str, Any]] | None = None,
+    max_items: int | None = None,
 ) -> TuningResult:
     """Grid-search EASE λ on validation NDCG@10; never touches test."""
     if split.val is None or split.val.empty:
         raise ValueError("tune_ease requires a non-empty validation split")
     configs = [dict(c) for c in (grid if grid is not None else EASE_GRID)]
+    if max_items is not None:
+        for cfg in configs:
+            cfg["max_items"] = int(max_items)
     trials: list[dict[str, Any]] = []
     best_score = float("-inf")
     best_hp: dict[str, Any] = dict(configs[0])
     val_split = _val_split(split)
 
     for _, hp in _iter_with_progress(configs, "ease"):
-        model = EASERecommender(l2=float(hp["l2"])).fit(split.train)
+        model = EASERecommender(
+            l2=float(hp["l2"]),
+            max_items=None if hp.get("max_items") is None else int(hp["max_items"]),
+        ).fit(split.train)
         score = ndcg_point_estimate(
             model.recommend,
             split.train,
@@ -228,6 +240,8 @@ def tune_ease(
         if score > best_score:
             best_score = score
             best_hp = dict(hp)
+        del model
+        release_memory()
 
     return TuningResult(
         model="ease",
@@ -272,6 +286,8 @@ def tune_rp3beta(
         if score > best_score:
             best_score = score
             best_hp = dict(hp)
+        del model
+        release_memory()
 
     return TuningResult(
         model="rp3beta",
@@ -315,7 +331,11 @@ def build_model(
         ).fit(train)
         return model, model.hyperparams()
     if name == "ease":
-        model = EASERecommender(l2=float(hyperparams["l2"])).fit(train)
+        raw_max = hyperparams.get("max_items")
+        model = EASERecommender(
+            l2=float(hyperparams["l2"]),
+            max_items=None if raw_max is None else int(raw_max),
+        ).fit(train)
         return model, model.hyperparams()
     if name == "rp3beta":
         model = RP3betaRecommender(

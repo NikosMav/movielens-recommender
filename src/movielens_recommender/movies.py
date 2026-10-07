@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from movielens_recommender.data import DEFAULT_DATA_DIR, dataset_dir
+from movielens_recommender.data import CSV_DATASETS, DEFAULT_DATA_DIR, dataset_dir
 
 _YEAR_RE = re.compile(r"\((\d{4})\)\s*$")
 
@@ -42,8 +42,8 @@ GENRE_TO_IDX: dict[str, int] = {g: i for i, g in enumerate(GENRES)}
 def movies_path(name: str, data_dir: Path | str = DEFAULT_DATA_DIR) -> Path:
     """Return the expected path to the movies metadata file."""
     root = dataset_dir(name, data_dir)
-    if name == "ml-latest-small":
-        return root / "ml-latest-small" / "movies.csv"
+    if name in CSV_DATASETS:
+        return root / name / "movies.csv"
     if name == "ml-1m":
         return root / "ml-1m" / "movies.dat"
     raise ValueError(f"Unknown dataset: {name!r}")
@@ -93,7 +93,7 @@ def load_movies(
             f"Movies metadata not found at {path}. Run download first."
         )
 
-    if name == "ml-latest-small":
+    if name in CSV_DATASETS:
         df = pd.read_csv(path)
         df = df.rename(columns={"movieId": "item_id"})
     elif name == "ml-1m":

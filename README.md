@@ -1,8 +1,8 @@
 # movielens-recommender
 
-A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). S3c adds two more classic baselines, EASE^R and RP3beta (ADR-0008), tuned on the same validation split. The two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. The ranker gate against item–item cosine, and the EASE / RP3beta comparison, are in the results table. S4b (ADR-0009) tested user demographic features on ml-1m only. The pre-registered rule adopted them, so `configs/ml-1m.yaml` sets `models.ranker.demographics` to `both`. `configs/default.yaml` stays `off` because ml-latest-small has no `users.dat`. The headline LambdaRank row is still the S4 feature set in `results/ml-1m.json`. S5a is a Streamlit demo of that ml-1m ranker with plain-language reasons (ADR-0010). Batch recommendations, a FastAPI service, and a Dockerfile (S5b) are still planned. Operations (S6) are still planned.
+A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). S3c adds two more classic baselines, EASE^R and RP3beta (ADR-0008), tuned on the same validation split. On ml-1m, the two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. On ml-32M, two-tower and LambdaRank tie at the top and beat item–item. The ranker gate against item–item cosine, and the EASE / RP3beta comparison, are in the results table. S4b (ADR-0009) tested user demographic features on ml-1m only. The pre-registered rule adopted them, so `configs/ml-1m.yaml` sets `models.ranker.demographics` to `both`. `configs/default.yaml` stays `off` because ml-latest-small has no `users.dat`. The headline LambdaRank row is still the S4 feature set in `results/ml-1m.json`. S5a is a Streamlit demo of that ml-1m ranker with plain-language reasons (ADR-0010). Batch recommendations, a FastAPI service, and a Dockerfile (S5b) are still planned. Operations (S6) are still planned.
 
-The code is MIT, and the MovieLens data is not included: it is downloaded by the script and stays under the [GroupLens terms of use](https://grouplens.org/datasets/movielens/).
+The code is MIT, and the MovieLens data is not included: it is downloaded by the script and stays under the [GroupLens terms of use](https://grouplens.org/datasets/movielens/). Those terms apply to ml-32M as well as to ml-latest-small and ml-1m. S3d (ADR-0011) repeats the harness on MovieLens 32M.
 
 Raw and derived rating files live under a gitignored `data/` directory and must never be committed. Aggregate EDA stats/figures under `docs/eda/` are fine to commit.
 
@@ -23,6 +23,7 @@ The code was written by AI coding agents (Cursor) working from a staged plan wit
 | **S3c** | Done | EASE^R and RP3beta baselines (numpy/scipy; tuned on validation) |
 | **S4** | Done | Learned ranker (LightGBM LambdaRank over a validation-chosen candidate set) |
 | **S4b** | Done | S4b: user demographic features experiment (ml-1m) |
+| **S3d** | Done | S3d: scale-up to MovieLens 32M |
 | **S5a** | Done | Streamlit explainable UI |
 | **S5b** | Planned | Batch recs, FastAPI, Dockerfile |
 | **S6** | Planned (not built yet) | Operations |
@@ -81,12 +82,16 @@ Archives are fetched from official GroupLens URLs and verified against **pinned 
 ```bash
 movielens-recommender download --dataset ml-latest-small   # default
 movielens-recommender download --dataset ml-1m
+movielens-recommender download --dataset ml-32m
 ```
+
+The GroupLens terms linked above apply to ml-32M too. ml-32M has no user demographics. CI does not download it.
 
 | Dataset | SHA-256 |
 | --- | --- |
 | ml-latest-small | `696d65a3dfceac7c45750ad32df2c259311949efec81f0f144fdfb91ebc9e436` |
 | ml-1m | `a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20` |
+| ml-32m | `e4a68655d7386b8f95f2f2424b2ff975dfdd15ffd59e0d864a14dca43e99d6ee` |
 
 ### Cleaning rules
 
@@ -349,6 +354,169 @@ Tuning log: [`results/tuning/ml-1m.json`](results/tuning/ml-1m.json). Chosen ALS
 Pipeline runtime: 668.3570s.
 
 EASE/RP3beta tune and test runtime (same harness, not included in the pipeline runtime above): 536.9470s.
+
+### `ml-32m` (from `results/ml-32m.json`)
+
+Pinned version: `ml-32m@sha256:e4a68655d7386b8f95f2f2424b2ff975dfdd15ffd59e0d864a14dca43e99d6ee`.
+
+Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4.0, seed=42, ks=[10, 20], retrieval_ks=[100, 200], bootstrap=1000 @ alpha=0.05. Primary metric: **ndcg@10**. Coverage@k is a point estimate only (no user-bootstrap CI; see ADR-0003). Names marked **(tuned)** used validation-selected hyperparameters (ADR-0005 / ADR-0006 / ADR-0007); others are S2 YAML defaults.
+
+Evaluation users: seeded sample of 8000 out of 196517 warm-relevant users (seed=42, requested=8000, user_ids_sha256=`6b0d5cf6ce14cf5815e71f620b1dd5f37f7e6f09ac13ae5f3d138563b035c980`). 196,517 of 200,948 train users (97.8%) are eligible, the same eligibility rule the harness uses for test metrics (at least one test rating >= 4 on an item in the train catalog). The sample is partly test-informed: those users are chosen using their test ratings, and validation rows are restricted to the sample, so tuning and ranker training see users chosen partly by their test ratings. The expected effect is small. Drawing the sample without test ratings is the cleaner alternative and is a known limitation. Training uses every training interaction. Sampled users keep full histories. Tuning selection and ranker labels use this same sample.
+
+EASE is restricted to the top 12000 items by train-interaction count (n_items_before=71364, n_items_fit=12000; ties: smaller item id). Items outside that head are not scored.
+
+| model | ndcg@10 | precision@10 | recall@10 | ndcg@20 | precision@20 | recall@20 | coverage@10 | mean_popularity@10 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| als | 0.0800 | 0.0619 | 0.0758 | 0.1026 | 0.0592 | 0.1394 | 0.0497 | 24699.2246 |
+| als_tuned | 0.0983 | 0.0765 | 0.0884 | 0.1204 | 0.0697 | 0.1561 | 0.0427 | 27539.4218 |
+| ease (tuned) | 0.1243 | 0.0958 | 0.1010 | 0.1408 | 0.0805 | 0.1696 | 0.0255 | 36463.1416 |
+| item_item_cosine | 0.1113 | 0.0853 | 0.0873 | 0.1269 | 0.0735 | 0.1493 | 0.0308 | 36710.5165 |
+| item_item_cosine_tuned | 0.1093 | 0.0850 | 0.0858 | 0.1253 | 0.0734 | 0.1492 | 0.0318 | 36712.2740 |
+| lambdarank (tuned) | 0.1423 | 0.1098 | 0.1142 | 0.1613 | 0.0934 | 0.1895 | 0.0435 | 32026.6521 |
+| lambdarank_drop_retriever_features (tuned) | 0.0979 | 0.0776 | 0.0757 | 0.1107 | 0.0687 | 0.1243 | 0.0209 | 55270.9751 |
+| lambdarank_item_item (tuned) | 0.1431 | 0.1107 | 0.1135 | 0.1615 | 0.0934 | 0.1891 | 0.0436 | 31007.8203 |
+| lambdarank_two_tower (tuned) | 0.1429 | 0.1101 | 0.1148 | 0.1617 | 0.0936 | 0.1899 | 0.0428 | 31965.3612 |
+| lambdarank_union_balanced (tuned) | 0.1403 | 0.1094 | 0.1134 | 0.1603 | 0.0934 | 0.1917 | 0.0430 | 31660.7558 |
+| most_popular | 0.0699 | 0.0539 | 0.0515 | 0.0779 | 0.0458 | 0.0879 | 0.0021 | 70474.0101 |
+| no_ranker | 0.1436 | 0.1103 | 0.1138 | 0.1608 | 0.0925 | 0.1872 | 0.0411 | 31974.7307 |
+| rp3beta (tuned) | 0.0991 | 0.0766 | 0.0775 | 0.1143 | 0.0667 | 0.1368 | 0.0089 | 52004.6634 |
+| two_tower (tuned) | 0.1436 | 0.1103 | 0.1138 | 0.1608 | 0.0925 | 0.1872 | 0.0411 | 31974.7307 |
+
+95% bootstrap CIs (NDCG@10):
+
+| model | ndcg@10 CI |
+| --- | --- |
+| als | [0.0774, 0.0830] |
+| als_tuned | [0.0955, 0.1017] |
+| ease (tuned) | [0.1209, 0.1282] |
+| item_item_cosine | [0.1080, 0.1155] |
+| item_item_cosine_tuned | [0.1061, 0.1132] |
+| lambdarank (tuned) | mean±std over seeds 0.1423±0.0007; primary-seed CI [0.1391, 0.1472] |
+| lambdarank_drop_retriever_features (tuned) | [0.0947, 0.1015] |
+| lambdarank_item_item (tuned) | [0.1393, 0.1471] |
+| lambdarank_two_tower (tuned) | [0.1391, 0.1472] |
+| lambdarank_union_balanced (tuned) | [0.1367, 0.1444] |
+| most_popular | [0.0671, 0.0728] |
+| no_ranker | [0.1398, 0.1479] |
+| rp3beta (tuned) | [0.0957, 0.1028] |
+| two_tower (tuned) | 1 seed 0.1436; primary-seed CI [0.1398, 0.1479] |
+
+#### Does the ranking hold at scale?
+
+Two-tower 0.1436 [0.1398, 0.1479] and LambdaRank 3-seed mean 0.1423 (primary-seed CI [0.1391, 0.1472]) are statistically tied at the top. Both beat item–item cosine 0.1113 [0.1080, 0.1155] with separated intervals, so the neural approach overtakes item–item at this scale, reversing the ml-1m result. LambdaRank adds no lift over its two-tower candidate list (`no_ranker` is also 0.1436). The two-tower's lead is on head items (head NDCG@10 0.1460 versus item–item 0.1114); its tail NDCG@10 (0.0006) is below item–item's (0.0022).
+
+#### Retrieval recall (candidate generation)
+
+Recall@100 / Recall@200 for models that report them, evaluated at the same cutoffs. This is test-list recall, not the validation candidate-set recall in the ranker section.
+
+| model | recall@100 | recall@200 |
+| --- | --- | --- |
+| als | 0.4218 | 0.5802 |
+| als_tuned | 0.4397 | 0.5919 |
+| ease (tuned) | 0.4473 | 0.5961 |
+| item_item_cosine | 0.4076 | 0.5541 |
+| item_item_cosine_tuned | 0.4109 | 0.5589 |
+| lambdarank (tuned) | 0.4845 ±0.0001 | 0.6243 ±0.0000 |
+| lambdarank_drop_retriever_features (tuned) | 0.4148 | 0.6243 |
+| lambdarank_item_item (tuned) | 0.4702 | 0.5589 |
+| lambdarank_two_tower (tuned) | 0.4844 | 0.6243 |
+| lambdarank_union_balanced (tuned) | 0.4834 | 0.6061 |
+| most_popular | 0.2388 | 0.3462 |
+| no_ranker | 0.4742 | 0.6243 |
+| rp3beta (tuned) | 0.3629 | 0.4922 |
+| two_tower (tuned) | 0.4742 (1 seed) | 0.6243 (1 seed) |
+
+#### Two-tower seeds and gate (ADR-0006)
+
+Chosen hyperparams: `{'batch_size': 1024, 'embedding_dim': 64, 'learning_rate': 0.001, 'max_epochs': 6, 'max_history': 50, 'patience': 2, 'temperature': 0.1, 'weight_decay': 0.0001}` (val NDCG@10=0.1008; early-stopping best_epoch=5; Refit used fixed epoch count = best validation epoch (5).). Tuning log: [`results/tuning/two_tower_ml-32m.json`](results/tuning/two_tower_ml-32m.json).
+
+| seed | ndcg@10 | ndcg@10 CI | recall@100 | recall@200 |
+| --- | --- | --- | --- | --- |
+| 42 | 0.1436 | [0.1398, 0.1479] | 0.4742 | 0.6243 |
+
+Across seeds: NDCG@10 mean=0.1436, std=0.0000, min=0.1436, max=0.1436.
+
+**Gate: win.** Two-tower beats both item–item default and tuned bars on NDCG@10 with CIs taken into account.
+
+#### Ranker candidates, seeds, and gate (ADR-0007)
+
+Candidate budget K=200. Selection metric: validation recall@200 (split: validation). Tie-break: recall@200, then recall@100, then union_balanced, item_item, two_tower, union_unbalanced. Winner: `two_tower`.
+
+| candidate set | recall@100 | recall@200 | mean size |
+| --- | --- | --- | --- |
+| item_item | 0.454584 | 0.611488 | 200.000000 |
+| two_tower | 0.528568 | 0.677032 | 200.000000 |
+| union_balanced | 0.510032 | 0.662878 | 200.000000 |
+| union_unbalanced | 0.510032 | 0.663260 | 269.830238 |
+
+Early-stop user fraction=0.2 (split seed=42). Ranker seeds share candidate sets and retriever models.
+
+| seed | best_iteration | ndcg@10 | ndcg@10 CI | recall@10 | coverage@10 |
+| --- | --- | --- | --- | --- | --- |
+| 42 | 33 | 0.1429 | [0.1391, 0.1472] | 0.1148 | 0.0428 |
+| 43 | 85 | 0.1425 | [0.1388, 0.1468] | 0.1142 | 0.0443 |
+| 44 | 20 | 0.1414 | [0.1376, 0.1456] | 0.1137 | 0.0434 |
+
+Across seeds: NDCG@10 mean=0.1423, std=0.0007, min=0.1414, max=0.1429.
+
+**Gate: win on the point estimate.** LambdaRank mean NDCG@10=0.1423 vs item_item_cosine 0.1113 [0.1080, 0.1155] (read from `metrics['item_item_cosine']['ndcg@10']`).
+
+Every ranker-seed NDCG@10 CI low sits above the bar CI high.
+
+Ablations are the primary seed, except `ndcg@10`, `recall@10`, and `coverage@10` on the `lambdarank` row, which are means over the three ranker seeds. The `ndcg@10` CI and tail NDCG@10 on that row stay the primary seed; that CI is the primary-seed user bootstrap, not a confidence interval for the 3-seed mean. `no_ranker` keeps the winning candidate order. `lambdarank_drop_retriever_features` drops retriever score and rank.
+
+| ablation | ndcg@10 | ndcg@10 CI | recall@10 | coverage@10 | tail ndcg@10 |
+| --- | --- | --- | --- | --- | --- |
+| lambdarank | 0.1423 | [0.1391, 0.1472] | 0.1142 | 0.0435 | 0.0009 [0.0000, 0.0024] |
+| lambdarank_drop_retriever_features | 0.0979 | [0.0947, 0.1015] | 0.0757 | 0.0209 | 0.0009 [0.0000, 0.0024] |
+| lambdarank_item_item | 0.1431 | [0.1393, 0.1471] | 0.1135 | 0.0436 | 0.0039 [0.0008, 0.0078] |
+| lambdarank_two_tower | 0.1429 | [0.1391, 0.1472] | 0.1148 | 0.0428 | 0.0009 [0.0000, 0.0024] |
+| lambdarank_union_balanced | 0.1403 | [0.1367, 0.1444] | 0.1134 | 0.0430 | 0.0011 [0.0000, 0.0032] |
+| no_ranker | 0.1436 | [0.1398, 0.1479] | 0.1138 | 0.0411 | 0.0006 [0.0000, 0.0017] |
+
+Top feature gains (refit ranker, primary seed):
+
+| feature | gain |
+| --- | --- |
+| two_tower_rank | 15914.2058 |
+| two_tower_score | 5808.6722 |
+| user_n_ratings | 2605.8737 |
+| item_popularity | 2357.3480 |
+| item_item_score | 2000.1511 |
+| affinity_thriller | 1694.5757 |
+| item_year | 1575.1290 |
+| item_recency | 1385.8150 |
+| item_item_rank | 1209.6355 |
+| affinity_musical | 911.5404 |
+
+Refit ranker artifact (gitignored): `models/ml-32m/ranker.txt` schema_version=1. Recreate with `movielens-recommender run --config configs/ml-32m.yaml`.
+
+Ranker stage runtime: 2841.7980s.
+
+#### Segment NDCG@10
+
+User activity = train rating-count terciles (low/mid/high). Item head = top 20% of train items by popularity; tail = rest. Item-segment metrics restrict **relevant and recommended** items to the segment (users with no relevant items in-segment are excluded).
+
+| model | activity low | activity mid | activity high | item head | item tail |
+| --- | --- | --- | --- | --- | --- |
+| als | 0.0878 [0.0815, 0.0940] | 0.0695 [0.0653, 0.0738] | 0.0826 [0.0784, 0.0870] | 0.0801 [0.0772, 0.0831] | 0.0000 [0.0000, 0.0000] |
+| als_tuned | 0.1014 [0.0949, 0.1076] | 0.0836 [0.0786, 0.0884] | 0.1099 [0.1050, 0.1149] | 0.0985 [0.0953, 0.1016] | 0.0000 [0.0000, 0.0000] |
+| ease (tuned) | 0.1110 [0.1040, 0.1178] | 0.0982 [0.0933, 0.1036] | 0.1637 [0.1568, 0.1714] | 0.1245 [0.1207, 0.1284] | 0.0000 [0.0000, 0.0000] |
+| item_item_cosine | 0.0963 [0.0901, 0.1033] | 0.0890 [0.0838, 0.0942] | 0.1486 [0.1416, 0.1555] | 0.1114 [0.1077, 0.1151] | 0.0022 [0.0003, 0.0048] |
+| item_item_cosine_tuned | 0.0930 [0.0870, 0.0996] | 0.0867 [0.0820, 0.0919] | 0.1483 [0.1412, 0.1556] | 0.1095 [0.1060, 0.1132] | 0.0033 [0.0006, 0.0066] |
+| lambdarank (tuned) | 0.1228 [0.1160, 0.1300] | 0.1162 [0.1108, 0.1217] | 0.1898 [0.1829, 0.1974] | 0.1432 [0.1393, 0.1473] | 0.0009 [0.0000, 0.0024] |
+| lambdarank_drop_retriever_features (tuned) | 0.0796 [0.0739, 0.0854] | 0.0764 [0.0721, 0.0809] | 0.1378 [0.1314, 0.1446] | 0.0981 [0.0948, 0.1015] | 0.0009 [0.0000, 0.0024] |
+| lambdarank_item_item (tuned) | 0.1223 [0.1148, 0.1299] | 0.1186 [0.1128, 0.1245] | 0.1883 [0.1811, 0.1953] | 0.1433 [0.1395, 0.1476] | 0.0039 [0.0008, 0.0078] |
+| lambdarank_two_tower (tuned) | 0.1228 [0.1160, 0.1300] | 0.1162 [0.1108, 0.1217] | 0.1898 [0.1829, 0.1974] | 0.1432 [0.1393, 0.1473] | 0.0009 [0.0000, 0.0024] |
+| lambdarank_union_balanced (tuned) | 0.1206 [0.1132, 0.1272] | 0.1131 [0.1072, 0.1188] | 0.1873 [0.1802, 0.1945] | 0.1406 [0.1370, 0.1448] | 0.0011 [0.0000, 0.0032] |
+| most_popular | 0.0567 [0.0515, 0.0621] | 0.0527 [0.0488, 0.0570] | 0.1005 [0.0946, 0.1064] | 0.0701 [0.0673, 0.0729] | 0.0000 [0.0000, 0.0000] |
+| no_ranker | 0.1220 [0.1149, 0.1294] | 0.1166 [0.1110, 0.1227] | 0.1922 [0.1851, 0.1999] | 0.1460 [0.1420, 0.1504] | 0.0006 [0.0000, 0.0017] |
+| rp3beta (tuned) | 0.0818 [0.0758, 0.0880] | 0.0806 [0.0754, 0.0859] | 0.1348 [0.1280, 0.1420] | 0.0992 [0.0957, 0.1029] | 0.0049 [0.0004, 0.0110] |
+| two_tower (tuned) | 0.1220 [0.1149, 0.1294] | 0.1166 [0.1110, 0.1227] | 0.1922 [0.1851, 0.1999] | 0.1460 [0.1420, 0.1504] | 0.0006 [0.0000, 0.0017] |
+
+Tuning log: [`results/tuning/ml-32m.json`](results/tuning/ml-32m.json). Chosen ALS={'alpha': 20.0, 'factors': 64, 'iterations': 15, 'regularization': 0.01} (val NDCG@10=0.0721); item–item={'k_neighbors': 50, 'min_common': 1, 'shrinkage': 0.0} (val NDCG@10=0.0789). EASE={'l2': 5000.0, 'max_items': 12000} (val NDCG@10=0.0866); RP3beta={'alpha': 0.5, 'beta': 0.5, 'top_k': 300} (val NDCG@10=0.0693). Two-tower={'batch_size': 1024, 'embedding_dim': 64, 'learning_rate': 0.001, 'max_epochs': 6, 'max_history': 50, 'patience': 2, 'temperature': 0.1, 'weight_decay': 0.0001} (val NDCG@10=0.1008, best_epoch=5; log [`results/tuning/two_tower_ml-32m.json`](results/tuning/two_tower_ml-32m.json)).
+
+Pipeline runtime: 6560.5750s.
 
 ### `ml-latest-small` (from `results/ml-latest-small.json`)
 

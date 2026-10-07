@@ -25,6 +25,7 @@ from movielens_recommender.data import (
 )
 from movielens_recommender.evaluate import evaluate_recommender, format_metrics
 from movielens_recommender.movies import load_movies
+from movielens_recommender.scale import apply_eval_user_sample, release_memory
 from movielens_recommender.split import (
     GlobalCutoffConfig,
     SplitConfig,
@@ -187,6 +188,27 @@ def run_pipeline(
         relevance_threshold=config.eval.relevance_threshold,
     )
     split = time_based_split(ratings, split_cfg)
+    split_summary = split.summary()
+    sample_n = int(config.eval.user_sample_size)
+    if sample_n > 0:
+        sample_seed = (
+            config.seed
+            if config.eval.user_sample_seed is None
+            else int(config.eval.user_sample_seed)
+        )
+        split = apply_eval_user_sample(
+            split,
+            n_users=sample_n,
+            seed=sample_seed,
+            relevance_threshold=config.eval.relevance_threshold,
+        )
+        info = split.eval_user_sample or {}
+        print(
+            "Eval user sample: "
+            f"{info.get('n_sampled_users')} of {info.get('n_eligible_users')} "
+            f"(seed={info.get('seed')})",
+            flush=True,
+        )
     full_train = split.full_train
 
     eval_split = SplitResult(
@@ -254,11 +276,13 @@ def run_pipeline(
                     split,
                     relevance_threshold=config.eval.relevance_threshold,
                     seed=config.seed,
+                    grid=config.tuning.als,
                 )
                 print("Tuning item-item on validation (NDCG@10)...", flush=True)
                 knn_tune = tune_item_knn(
                     split,
                     relevance_threshold=config.eval.relevance_threshold,
+                    grid=config.tuning.item_item_cosine,
                 )
                 tuning_payload["als"] = als_tune.to_dict()
                 tuning_payload["item_item_cosine"] = knn_tune.to_dict()
@@ -269,11 +293,14 @@ def run_pipeline(
                 ease_tune = tune_ease(
                     split,
                     relevance_threshold=config.eval.relevance_threshold,
+                    grid=config.tuning.ease,
+                    max_items=config.models.ease.max_items,
                 )
                 print("Tuning RP3beta on validation (NDCG@10)...", flush=True)
                 rp3_tune = tune_rp3beta(
                     split,
                     relevance_threshold=config.eval.relevance_threshold,
+                    grid=config.tuning.rp3beta,
                 )
                 tuning_payload["ease"] = ease_tune.to_dict()
                 tuning_payload["rp3beta"] = rp3_tune.to_dict()
@@ -326,7 +353,8 @@ def run_pipeline(
             relevance_threshold=config.eval.relevance_threshold,
             seed=config.seed,
         )
-        fitted_models[name] = model
+        if name == "item_item_cosine_tuned":
+            fitted_models[name] = model
         hyperparams[name] = recorded
         tuned_flags[name] = is_tuned
         results[name] = _eval_model(
@@ -338,6 +366,9 @@ def run_pipeline(
             include_segments=True,
             ks=eval_ks,
         )
+        if name != "item_item_cosine_tuned":
+            del model
+            release_memory()
 
     two_tower_meta: dict[str, Any] | None = None
     two_tower_primary: Any | None = None
@@ -408,7 +439,8 @@ def run_pipeline(
         "dataset_version": DATASET_VERSION_LABELS[dataset],
         "dataset_sha256": DATASET_SHA256[dataset],
         "cleaning": clean_stats.to_dict(),
-        "split": split.summary(),
+        "split": split_summary,
+        "eval_user_sample": split.eval_user_sample,
         "relevance_threshold": config.eval.relevance_threshold,
         "ks": list(config.eval.ks),
         "retrieval_ks": list(config.eval.retrieval_ks),
@@ -463,6 +495,18 @@ def run_pipeline(
         },
         "runtime_sec": round(time.perf_counter() - pipeline_t0, 3),
     }
+    if split.eval_user_sample:
+        payload["protocol_notes"]["eval_user_sample"] = (
+            "Metrics, validation selection, and ranker labels use one seeded "
+            "user sample. Training matrices keep every training interaction. "
+            "Sampled histories are not truncated. See eval_user_sample."
+        )
+    if config.models.ease.max_items is not None:
+        payload["protocol_notes"]["ease_item_restriction"] = (
+            f"EASE uses the top {int(config.models.ease.max_items)} train items "
+            "by interaction count. Ties break toward the smaller item id. "
+            "Items outside that head are not scored."
+        )
     if tuning_payload is not None:
         payload["tuning_summary"] = {
             "als_best": tuning_payload["als"]["best_hyperparams"],
@@ -546,6 +590,7 @@ def _run_two_tower(
             relevance_threshold=config.eval.relevance_threshold,
             seed=config.seed,
             show_progress=True,
+            grid=config.tuning.two_tower,
         )
         tt_doc = {
             "dataset": dataset,

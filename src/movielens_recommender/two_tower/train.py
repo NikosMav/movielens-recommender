@@ -16,6 +16,7 @@ from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from movielens_recommender.evaluate import ndcg_point_estimate
+from movielens_recommender.scale import release_memory
 from movielens_recommender.split import SplitResult
 from movielens_recommender.two_tower.features import (
     TwoTowerFeatures,
@@ -387,6 +388,8 @@ def tune_two_tower(
             best_score = score
             best_hp = dict(hp)
             best_epoch = int(result.best_epoch)
+        del _rec, _feat, result
+        release_memory()
 
     return TwoTowerTuningResult(
         model="two_tower",

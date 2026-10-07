@@ -22,7 +22,7 @@ class TwoTowerRecommender:
         self._item_vectors: np.ndarray | None = None
         self._max_history = 50
         self._device = "cpu"
-        self._seen: dict[int, set[int]] = {}
+        self._seen: dict[int, np.ndarray | set[int]] = {}
         self._hyperparams: dict[str, Any] = {}
 
     @classmethod
@@ -45,14 +45,13 @@ class TwoTowerRecommender:
         obj._item_vectors = obj._encode_all_items()
         if train_for_seen is not None:
             obj._seen = {
-                int(uid): set(g["item_id"].astype(int))
+                int(uid): np.asarray(g["item_id"].to_numpy(), dtype=np.int64)
                 for uid, g in train_for_seen.groupby("user_id")
             }
         else:
             # Prefer uncapped seen ids from features (history pooling may truncate).
-            obj._seen = {
-                int(uid): set(items) for uid, items in features.seen_item_ids.items()
-            }
+            # Share the mapping; do not copy into Python sets.
+            obj._seen = features.seen_item_ids
         return obj
 
     def _encode_all_items(self) -> np.ndarray:
@@ -126,11 +125,17 @@ class TwoTowerRecommender:
     def recommend(self, user_id: int, n: int) -> list[int]:
         return [item_id for item_id, _score in self.topk_for_user(user_id, n)]
 
-    def topk_with_scores(self, n: int) -> dict[int, list[tuple[int, float]]]:
-        """Batched exact top-n ``(item_id, score)`` for every fit user.
+    def topk_with_scores(
+        self,
+        n: int,
+        user_ids: Sequence[int] | None = None,
+    ) -> dict[int, list[tuple[int, float]]]:
+        """Batched exact top-n ``(item_id, score)`` for fit users.
 
         Score is the same unscaled dot product :meth:`recommend` ranks by.
         Seen train items are masked. Ties use a stable mergesort.
+        ``user_ids`` scores only those users, in chunks, so a large catalog
+        does not allocate a users × items score matrix.
         """
         if (
             n <= 0
@@ -139,6 +144,8 @@ class TwoTowerRecommender:
             or self._item_vectors is None
         ):
             return {}
+        if user_ids is not None:
+            return self._topk_user_ids(n, user_ids)
         feat = self._features
         user_idx = np.arange(feat.n_users, dtype=np.int64)
         hist, mask = pad_histories(user_idx, feat, max_history=self._max_history)
@@ -174,6 +181,55 @@ class TwoTowerRecommender:
                 for j in chosen
                 if np.isfinite(row[j])
             ]
+        return out
+
+    def _topk_user_ids(
+        self,
+        n: int,
+        user_ids: Sequence[int],
+    ) -> dict[int, list[tuple[int, float]]]:
+        assert self._model is not None and self._features is not None
+        assert self._item_vectors is not None
+        feat = self._features
+        uids = [int(uid) for uid in user_ids if int(uid) in feat.user_index]
+        if not uids:
+            return {}
+        device = torch.device(self._device)
+        self._model.eval()
+        out: dict[int, list[tuple[int, float]]] = {}
+        chunk = 256
+        for start in range(0, len(uids), chunk):
+            batch = uids[start : start + chunk]
+            user_idx = np.asarray(
+                [feat.user_index[uid] for uid in batch], dtype=np.int64
+            )
+            hist, mask = pad_histories(
+                user_idx, feat, max_history=self._max_history
+            )
+            with torch.no_grad():
+                user_vecs = (
+                    self._model.encode_users(
+                        torch.from_numpy(user_idx).to(device),
+                        torch.from_numpy(hist).to(device),
+                        torch.from_numpy(mask).to(device),
+                    )
+                    .detach()
+                    .cpu()
+                    .numpy()
+                    .astype(np.float32)
+                )
+            scores = user_vecs @ self._item_vectors.T
+            for row, uid in enumerate(batch):
+                for item_id in self._seen.get(uid, ()):
+                    col = feat.item_index.get(int(item_id))
+                    if col is not None:
+                        scores[row, col] = -np.inf
+                chosen = _topk_indices(scores[row], n)
+                out[uid] = [
+                    (int(feat.item_ids[j]), float(scores[row, j]))
+                    for j in chosen
+                    if np.isfinite(scores[row, j])
+                ]
         return out
 
     def topk_for_histories(

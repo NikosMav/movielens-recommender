@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
+import numpy as np
 import pandas as pd
 
 
@@ -91,10 +92,17 @@ class SplitResult:
     n_users_dropped: int
     val: pd.DataFrame | None = None
     cold_start: ColdStartStats | None = None
+    # When set, ``full_train`` is this frame instead of ``train ∪ val``.
+    # Used so an evaluation-user sample can shrink ``val``/``test`` without
+    # dropping other users' training rows (ADR-0011).
+    frozen_full_train: pd.DataFrame | None = None
+    eval_user_sample: dict | None = None
 
     @property
     def full_train(self) -> pd.DataFrame:
         """Train matrix for final refit (train ∪ val when validation exists)."""
+        if self.frozen_full_train is not None:
+            return self.frozen_full_train
         if self.val is None or self.val.empty:
             return self.train
         return pd.concat([self.train, self.val], ignore_index=True)
@@ -118,6 +126,8 @@ class SplitResult:
             out["n_val_users"] = int(self.val["user_id"].nunique())
         if self.cold_start is not None:
             out["cold_start"] = self.cold_start.to_dict()
+        if self.eval_user_sample is not None:
+            out["eval_user_sample"] = self.eval_user_sample
         return out
 
 
@@ -227,6 +237,39 @@ def chronological_tail_holdout(
     return head_df, tail_df
 
 
+def _holdout_bounds(
+    eligible_sizes: pd.Series,
+    *,
+    test_fraction: float,
+    val_fraction: float,
+) -> pd.DataFrame:
+    """Per-user test and validation tail lengths, matching :func:`_holdout_tail`."""
+    user_ids: list[int] = []
+    n_test: list[int] = []
+    n_val: list[int] = []
+    for uid, n in eligible_sizes.items():
+        n_i = int(n)
+        test_n = _tail_count(n_i, test_fraction)
+        train_n = n_i - test_n
+        val_n = _tail_count(train_n, val_fraction) if val_fraction > 0 else 0
+        user_ids.append(int(uid))
+        n_test.append(test_n)
+        n_val.append(val_n)
+    return pd.DataFrame(
+        {"user_id": user_ids, "n_test": n_test, "n_val": n_val},
+    )
+
+
+def _tail_count(n: int, fraction: float) -> int:
+    """``max(1, int(n * fraction))``, leaving at least one head row."""
+    n_tail = max(1, int(n * fraction))
+    if n_tail >= n:
+        n_tail = n - 1
+    if n_tail < 1:
+        raise ValueError("Cannot hold out a non-empty tail while keeping a non-empty head")
+    return n_tail
+
+
 def time_based_split(ratings: pd.DataFrame, config: SplitConfig | None = None) -> SplitResult:
     """Per-user chronological holdout of the latest interactions.
 
@@ -253,54 +296,46 @@ def time_based_split(ratings: pd.DataFrame, config: SplitConfig | None = None) -
     if config.test_fraction <= 0 or config.test_fraction >= 1:
         raise ValueError("test_fraction must be in (0, 1)")
 
-    train_parts: list[pd.DataFrame] = []
-    val_parts: list[pd.DataFrame] = []
-    test_parts: list[pd.DataFrame] = []
-    kept = 0
-    dropped = 0
     use_val = config.val_fraction > 0
-
-    # Group in a deterministic user order.
-    for _, group in ratings.groupby("user_id", sort=True):
-        n = len(group)
-        if n < config.min_ratings:
-            dropped += 1
-            continue
-
-        # Stable sort by timestamp so ties keep relative order.
-        ordered = group.sort_values("timestamp", kind="mergesort")
-        try:
-            full_train, test = _holdout_tail(ordered, config.test_fraction)
-        except ValueError:
-            dropped += 1
-            continue
-
-        if use_val:
-            try:
-                fit_train, val = _holdout_tail(full_train, config.val_fraction)
-            except ValueError:
-                dropped += 1
-                continue
-            train_parts.append(fit_train)
-            val_parts.append(val)
-        else:
-            train_parts.append(full_train)
-
-        test_parts.append(test)
-        kept += 1
-
-    if not train_parts:
+    # One stable sort, then row masks. Equivalent to sorting each user by
+    # timestamp (mergesort) and applying _holdout_tail, without building one
+    # DataFrame per user. Ties keep the original row order.
+    ordered = ratings.sort_values(
+        ["user_id", "timestamp"], kind="mergesort"
+    ).reset_index(drop=True)
+    sizes = ordered.groupby("user_id", sort=False).size()
+    eligible = sizes[sizes >= config.min_ratings]
+    dropped = int(len(sizes) - len(eligible))
+    if eligible.empty:
         raise ValueError("No users remaining after split filters.")
 
-    train = pd.concat(train_parts, ignore_index=True)
-    test = pd.concat(test_parts, ignore_index=True)
-    val = pd.concat(val_parts, ignore_index=True) if use_val else None
+    bounds = _holdout_bounds(
+        eligible,
+        test_fraction=config.test_fraction,
+        val_fraction=config.val_fraction if use_val else 0.0,
+    )
+    ordered = ordered.merge(bounds, on="user_id", how="inner", sort=False)
+    # 0 = newest row inside the user (timestamp ties already stable).
+    rev = ordered.groupby("user_id", sort=False).cumcount(ascending=False)
+    test_mask = rev < ordered["n_test"].to_numpy()
+    if use_val:
+        val_end = ordered["n_test"].to_numpy() + ordered["n_val"].to_numpy()
+        val_mask = (~test_mask) & (rev < val_end)
+    else:
+        val_mask = np.zeros(len(ordered), dtype=bool)
+    train_mask = ~(test_mask | val_mask)
+    keep_cols = ["user_id", "item_id", "rating", "timestamp"]
+    train = ordered.loc[train_mask, keep_cols].reset_index(drop=True)
+    test = ordered.loc[test_mask, keep_cols].reset_index(drop=True)
+    val = ordered.loc[val_mask, keep_cols].reset_index(drop=True) if use_val else None
+    if train.empty:
+        raise ValueError("No users remaining after split filters.")
     return SplitResult(
         train=train,
         test=test,
         val=val,
         config=config,
-        n_users_kept=kept,
+        n_users_kept=int(len(eligible)),
         n_users_dropped=dropped,
     )
 
@@ -386,11 +421,18 @@ def apply_cold_start_policy(
     threshold = (
         split.config.relevance_threshold if relevance_threshold is None else relevance_threshold
     )
-    train_items = set(split.train["item_id"].astype(int))
-    train_users = set(split.train["user_id"].astype(int))
+    train_items = set(int(i) for i in split.train["item_id"].unique())
+    train_users = set(int(u) for u in split.train["user_id"].unique())
 
+    # ``seen`` is only read for users who appear in the evaluation frame.
+    # Restricting the groupby keeps a sampled eval from materializing one
+    # Python set per training user (ADR-0011). Contents for those users match
+    # a full groupby.
+    eval_users = pd.Index(split.test["user_id"].unique())
+    train_for_seen = split.train.loc[split.train["user_id"].isin(eval_users)]
     seen: dict[int, set[int]] = {
-        int(uid): set(g["item_id"].astype(int)) for uid, g in split.train.groupby("user_id")
+        int(uid): set(g["item_id"].astype(int))
+        for uid, g in train_for_seen.groupby("user_id")
     }
 
     test_items = set(split.test["item_id"].astype(int))

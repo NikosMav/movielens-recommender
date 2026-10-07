@@ -99,3 +99,5 @@ def test_cold_start_drops_cold_relevant_items():
     assert stats.n_relevant_dropped_cold_item >= 1
     assert stats.n_users_excluded_no_warm_relevant >= 1
     assert stats.n_cold_items_in_test >= 1
+    assert _seen[1] == {1, 2}
+    assert _seen[2] == {1}

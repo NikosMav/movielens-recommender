@@ -21,7 +21,8 @@ class TwoTowerFeatures:
     # Per-user history item *indices* (variable length lists, capped).
     user_history: dict[int, np.ndarray]
     # Full seen item *ids* per raw user_id (uncapped; for recommend filtering).
-    seen_item_ids: dict[int, set[int]]
+    # Arrays on the training path; the serving loader may pass sets.
+    seen_item_ids: dict[int, np.ndarray | set[int]]
     # Positive (user_idx, item_idx) pairs for training.
     pos_user_idx: np.ndarray
     pos_item_idx: np.ndarray
@@ -75,18 +76,20 @@ def build_features(
     # Full history (all train interactions), capped to most recent max_history
     # for the tower input. Keep an uncapped seen set for recommend filtering.
     user_history: dict[int, np.ndarray] = {}
-    seen_item_ids: dict[int, set[int]] = {}
+    seen_item_ids: dict[int, np.ndarray | set[int]] = {}
     ordered = train.sort_values(
         ["user_id", "timestamp"], ascending=[True, True], kind="mergesort"
     )
+    # item_ids is sorted, so searchsorted is the catalog index. Every train
+    # item is in that catalog. Arrays avoid one Python set per user.
     for uid, group in ordered.groupby("user_id", sort=False):
         raw_uid = int(uid)
-        item_id_list = [int(i) for i in group["item_id"].tolist() if int(i) in item_index]
-        seen_item_ids[raw_uid] = set(item_id_list)
-        idxs = [item_index[i] for i in item_id_list]
+        item_id_arr = np.asarray(group["item_id"].to_numpy(), dtype=np.int64)
+        seen_item_ids[raw_uid] = item_id_arr
+        idxs = np.searchsorted(item_ids, item_id_arr)
         if max_history > 0 and len(idxs) > max_history:
             idxs = idxs[-max_history:]
-        user_history[int(user_index[raw_uid])] = np.asarray(idxs, dtype=np.int64)
+        user_history[int(user_index[raw_uid])] = np.ascontiguousarray(idxs, dtype=np.int64)
 
     positives = train[train["rating"] >= relevance_threshold]
     if positives.empty:
