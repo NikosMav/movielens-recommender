@@ -35,7 +35,53 @@ Higher early-stop NDCG@10 wins. An exact tie selects `demographics_off`. If Ligh
 
 ## Outcome
 
-Filled from `results/cold-start/ml-1m.json` after the run. Until that file exists, this section does not quote a metric.
+Copied from `results/cold-start/ml-1m.json`. These numbers were not available when the choices above were fixed.
+
+604 of 6040 eligible users were held out (seed 42). All 604 have a later warm relevant item at every N in {1, 3, 5, 10}.
+
+**Validation choices.**
+
+| choice | winner | validation number |
+| --- | --- | --- |
+| User representation | `dropout_0.25` (id embedding zeroed with probability 0.25; not history-only) | NDCG@10 0.071919 at epoch 2 |
+| history-only | not selected | NDCG@10 0.069339 at epoch 1 |
+| dropout 0.5 | not selected | NDCG@10 0.070440 at epoch 2 |
+| dropout 0.75 | not selected | NDCG@10 0.069066 at epoch 1 |
+| Candidates (K=200) | `ease_fold_in` | recall@200 0.661893, recall@100 0.488925 |
+| history two-tower | not selected | recall@200 0.596463, recall@100 0.423225 |
+| item-item fold-in | not selected | recall@200 0.591635, recall@100 0.435251 |
+| Ranker | `demographics_off` | early-stop NDCG@10 0.093165, 32 trees |
+| demographics set to NaN | not selected | early-stop NDCG@10 0.088365, 11 trees |
+
+LightGBM accepted the NaN demographic columns as categoricals (`nan_variant_categoricals` is true). The off variant still won, so the served ranker has no demographic columns. The app does not ask for them.
+
+**Grid edge.** The best dropout probability is 0.25, the low end of {0.25, 0.5, 0.75}, and that model was selected. `dropout_best_at_edge` and `selected_at_grid_edge` are both true. The grid was not extended below 0.25. Epoch 2 is inside the fixed cap of 20.
+
+**Held-out NDCG@10** (user bootstrap, 1000 resamples, alpha 0.05, seed 42). The pipeline is the EASE fold-in top 200, re-ranked by the demographics-off LambdaRank model.
+
+| N | pipeline | most-popular | item-item fold-in | EASE fold-in | history two-tower |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 0.134591 [0.118512, 0.151437] | 0.394351 [0.373228, 0.414514] | 0.214050 [0.190999, 0.236713] | 0.203732 [0.182888, 0.225252] | 0.244827 [0.222933, 0.265197] |
+| 3 | 0.244204 [0.225151, 0.263132] | 0.386298 [0.364612, 0.406805] | 0.308793 [0.286262, 0.330203] | 0.292558 [0.270564, 0.314322] | 0.325211 [0.302732, 0.347518] |
+| 5 | 0.282941 [0.263355, 0.303226] | 0.376660 [0.355133, 0.396619] | 0.335085 [0.312266, 0.358069] | 0.323677 [0.301472, 0.346462] | 0.358266 [0.336460, 0.379757] |
+| 10 | 0.338091 [0.317881, 0.358199] | 0.346903 [0.325275, 0.367036] | 0.377477 [0.355073, 0.399054] | 0.358806 [0.338956, 0.380023] | 0.371606 [0.349003, 0.393841] |
+
+Recall@10 and Coverage@10 are in the JSON and the generated README panel. Coverage is a point estimate.
+
+Paired NDCG@10, pipeline minus the best simple baseline on that same table (the interval excludes zero at every N):
+
+| N | baseline | difference |
+| --- | --- | --- |
+| 1 | most-popular | -0.259760 [-0.280871, -0.238800] |
+| 3 | most-popular | -0.142094 [-0.162014, -0.124142] |
+| 5 | most-popular | -0.093719 [-0.110429, -0.076215] |
+| 10 | item-item fold-in | -0.039387 [-0.053201, -0.026206] |
+
+The new-user pipeline does not beat popularity, and it does not beat the unranked fold-in list it reorders. At N=5 its NDCG@10 is 0.282941, against 0.376660 for most-popular on the same users. A known user on the headline split, who was in training, has LambdaRank NDCG@10 0.127264 (primary-seed interval [0.124690, 0.132934]) and most-popular 0.089508 ([0.085661, 0.093487]). Those known-user numbers are copied from `results/ml-1m.json`. They are not on the same user set or the same target slice, so they are context, not a paired test. The cold-start most-popular number is higher because a new profile has not yet consumed the popular titles, and the targets are the rest of that person's ratings rather than a short test tail.
+
+**Latency.** One warmed top-10 call, five most-common training titles rated 5, took 0.084710 seconds.
+
+**What this does not change.** The candidate source and the ranker stay the validation winners. The held-out gap is the reason the validation query (full fit-train profile) is listed as a limitation, not a reason to pick a different model after seeing the test table.
 
 ## Limitations
 
