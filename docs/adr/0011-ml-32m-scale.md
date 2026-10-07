@@ -86,6 +86,10 @@ On ml-32M the same four differences are taken from the README rendering of `resu
 | Global time cutoff on ml-32M | A second full pass, dominated by the same two-tower training |
 | Keep Python sets for seen items | The set-based feature pack committed past the 8007.0 MiB limit |
 
+## Implementation note before test metrics
+
+The first end-to-end process exited while retrieving validation candidates, before `results/ml-32m.json` existed. Sparse item–item `topk_with_scores` left a CSR product as a CSR matrix, and `np.asarray` refused it. No test metric was written. The scorer now densifies that product. The sample, EASE head size, grids, and seed counts are unchanged. The run was restarted with the saved tuning files.
+
 ## Outcome
 
 The test pass had not been run when the decisions above were locked. The paragraph below is copied from `results/ml-32m.json` after that pass and does not change the sample, the EASE head size, the grids, or the seed counts.

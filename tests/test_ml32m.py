@@ -172,6 +172,12 @@ def test_sparse_item_item_matches_dense_topk():
     for user_id in train["user_id"].unique():
         uid = int(user_id)
         assert dense.recommend(uid, 3) == sparse.recommend(uid, 3)
+    batched = sparse.topk_with_scores(3, user_ids=[int(u) for u in train["user_id"].unique()])
+    for user_id in train["user_id"].unique():
+        uid = int(user_id)
+        dense_ids = [item_id for item_id, _score in dense.topk_for_user(uid, 3)]
+        sparse_ids = [item_id for item_id, _score in batched[uid]]
+        assert dense_ids == sparse_ids
 
 
 def test_rp3beta_block_matches_dense_similarity():

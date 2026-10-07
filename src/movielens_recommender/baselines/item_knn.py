@@ -200,7 +200,10 @@ class ItemItemCosineRecommender:
             shape=(len(uids), len(self._item_ids)),
             dtype=np.float64,
         )
-        scores = np.asarray(mat @ self._similarity.T, dtype=np.float64)
+        product = mat @ self._similarity.T
+        if sparse.issparse(product):
+            product = product.toarray()
+        scores = np.asarray(product, dtype=np.float64)
         if mask_items:
             row_of = {uid: row for row, uid in enumerate(uids)}
             for uid, items in mask_items.items():
@@ -260,7 +263,10 @@ class ItemItemCosineRecommender:
                 shape=(len(batch), n_items),
                 dtype=np.float64,
             )
-            scores = np.asarray(mat @ sim_t, dtype=np.float64)
+            product = mat @ sim_t
+            if sparse.issparse(product):
+                product = product.toarray()
+            scores = np.asarray(product, dtype=np.float64)
             for row_i, uid in enumerate(batch):
                 seen_idx = self._user_item.getrow(self._user_index[uid]).indices
                 if len(seen_idx):
