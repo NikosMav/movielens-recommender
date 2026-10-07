@@ -315,6 +315,66 @@ def test_lock_plan_uses_timings_not_metrics():
     assert {row["max_epochs"] for row in sampled} == {3}
 
 
+def test_reduced_ml32m_budget_skips_full_softmax():
+    from movielens_recommender.two_tower.plan import reduced_ml32m_budget
+
+    budget = reduced_ml32m_budget(
+        {"in_batch": 1312.0, "full_softmax": 6852.6, "sampled_softmax": 1182.6},
+        7.7,
+    )
+    assert budget["ranking_metrics_used"] is False
+    assert budget["full_softmax_included"] is False
+    assert budget["within_cap"] is True
+    assert budget["n_trials"] == 3
+    assert budget["max_epochs"] == 3
+    assert budget["seeds"] == [42]
+    assert budget["n_seeds"] == 1
+    assert budget["refit_reference"] is False
+    assert budget["cap_sec"] == 4 * 3600
+    assert {row["loss"] for row in budget["grid"]} == {"sampled_softmax"}
+    assert {row["learning_rate"] for row in budget["grid"]} == {0.0003, 0.001, 0.003}
+    assert {row["temperature"] for row in budget["grid"]} == {0.1, 0.2}
+    assert {row["embedding_dim"] for row in budget["grid"]} == {64}
+    assert budget["projected_total_sec"] <= budget["cap_sec"]
+    assert (
+        budget["projected_total_with_one_full_softmax_epoch_sec"] > budget["cap_sec"]
+    )
+
+
+def test_epoch_checkpoint_resumes(tmp_path):
+    train = _toy_ratings()
+    movies = _toy_movies()
+    ckpt = tmp_path / "trial.pt"
+    _, _, first = fit_two_tower_recommender(
+        train,
+        dataset="synthetic",
+        movies=movies,
+        hyperparams=_toy_hyperparams(),
+        seed=0,
+        relevance_threshold=4.0,
+        n_epochs=1,
+        epoch_checkpoint=ckpt,
+    )
+    assert first.epochs_trained == 1
+    assert ckpt.is_file()
+    # A crash after epoch 1 of a longer run leaves finished false.
+    saved = torch.load(ckpt, map_location="cpu", weights_only=False)
+    saved["finished"] = False
+    torch.save(saved, ckpt)
+    _, _, second = fit_two_tower_recommender(
+        train,
+        dataset="synthetic",
+        movies=movies,
+        hyperparams=_toy_hyperparams(),
+        seed=0,
+        relevance_threshold=4.0,
+        n_epochs=2,
+        epoch_checkpoint=ckpt,
+    )
+    assert second.epochs_trained == 2
+    assert second.wall_time_sec >= first.wall_time_sec
+
+
 def test_full_and_sampled_softmax_train_on_toy_data():
     train = _toy_ratings()
     movies = _toy_movies()

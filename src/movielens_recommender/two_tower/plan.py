@@ -18,6 +18,9 @@ ML1M_TUNE_CAP_SEC = 6 * 3600.0
 # 8h cap cannot both train that loss for more than two epochs and tune the
 # sampled-softmax alternative. The shrink below picks the first grid that fits.
 ML32M_TUNE_CAP_SEC = 21 * 3600.0
+# Replacement ml-32m cap after the first grid was abandoned. Covers tuning
+# and the test refit, not a second reference refit.
+ML32M_REDUCED_CAP_SEC = 4 * 3600.0
 TEST_BOTH_CAP_SEC = 6 * 3600.0
 THREE_SEED_CAP_SEC = 4 * 3600.0
 
@@ -300,6 +303,80 @@ def _test_plan(
         "test_both_cap_limit_sec": TEST_BOTH_CAP_SEC,
         "reference_epochs": int(reference_epochs),
         "test_epoch_cap": int(max_epochs),
+    }
+
+
+def reduced_ml32m_grid() -> list[dict[str, Any]]:
+    """Three sampled-softmax points. Full softmax is not in this grid."""
+    points = (
+        (64, 0.003, 0.2),
+        (64, 0.001, 0.1),
+        (64, 0.0003, 0.1),
+    )
+    return [_base(LOSS_SAMPLED, dim, lr, temp, 3, 1) for dim, lr, temp in points]
+
+
+def reduced_ml32m_budget(
+    epoch_sec: dict[str, float], val_sec: float
+) -> dict[str, Any]:
+    """ml-32m plan that fits in four hours of tuning plus test training.
+
+    Uses probe epoch times. Does not read a ranking metric. Full softmax is
+    included only when one epoch still fits beside the sampled-softmax work.
+    """
+    grid = reduced_ml32m_grid()
+    sampled = float(epoch_sec[LOSS_SAMPLED])
+    full = float(epoch_sec[LOSS_FULL])
+    per_epoch = sampled + float(val_sec)
+    max_epochs = int(grid[0]["max_epochs"])
+    tune = len(grid) * max_epochs * per_epoch
+    test = max_epochs * sampled
+    full_one = full + float(val_sec)
+    total = tune + test
+    included = bool(total + full_one <= ML32M_REDUCED_CAP_SEC)
+    return {
+        "experiment": "s3e_full_softmax_two_tower",
+        "dataset": "ml-32m",
+        "status": "reduced",
+        "abandoned_budget": "results/budget/two-tower-v2.json",
+        "ranking_metrics_used": False,
+        "cap_sec": ML32M_REDUCED_CAP_SEC,
+        "cap_covers": "tuning plus test training",
+        "grid": grid,
+        "n_trials": len(grid),
+        "max_epochs": max_epochs,
+        "patience": int(grid[0]["patience"]),
+        "seeds": [42],
+        "refit_reference": False,
+        "reference_source": "results/ml-32m.json",
+        "reference_tuning_source": "results/tuning/two_tower_ml-32m.json",
+        "full_softmax_included": included,
+        "full_softmax_one_epoch_sec": round(full_one, 1),
+        "full_softmax_skip_reason": (
+            None
+            if included
+            else (
+                "Skipped for compute. One full-softmax epoch does not fit beside "
+                "the sampled-softmax trials inside the reduced cap."
+            )
+        ),
+        "projected_tune_sec": round(tune, 1),
+        "projected_test_train_sec": round(test, 1),
+        "projected_total_with_one_full_softmax_epoch_sec": round(total + full_one, 1),
+        "projected_total_sec": round(total, 1),
+        "within_cap": bool(total <= ML32M_REDUCED_CAP_SEC),
+        "n_seeds": 1,
+        "abandoned_reason": (
+            "The first ml-32m grid was abandoned for compute before any "
+            "ml-32m validation or test metric."
+        ),
+        "epoch_train_sec": {
+            "in_batch": round(float(epoch_sec["in_batch"]), 1),
+            "full_softmax": round(full, 1),
+            "sampled_softmax": round(sampled, 1),
+        },
+        "val_score_sec_per_epoch": round(float(val_sec), 1),
+        "item_item_extrapolation_sec": 432.5,
     }
 
 

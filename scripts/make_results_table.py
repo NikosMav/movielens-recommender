@@ -1365,6 +1365,16 @@ def _v2_pair_sentence(label: str, paired: dict) -> str:
 
 
 def _answer_full_softmax(payload: dict) -> str:
+    skipped = payload.get("full_softmax") or {}
+    if skipped.get("status") == "skipped":
+        one = skipped.get("full_softmax_one_epoch_sec")
+        cap = skipped.get("cap_sec")
+        return (
+            "Skipped for compute. "
+            f"One full-softmax epoch is {float(one):.1f}s, which does not fit "
+            f"beside the sampled-softmax work inside the {float(cap):.1f}s cap. "
+            f"{skipped.get('reason') or ''}".rstrip()
+        )
     tuning = payload.get("tuning") or {}
     best = (tuning.get("best_by_loss") or {}).get("full_softmax") or {}
     ref_val = float(tuning.get("reference_val_ndcg@10"))
@@ -1461,16 +1471,27 @@ def _answer_ranker(payload: dict) -> str:
             f"({_fmt(float(tuning.get('selected_val_ndcg@10')))} versus "
             f"{_fmt(float(tuning.get('reference_val_ndcg@10')))}), so LambdaRank was not re-run."
         )
+    if ranker.get("status") == "not_run":
+        reason = str(ranker.get("reason") or "LambdaRank was not re-run.")
+        extra = ""
+        if ranker.get("remaining_sec") is not None and ranker.get("projected_sec") is not None:
+            extra = (
+                f" Remaining {float(ranker['remaining_sec']):.1f}s, "
+                f"projected {float(ranker['projected_sec']):.1f}s."
+            )
+        return f"No. {reason}{extra}"
     new = ranker["new"]
     no_ranker = float(new["no_ranker_metrics"]["ndcg@10"])
     new_point = float(new["metrics"]["ndcg@10"])
     lift = ranker["paired_vs_no_ranker"]["ndcg@10"]
-    versus = ranker["paired_vs_reference_ranker"]["ndcg@10"]
+    versus = (ranker.get("paired_vs_reference_ranker") or {}).get("ndcg@10")
     published = payload["reference_published"]
     beats_list = (
         new_point > no_ranker and lift.get("excludes_zero") and float(lift["mean"]) > 0
     )
-    beats_old = float(versus["mean"]) > 0 and versus.get("excludes_zero")
+    beats_old = bool(
+        versus is not None and float(versus["mean"]) > 0 and versus.get("excludes_zero")
+    )
     if beats_list and beats_old:
         lead = "Yes."
     else:
@@ -1483,18 +1504,32 @@ def _answer_ranker(payload: dict) -> str:
         )
     else:
         over_list = "No lift over its candidate list"
-    if beats_old:
+    if versus is None:
+        over_old = (
+            "A paired interval versus the existing ranker was not computed, "
+            "because the reference tower was not refit"
+        )
+        versus_sentence = ""
+    elif beats_old:
         over_old = "It beats the reference-tower ranker"
+        versus_sentence = ". " + _v2_pair_sentence(
+            "Paired versus the reference-tower ranker", versus
+        )
     elif float(versus["mean"]) > 0:
         over_old = "The gain versus the reference-tower ranker includes 0"
+        versus_sentence = ". " + _v2_pair_sentence(
+            "Paired versus the reference-tower ranker", versus
+        )
     else:
         over_old = "It does not beat the reference-tower ranker"
+        versus_sentence = ". " + _v2_pair_sentence(
+            "Paired versus the reference-tower ranker", versus
+        )
     return (
         f"{lead} {over_list}. {over_old}. New ranker NDCG@10 {_fmt(new_point)} versus "
         f"`no_ranker` {_fmt(no_ranker)}. "
         + _v2_pair_sentence("Paired versus no_ranker", lift)
-        + ". "
-        + _v2_pair_sentence("Paired versus the reference-tower ranker", versus)
+        + versus_sentence
         + f". Published LambdaRank in `{published.get('lambdarank_source')}` is "
         f"{_fmt(float(published['lambdarank_ndcg@10']))} "
         f"(demographics {published.get('lambdarank_demographics')})."
@@ -1614,6 +1649,27 @@ def render_two_tower_v2() -> str:
                 lines.append(
                     _v2_pair_sentence(f"Paired tail NDCG@10, {name}", paired["tail_ndcg@10"]) + "."
                 )
+        comparison = payload.get("reference_comparison") or {}
+        if comparison.get("paired") is False:
+            lines.append(
+                "Paired interval versus the published two-tower was not computed. "
+                + str(comparison.get("reason") or "")
+            )
+            delta = comparison.get("candidate_minus_published_ndcg@10")
+            if delta is not None:
+                lines.append(
+                    "Unpaired point difference, "
+                    f"`{comparison.get('candidate_loss')}` minus the published two-tower: "
+                    f"NDCG@10 {_fmt(float(delta))}, "
+                    "head "
+                    f"{_fmt(float(comparison['candidate_minus_published_head_ndcg@10']))}, "
+                    "tail "
+                    f"{_fmt(float(comparison['candidate_minus_published_tail_ndcg@10']))}."
+                )
+            lines.append(
+                "Paired interval versus the published LambdaRank was not computed. "
+                + str(comparison.get("paired_vs_published_ranker_reason") or "")
+            )
         lines.append("")
         lines.append(f"Did full softmax help? {_answer_full_softmax(payload)}")
         lines.append("")

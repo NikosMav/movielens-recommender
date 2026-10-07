@@ -7,6 +7,7 @@ import itertools
 import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -341,6 +342,47 @@ class TrainResult:
     wall_time_sec: float
 
 
+def _epoch_payload(
+    epoch: int,
+    model: TwoTowerModel,
+    opt: torch.optim.Optimizer,
+    best_state: dict[str, Any] | None,
+    best_epoch: int,
+    best_val: float,
+    stale: int,
+    history: list[dict[str, Any]],
+    prior_wall: float,
+    started: float,
+    *,
+    finished: bool,
+) -> dict[str, Any]:
+    return {
+        "epoch": int(epoch),
+        "model": model.state_dict(),
+        "optimizer": opt.state_dict(),
+        "best_state": best_state,
+        "best_epoch": int(best_epoch),
+        "best_val": None if best_val == float("-inf") else float(best_val),
+        "stale": int(stale),
+        "history": history,
+        "wall_time_sec": round(prior_wall + (time.perf_counter() - started), 3),
+        "finished": bool(finished),
+    }
+
+
+def _save_epoch_checkpoint(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    torch.save(payload, tmp)
+    tmp.replace(path)
+
+
+def _load_epoch_checkpoint(path: Path) -> dict[str, Any] | None:
+    if not path.is_file():
+        return None
+    return torch.load(path, map_location="cpu", weights_only=False)
+
+
 def train_two_tower(
     features: TwoTowerFeatures,
     *,
@@ -351,12 +393,17 @@ def train_two_tower(
     device: str | None = None,
     show_progress: bool = False,
     score_without_user_id: bool = False,
+    epoch_checkpoint: str | Path | None = None,
 ) -> tuple[TwoTowerModel, TrainResult]:
     """Train on ``features``; optionally early-stop on validation NDCG@10.
 
     When ``val_split`` is provided, ``val_split.train`` must be the same matrix
     used to build ``features`` (fit-train). Validation rows are never folded
     into history.
+
+    ``epoch_checkpoint`` is rewritten after every completed epoch. A resume
+    loads weights and optimizer state and continues at the next epoch. The
+    DataLoader is shuffled again, so a resumed run is not bit-exact.
     """
     _require_torch()
     set_torch_seed(seed)
@@ -406,12 +453,30 @@ def train_two_tower(
     best_val = float("-inf")
     stale = 0
     history: list[dict[str, Any]] = []
+    start_epoch = 1
+    prior_wall = 0.0
+    ckpt_path = None if epoch_checkpoint is None else Path(epoch_checkpoint)
+    saved = _load_epoch_checkpoint(ckpt_path) if ckpt_path is not None else None
+    if saved is not None:
+        model.load_state_dict(saved["model"])
+        opt.load_state_dict(saved["optimizer"])
+        best_epoch = int(saved["best_epoch"])
+        best_val = float("-inf") if saved["best_val"] is None else float(saved["best_val"])
+        stale = int(saved["stale"])
+        history = list(saved["history"])
+        best_state = saved["best_state"]
+        prior_wall = float(saved.get("wall_time_sec", 0.0))
+        start_epoch = int(saved["epoch"]) + 1
+        if show_progress:
+            print(f"    resumed after epoch {saved['epoch']}", flush=True)
+        if saved.get("finished"):
+            start_epoch = max_epochs + 1
     t0 = time.perf_counter()
 
-    for epoch in range(1, max_epochs + 1):
+    for epoch in range(start_epoch, max_epochs + 1):
         model.train()
         losses: list[float] = []
-        for user_idx, item_idx in loader:
+        for step, (user_idx, item_idx) in enumerate(loader, start=1):
             user_idx = user_idx.to(dev)
             item_idx = item_idx.to(dev)
             opt.zero_grad(set_to_none=True)
@@ -435,6 +500,8 @@ def train_two_tower(
             loss.backward()
             opt.step()
             losses.append(float(loss.item()))
+            if show_progress and step % 2000 == 0:
+                print(f"    epoch {epoch} batch {step}", flush=True)
 
         mean_loss = float(np.mean(losses)) if losses else float("nan")
         record: dict[str, Any] = {"epoch": epoch, "train_loss": round(mean_loss, 6)}
@@ -473,9 +540,26 @@ def train_two_tower(
                 stale = 0
             else:
                 stale += 1
-                if stale >= patience:
-                    history.append(record)
-                    break
+            if stale >= patience:
+                history.append(record)
+                if ckpt_path is not None:
+                    _save_epoch_checkpoint(
+                        ckpt_path,
+                        _epoch_payload(
+                            epoch,
+                            model,
+                            opt,
+                            best_state,
+                            best_epoch,
+                            best_val,
+                            stale,
+                            history,
+                            prior_wall,
+                            t0,
+                            finished=True,
+                        ),
+                    )
+                break
         elif show_progress:
             print(
                 f"    epoch {epoch}/{max_epochs} loss={mean_loss:.4f}",
@@ -486,6 +570,23 @@ def train_two_tower(
             best_epoch = epoch
 
         history.append(record)
+        if ckpt_path is not None:
+            _save_epoch_checkpoint(
+                ckpt_path,
+                _epoch_payload(
+                    epoch,
+                    model,
+                    opt,
+                    best_state,
+                    best_epoch,
+                    best_val,
+                    stale,
+                    history,
+                    prior_wall,
+                    t0,
+                    finished=epoch == max_epochs,
+                ),
+            )
 
     if best_state is not None:
         model.load_state_dict(best_state)
@@ -493,7 +594,7 @@ def train_two_tower(
         # Fixed-epoch refit: last epoch is the intended stopping point.
         best_epoch = max_epochs if not history else history[-1]["epoch"]
 
-    wall = time.perf_counter() - t0
+    wall = prior_wall + (time.perf_counter() - t0)
     result = TrainResult(
         best_epoch=int(best_epoch),
         epochs_trained=int(history[-1]["epoch"] if history else 0),
@@ -518,6 +619,7 @@ def fit_two_tower_recommender(
     val_split: SplitResult | None = None,
     device: str | None = None,
     show_progress: bool = False,
+    epoch_checkpoint: str | Path | None = None,
 ) -> tuple[TwoTowerRecommender, TwoTowerFeatures, TrainResult]:
     """Build features, train, wrap as a recommender.
 
@@ -549,6 +651,7 @@ def fit_two_tower_recommender(
         device=device,
         show_progress=show_progress,
         score_without_user_id=cold_eval,
+        epoch_checkpoint=epoch_checkpoint,
     )
     rec = TwoTowerRecommender.from_trained(
         model,

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (S3e). The protocol and the compute budget in this ADR are fixed from `results/budget/two-tower-v2.json` before any test metric. That file was built from a timing probe (`results/budget/two-tower-v2-probe.json`) that records no ranking metric (`ranking_metrics_used` is false). The outcome section is filled only after `results/two-tower-v2/` exists.
+Accepted (S3e). The ml-1m protocol and compute budget are fixed from `results/budget/two-tower-v2.json` before any test metric. That file was built from a timing probe (`results/budget/two-tower-v2-probe.json`) that records no ranking metric (`ranking_metrics_used` is false). The ml-32m grid in that file was abandoned for compute. The replacement is the amendment below and `results/budget/two-tower-v2-ml32m-reduced.json`, fixed before any ml-32m validation or test metric. The outcome section is filled only after the corresponding `results/two-tower-v2/` file exists.
 
 ## Context
 
@@ -67,9 +67,29 @@ Headline NDCG@10 is the seed mean. The bootstrap CI, head NDCG@10, and tail NDCG
 | Three ml-32m test seeds, or testing both new losses there | Caps 143026.8 s and 54771.2 s, over 14400 s and 21600 s |
 | Change `configs/ml-1m.yaml` or the Streamlit snapshot in this change | The default loss must keep reproducing the in-batch model; the app rule above is not yet evaluable |
 
+## Amendment: reduced ml-32m budget
+
+The first ml-32m grid in `results/budget/two-tower-v2.json` (7 trials, projected cap 72736.9 s, limit 75600 s) was abandoned for compute. It was started and stopped during trial 1, full softmax, dim 64, learning rate 0.0003, temperature 0.1, `max_epochs` 4. No epoch finished. `results/tuning/two_tower_v2_ml-32m.json` was not written. No ml-32m validation score and no ml-32m test metric exist. This amendment is the pre-registration for the replacement.
+
+The replacement file is `results/budget/two-tower-v2-ml32m-reduced.json`, from `reduced_ml32m_budget` on the same probe times. Sampled softmax is 1182.6 s/epoch, full softmax is 6852.6 s/epoch, and the validation score is 7.7 s/epoch. The cap is 14400 s (4 h). It covers tuning plus test training. It does not cover a second reference refit. `ranking_metrics_used` is false.
+
+| loss | points | max_epochs | patience |
+| --- | --- | --- | --- |
+| sampled_softmax | (64, 0.003, 0.2), (64, 0.001, 0.1), (64, 0.0003, 0.1); 256 negatives | 3 | 1 |
+
+Projected tuning is 10712.7 s. Projected test training is 3547.8 s. Total 14260.5 s, inside 14400 s. One full-softmax epoch, including the validation score, is 6860.3 s. Adding it makes 21120.8 s, over the cap, so full softmax is skipped for compute. It is not scored.
+
+The three points are the ml-1m validation winner, the published ml-32m point with the new loss, and learning rate 0.0003 (below the ADR-0011 edge). In this slice, embedding dim 64 is the only value. Learning rate 0.0003 is the low edge and 0.003 is the high edge of `{0.0003, 0.001, 0.003}`. Temperature 0.1 is the low edge and 0.2 is the high edge of `{0.1, 0.2}`. A selected edge is recorded after validation and is not extended. If a trial runs slower than the probe, later trials are shortened or skipped so the reserved test refit stays inside the cap.
+
+The test uses one seed, `[42]`. The reference two-tower is the published `results/ml-32m.json` result. It is not refit. The eval sample stays the ADR-0011 sample, `user_ids_sha256` `6b0d5cf6ce14cf5815e71f620b1dd5f37f7e6f09ac13ae5f3d138563b035c980`. The published file has no per-user scores, so a paired interval against that two-tower, and against the published LambdaRank, will not be computed. The result will carry the published point and CI and the unpaired difference.
+
+LambdaRank on ml-32m runs only if the selected config beats the published validation NDCG@10 (0.100781 in `results/tuning/two_tower_ml-32m.json`) and the time left under 14400 s covers another sampled-softmax refit of `best_epoch` epochs plus the ADR-0011 item–item extrapolation of 432.5 s (`results/budget/ml-32m.json`). Otherwise the ranker is not run. Demographics stay `off`. Candidates would be that tower's top 200. A paired interval versus `no_ranker` is available only if the ranker runs. The reference tower is still not refit.
+
+The app stays on the current model. The app rule needs a paired interval against a reference-tower ranker trained in this run, and this amendment does not train that ranker.
+
 ## Outcome
 
-ml-32M has no test file yet. The numbers below are ml-1m only, copied from `results/tuning/two_tower_v2_ml-1m.json` and `results/two-tower-v2/ml-1m.json`. The locked grid was not changed after those files existed.
+ml-32M has no validation file and no test file. The reduced budget above was written before either. The numbers below are ml-1m only, copied from `results/tuning/two_tower_v2_ml-1m.json` and `results/two-tower-v2/ml-1m.json`. The ml-1m grid was not changed after those files existed.
 
 **ml-1m validation.** 36 trials, `tune_wall_sec` 7315.623, under the 7704.0 s cap. Reference validation NDCG@10 is 0.082601.
 

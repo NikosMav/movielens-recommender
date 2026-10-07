@@ -35,6 +35,7 @@ from movielens_recommender.two_tower.plan import grid_edges, lock_plan
 ROOT = Path(__file__).resolve().parents[1]
 PROBE_PATH = ROOT / "results" / "budget" / "two-tower-v2-probe.json"
 LOCK_PATH = ROOT / "results" / "budget" / "two-tower-v2.json"
+REDUCED_ML32M_PATH = ROOT / "results" / "budget" / "two-tower-v2-ml32m-reduced.json"
 CHECKPOINT_DIR = ROOT / "data" / "two-tower-v2-checkpoints"
 
 
@@ -342,6 +343,53 @@ def _tuning_path(dataset: str) -> Path:
     return ROOT / "results" / "tuning" / f"two_tower_v2_{dataset}.json"
 
 
+def _reduced_ml32m() -> dict[str, Any]:
+    if not REDUCED_ML32M_PATH.is_file():
+        raise SystemExit(f"Missing reduced ml-32m budget {REDUCED_ML32M_PATH}")
+    doc = _read(REDUCED_ML32M_PATH)
+    if doc.get("status") != "reduced":
+        raise SystemExit("ml-32m reduced budget is not marked reduced")
+    return doc
+
+
+def _epochs_that_fit(
+    *,
+    spent_sec: float,
+    epoch_sec: float,
+    cap_sec: float,
+    reserve_sec: float,
+    requested: int,
+) -> int:
+    """How many epochs of one trial fit before the reserved test refit."""
+    room = cap_sec - reserve_sec - spent_sec
+    if epoch_sec <= 0:
+        return 0
+    return max(0, min(int(requested), int(room // epoch_sec)))
+
+
+def _trial_identity(hp: dict[str, Any]) -> tuple[Any, ...]:
+    """Identity of a config. Epoch caps can shrink without looking like a new trial."""
+    return (
+        hp["loss"],
+        int(hp["embedding_dim"]),
+        round(float(hp["learning_rate"]), 6),
+        round(float(hp["temperature"]), 6),
+    )
+
+
+def _observed_epoch_sec(trials: list[dict[str, Any]]) -> float | None:
+    """Slowest completed tune trial, seconds per epoch, including its validation score."""
+    rates = []
+    for row in trials:
+        epochs = int(row.get("epochs_trained") or 0)
+        if epochs < 1:
+            continue
+        rates.append(float(row["wall_time_sec"]) / epochs)
+    if not rates:
+        return None
+    return max(rates)
+
+
 def cmd_tune(dataset: str) -> None:
     import torch
 
@@ -349,7 +397,9 @@ def cmd_tune(dataset: str) -> None:
 
     torch.set_num_threads(os.cpu_count() or 1)
     plan = _locked(dataset)
+    reduced = _reduced_ml32m() if dataset == "ml-32m" else None
     block = plan["datasets"][dataset]
+    grid = list(reduced["grid"] if reduced is not None else block["grid"])
     config, movies, split = load_split(dataset)
     published = _published_tuning(dataset)
     reference_val = float(published["best_val_score"])
@@ -364,45 +414,97 @@ def cmd_tune(dataset: str) -> None:
         ),
         "reference_val_ndcg@10": reference_val,
         "reference_source": f"results/tuning/two_tower_{dataset}.json",
-        "grid": block["grid"],
+        "grid": grid,
         "trials": [],
         "status": "running",
+        "budget_source": (
+            "results/budget/two-tower-v2-ml32m-reduced.json"
+            if reduced is not None
+            else "results/budget/two-tower-v2.json"
+        ),
     }
-    done = {json.dumps(row["hyperparams"], sort_keys=True) for row in doc["trials"]}
+    done = {_trial_identity(row["hyperparams"]) for row in doc["trials"]}
+    skipped = {_trial_identity(row["hyperparams"]) for row in doc.get("skipped_trials", [])}
     val_split = _val_view(split)
-    t0 = time.perf_counter()
-    for i, hp in enumerate(block["grid"], start=1):
-        key = json.dumps(hp, sort_keys=True)
-        if key in done:
-            print(f"  skip trial {i}/{len(block['grid'])}", flush=True)
+    for i, hp in enumerate(grid, start=1):
+        key = _trial_identity(hp)
+        if key in done or key in skipped:
+            print(f"  skip trial {i}/{len(grid)}", flush=True)
             continue
-        print(f"  trial {i}/{len(block['grid'])}: {hp}", flush=True)
+        run_hp = dict(hp)
+        if reduced is not None:
+            spent = sum(float(row["wall_time_sec"]) for row in doc["trials"])
+            probe_epoch = float(reduced["epoch_train_sec"]["sampled_softmax"]) + float(
+                reduced["val_score_sec_per_epoch"]
+            )
+            observed = _observed_epoch_sec(doc["trials"])
+            per_epoch = probe_epoch if observed is None else max(probe_epoch, observed)
+            reserve = float(reduced["projected_test_train_sec"])
+            if observed is not None:
+                reserve = max(reserve, observed * int(reduced["max_epochs"]))
+            fitted = _epochs_that_fit(
+                spent_sec=spent,
+                epoch_sec=per_epoch,
+                cap_sec=float(reduced["cap_sec"]),
+                reserve_sec=reserve,
+                requested=int(run_hp["max_epochs"]),
+            )
+            if fitted < 1:
+                print(f"  skip trial {i}/{len(grid)}: cap would be exceeded", flush=True)
+                doc.setdefault("skipped_trials", []).append(
+                    {"hyperparams": hp, "reason": "cap", "epochs_that_fit": 0}
+                )
+                _write(path, doc)
+                skipped.add(key)
+                continue
+            if fitted < int(run_hp["max_epochs"]):
+                print(
+                    f"  trial {i}/{len(grid)} shortened to {fitted} epochs by the cap",
+                    flush=True,
+                )
+                run_hp["max_epochs"] = fitted
+                run_hp["patience"] = min(int(run_hp["patience"]), fitted)
+        print(f"  trial {i}/{len(grid)}: {run_hp}", flush=True)
+        epoch_ckpt = None
+        if dataset == "ml-32m":
+            epoch_ckpt = CHECKPOINT_DIR / "ml-32m-epochs" / f"trial-{i}.pt"
         _rec, _feat, result = fit_two_tower_recommender(
             split.train,
             dataset=dataset,
             data_dir=str(ROOT / "data"),
             movies=movies,
-            hyperparams=hp,
+            hyperparams=run_hp,
             seed=config.seed,
             relevance_threshold=config.eval.relevance_threshold,
             val_split=val_split,
             show_progress=True,
+            epoch_checkpoint=epoch_ckpt,
         )
         score = float("-inf") if result.best_val_ndcg10 is None else float(result.best_val_ndcg10)
-        doc["trials"].append(
-            {
-                "hyperparams": hp,
-                "val_ndcg@10": round(score, 6),
-                "best_epoch": int(result.best_epoch),
-                "epochs_trained": int(result.epochs_trained),
-                "wall_time_sec": result.wall_time_sec,
-            }
+        trial_row: dict[str, Any] = {
+            "hyperparams": run_hp,
+            "val_ndcg@10": round(score, 6),
+            "best_epoch": int(result.best_epoch),
+            "epochs_trained": int(result.epochs_trained),
+            "wall_time_sec": result.wall_time_sec,
+        }
+        if int(run_hp["max_epochs"]) != int(hp["max_epochs"]):
+            trial_row["planned_max_epochs"] = int(hp["max_epochs"])
+            trial_row["shortened_for_cap"] = True
+        doc["trials"].append(trial_row)
+        doc["tune_wall_sec"] = round(
+            sum(float(row["wall_time_sec"]) for row in doc["trials"]), 3
         )
-        doc["tune_wall_sec"] = round(time.perf_counter() - t0, 3)
         _write(path, doc)
         del _rec, _feat, result
         release_memory()
         done.add(key)
+    if not doc["trials"]:
+        doc["status"] = "stopped"
+        doc["best_by_loss"] = {}
+        doc["beats_reference_validation"] = False
+        _write(path, doc)
+        raise SystemExit("No trial finished inside the cap")
     best_by_loss: dict[str, Any] = {}
     for row in doc["trials"]:
         loss_name = row["hyperparams"]["loss"]
@@ -412,7 +514,7 @@ def cmd_tune(dataset: str) -> None:
                 "hyperparams": row["hyperparams"],
                 "val_ndcg@10": row["val_ndcg@10"],
                 "best_epoch": row["best_epoch"],
-                "grid_edges": grid_edges(row["hyperparams"], block["grid"]),
+                "grid_edges": grid_edges(row["hyperparams"], grid),
             }
     selected_loss = max(best_by_loss, key=lambda name: float(best_by_loss[name]["val_ndcg@10"]))
     selected_val = float(best_by_loss[selected_loss]["val_ndcg@10"])
@@ -573,6 +675,7 @@ def _fit_and_eval(
     hyperparams: dict[str, Any],
     n_epochs: int,
     seed: int,
+    epoch_checkpoint: Path | None = None,
 ) -> tuple[Any, dict[str, Any], dict[str, Any], float]:
     from movielens_recommender.two_tower.train import fit_two_tower_recommender
 
@@ -587,6 +690,7 @@ def _fit_and_eval(
         n_epochs=n_epochs,
         val_split=None,
         show_progress=True,
+        epoch_checkpoint=epoch_checkpoint,
     )
     ks = sorted(set(int(k) for k in list(config.eval.ks) + list(config.eval.retrieval_ks)))
     metrics = format_metrics(
@@ -661,17 +765,23 @@ def _checkpoint(dataset: str) -> Path:
 
 
 def _model_specs(
-    dataset: str, tuning: dict[str, Any], plan: dict[str, Any]
+    dataset: str,
+    tuning: dict[str, Any],
+    plan: dict[str, Any],
+    *,
+    refit_reference: bool = True,
 ) -> list[dict[str, Any]]:
     published = _published_tuning(dataset)
-    specs = [
-        {
-            "name": "in_batch",
-            "role": "reference",
-            "hyperparams": dict(published["best_hyperparams"]),
-            "n_epochs": int(published["best_epoch"]),
-        }
-    ]
+    specs: list[dict[str, Any]] = []
+    if refit_reference:
+        specs.append(
+            {
+                "name": "in_batch",
+                "role": "reference",
+                "hyperparams": dict(published["best_hyperparams"]),
+                "n_epochs": int(published["best_epoch"]),
+            }
+        )
     test_both = bool(plan["datasets"][dataset]["test"]["test_both_losses"])
     names = list(tuning["best_by_loss"]) if test_both else [tuning["selected_loss"]]
     for name in names:
@@ -723,6 +833,7 @@ def _run_rankers(
     split: SplitResult,
     tuning: dict[str, Any],
     towers: dict[str, Any],
+    train_reference: bool = True,
 ) -> dict[str, Any]:
     """LambdaRank on the selected tower and on the reference tower.
 
@@ -781,15 +892,17 @@ def _run_rankers(
     selected = tuning["selected_loss"]
     published_hp = dict(_published_tuning(dataset)["best_hyperparams"])
     published_epochs = int(_published_tuning(dataset)["best_epoch"])
-    jobs = [
-        ("reference", "in_batch", published_hp, published_epochs),
+    jobs = []
+    if train_reference:
+        jobs.append(("reference", "in_batch", published_hp, published_epochs))
+    jobs.append(
         (
             "new",
             selected,
             dict(tuning["best_by_loss"][selected]["hyperparams"]),
             int(tuning["best_by_loss"][selected]["best_epoch"]),
         ),
-    ]
+    )
     results: dict[str, Any] = {}
     for label, _loss_name, hp, epochs in jobs:
         print(f"Ranker fit-train tower ({label})...", flush=True)
@@ -923,13 +1036,15 @@ def _run_rankers(
             "no_ranker_per_user": no_per_user,
         }
         release_memory()
-    paired_ranker = _pair(
-        results["reference"]["per_user"],
-        results["new"]["per_user"],
-        seed=config.seed,
-        n_bootstrap=config.eval.n_bootstrap,
-        alpha=config.eval.bootstrap_alpha,
-    )
+    paired_ranker = None
+    if "reference" in results:
+        paired_ranker = _pair(
+            results["reference"]["per_user"],
+            results["new"]["per_user"],
+            seed=config.seed,
+            n_bootstrap=config.eval.n_bootstrap,
+            alpha=config.eval.bootstrap_alpha,
+        )
     paired_lift = _pair(
         results["new"]["no_ranker_per_user"],
         results["new"]["per_user"],
@@ -940,17 +1055,72 @@ def _run_rankers(
     for row in results.values():
         row.pop("per_user", None)
         row.pop("no_ranker_per_user", None)
-    return {
+    out = {
+        "status": "ran",
         "demographics": demo_mode,
         "candidate_k": k,
         "candidate_set": "two_tower",
         "seeds": seeds,
-        "reference": results["reference"],
         "new": results["new"],
         "paired_vs_reference_ranker": paired_ranker,
         "paired_vs_no_ranker": paired_lift,
         "runtime_sec": round(time.perf_counter() - t0, 3),
     }
+    if "reference" in results:
+        out["reference"] = results["reference"]
+    return out
+
+
+def _point_delta(candidate: float | None, published: float | None) -> float | None:
+    if candidate is None or published is None:
+        return None
+    return round(float(candidate) - float(published), 6)
+
+
+def _reference_comparison(
+    *,
+    published: dict[str, Any],
+    models: dict[str, Any],
+    selected: str,
+    paired: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Point comparison with the published reference.
+
+    A paired interval exists only when this run refit the reference tower and
+    kept per-user scores. The published ml-32m file has none.
+    """
+    metrics = (models.get(selected) or {}).get("metrics") or {}
+    candidate = metrics.get("ndcg@10")
+    head = _segment_value(metrics, "head")
+    tail = _segment_value(metrics, "tail")
+    out: dict[str, Any] = {
+        "paired": paired is not None,
+        "candidate_loss": selected,
+        "published_source": published["source"],
+        "published_ndcg@10": published["ndcg@10"],
+        "published_ndcg@10_ci": published["ndcg@10_ci"],
+        "candidate_ndcg@10": candidate,
+        "candidate_minus_published_ndcg@10": _point_delta(candidate, published["ndcg@10"]),
+        "published_head_ndcg@10": published["head_ndcg@10"],
+        "candidate_head_ndcg@10": head,
+        "candidate_minus_published_head_ndcg@10": _point_delta(head, published["head_ndcg@10"]),
+        "published_tail_ndcg@10": published["tail_ndcg@10"],
+        "candidate_tail_ndcg@10": tail,
+        "candidate_minus_published_tail_ndcg@10": _point_delta(tail, published["tail_ndcg@10"]),
+        "published_lambdarank_ndcg@10": published["lambdarank_ndcg@10"],
+        "published_lambdarank_ndcg@10_ci": published["lambdarank_ndcg@10_ci"],
+        "paired_vs_published_ranker": False,
+    }
+    if paired is None:
+        out["reason"] = (
+            "The published two-tower was not refit. The published results file "
+            "has no per-user scores, so a paired interval versus that reference "
+            "was not computed."
+        )
+        out["paired_vs_published_ranker_reason"] = (
+            "The published ranker was not refit and this run has no per-user scores for it."
+        )
+    return out
 
 
 def cmd_test(dataset: str) -> None:
@@ -969,8 +1139,19 @@ def cmd_test(dataset: str) -> None:
 
     ckpt_path = _checkpoint(dataset)
     ckpt = _read(ckpt_path) if ckpt_path.is_file() else {"models": {}, "topks": {}}
-    specs = _model_specs(dataset, tuning, plan)
-    seeds = [int(s) for s in plan["datasets"][dataset]["test"]["seeds"]]
+    reduced = _reduced_ml32m() if dataset == "ml-32m" else None
+    refit_reference = True if reduced is None else bool(reduced["refit_reference"])
+    if dataset == "ml-32m":
+        published_sample = _read(ROOT / "results" / "ml-32m.json")["eval_user_sample"]
+        got = (split.eval_user_sample or {}).get("user_ids_sha256")
+        expected = published_sample["user_ids_sha256"]
+        if got != expected:
+            raise SystemExit(f"eval sample hash {got} != published {expected}")
+    specs = _model_specs(dataset, tuning, plan, refit_reference=refit_reference)
+    if reduced is None:
+        seeds = [int(s) for s in plan["datasets"][dataset]["test"]["seeds"]]
+    else:
+        seeds = [int(s) for s in reduced["seeds"]]
     primary = int(config.seed)
     full_train = split.full_train
     test_users = [int(uid) for uid in split.test["user_id"].unique()]
@@ -988,6 +1169,9 @@ def cmd_test(dataset: str) -> None:
                 print(f"skip {name} seed {seed}", flush=True)
                 continue
             print(f"Refit {name} epochs={spec['n_epochs']} seed={seed}", flush=True)
+            epoch_ckpt = None
+            if dataset == "ml-32m":
+                epoch_ckpt = CHECKPOINT_DIR / "ml-32m-epochs" / f"test-{name}-seed{seed}.pt"
             rec, metrics, per_user, wall = _fit_and_eval(
                 full_train=full_train,
                 movies=movies,
@@ -996,6 +1180,7 @@ def cmd_test(dataset: str) -> None:
                 hyperparams=spec["hyperparams"],
                 n_epochs=int(spec["n_epochs"]),
                 seed=seed,
+                epoch_checkpoint=epoch_ckpt,
             )
             row = {
                 "seed": seed,
@@ -1027,19 +1212,21 @@ def cmd_test(dataset: str) -> None:
         per_user_primary[spec["name"]] = next(
             row["per_user"] for row in rows if int(row["seed"]) == primary
         )
-    paired = {
-        name: _pair(
-            per_user_primary["in_batch"],
-            per_user_primary[name],
-            seed=config.seed,
-            n_bootstrap=config.eval.n_bootstrap,
-            alpha=config.eval.bootstrap_alpha,
-        )
-        for name in models_out
-        if name != "in_batch"
-    }
+    paired = None
+    if "in_batch" in per_user_primary:
+        paired = {
+            name: _pair(
+                per_user_primary["in_batch"],
+                per_user_primary[name],
+                seed=config.seed,
+                n_bootstrap=config.eval.n_bootstrap,
+                alpha=config.eval.bootstrap_alpha,
+            )
+            for name in models_out
+            if name != "in_batch"
+        }
     ranker = ckpt.get("ranker")
-    if tuning["beats_reference_validation"] and ranker is None:
+    if tuning["beats_reference_validation"] and ranker is None and refit_reference:
         towers = {
             "reference": {"topk": _restore_topk(ckpt["topks"]["in_batch"])},
             "new": {"topk": _restore_topk(ckpt["topks"][tuning["selected_loss"]])},
@@ -1054,6 +1241,54 @@ def cmd_test(dataset: str) -> None:
         )
         ckpt["ranker"] = ranker
         _write(ckpt_path, ckpt)
+    elif ranker is None and reduced is not None:
+        spent = float(tuning.get("tune_wall_sec") or 0.0)
+        spent += sum(
+            float(row["train_wall_time_sec"])
+            for model in models_out.values()
+            for row in model["per_seed"]
+        )
+        selected = tuning["selected_loss"]
+        best_epoch = int(tuning["best_by_loss"][selected]["best_epoch"])
+        observed_test = []
+        for model in models_out.values():
+            n_ep = max(1, int(model["n_epochs"]))
+            for row in model["per_seed"]:
+                observed_test.append(float(row["train_wall_time_sec"]) / n_ep)
+        epoch_for_ranker = float(reduced["epoch_train_sec"]["sampled_softmax"])
+        if observed_test:
+            epoch_for_ranker = max(epoch_for_ranker, max(observed_test))
+        projected = best_epoch * epoch_for_ranker
+        projected += float(reduced["item_item_extrapolation_sec"])
+        remaining = float(reduced["cap_sec"]) - spent
+        if not tuning["beats_reference_validation"]:
+            ranker = {
+                "status": "not_run",
+                "reason": "The new two-tower did not beat the reference on validation.",
+            }
+        elif remaining < projected:
+            ranker = {
+                "status": "not_run",
+                "reason": (
+                    "Validation beat the reference, but the remaining cap does not "
+                    "cover another tower refit plus item-item."
+                ),
+                "remaining_sec": round(remaining, 1),
+                "projected_sec": round(projected, 1),
+            }
+        else:
+            ranker = _run_rankers(
+                dataset=dataset,
+                config=config,
+                movies=movies,
+                split=split,
+                tuning=tuning,
+                towers={"new": {"topk": _restore_topk(ckpt["topks"][selected])}},
+                train_reference=False,
+            )
+        ckpt["ranker"] = ranker
+        _write(ckpt_path, ckpt)
+    published_block = _published_reference_block(dataset)
     payload = {
         "experiment": "s3e_full_softmax_two_tower",
         "adr": "ADR-0013",
@@ -1061,8 +1296,12 @@ def cmd_test(dataset: str) -> None:
         "dataset_sha256": DATASET_SHA256[dataset],
         "seed": config.seed,
         "eval_user_sample": split.eval_user_sample,
-        "reference_published": _published_reference_block(dataset),
-        "budget_source": "results/budget/two-tower-v2.json",
+        "reference_published": published_block,
+        "budget_source": (
+            "results/budget/two-tower-v2-ml32m-reduced.json"
+            if reduced is not None
+            else "results/budget/two-tower-v2.json"
+        ),
         "tuning_source": f"results/tuning/two_tower_v2_{dataset}.json",
         "tuning": {
             "selected_loss": tuning["selected_loss"],
@@ -1074,9 +1313,19 @@ def cmd_test(dataset: str) -> None:
             "n_trials": len(tuning["trials"]),
         },
         "test_seeds": seeds,
-        "test_both_losses": bool(plan["datasets"][dataset]["test"]["test_both_losses"]),
+        "test_both_losses": (
+            False
+            if reduced is not None
+            else bool(plan["datasets"][dataset]["test"]["test_both_losses"])
+        ),
         "models": models_out,
         "paired_vs_reference": paired,
+        "reference_comparison": _reference_comparison(
+            published=published_block,
+            models=models_out,
+            selected=tuning["selected_loss"],
+            paired=paired,
+        ),
         "ranker": ranker,
         "compute": {
             "tune_wall_sec": tuning.get("tune_wall_sec"),
@@ -1095,6 +1344,21 @@ def cmd_test(dataset: str) -> None:
         },
         "runtime_sec": round(time.perf_counter() - t0, 3),
     }
+    if reduced is not None:
+        payload["full_softmax"] = {
+            "status": "included" if reduced["full_softmax_included"] else "skipped",
+            "reason": reduced.get("full_softmax_skip_reason"),
+            "full_softmax_one_epoch_sec": reduced["full_softmax_one_epoch_sec"],
+            "projected_tune_sec": reduced["projected_tune_sec"],
+            "projected_test_train_sec": reduced["projected_test_train_sec"],
+            "projected_total_sec": reduced["projected_total_sec"],
+            "cap_sec": reduced["cap_sec"],
+        }
+        payload["seed_count"] = len(seeds)
+        payload["seed_note"] = (
+            "One seed, fixed in the reduced ml-32m budget before this test."
+        )
+        payload["refit_reference"] = False
     out = ROOT / "results" / "two-tower-v2" / f"{dataset}.json"
     _write(out, payload)
     print(f"Wrote {out}", flush=True)
