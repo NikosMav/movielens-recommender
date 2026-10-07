@@ -1336,6 +1336,15 @@ def render_cold_start() -> str:
     return "\n".join(lines)
 
 
+def _v2_edge_text(block: dict) -> str:
+    text = _v2_edges(block.get("grid_edges") or [])
+    hp = block.get("hyperparams") or {}
+    if "max_epochs" in hp and int(block.get("best_epoch", -1)) == int(hp["max_epochs"]):
+        extra = f"best_epoch equals max_epochs {hp['max_epochs']}"
+        text = extra if text == "none" else f"{text}; {extra}"
+    return text
+
+
 def _v2_edges(edges: list[dict]) -> str:
     if not edges:
         return "none"
@@ -1404,7 +1413,18 @@ def _answer_tail(payload: dict) -> str:
     paired = ((payload.get("paired_vs_reference") or {}).get(name) or {}).get("tail_ndcg@10") or {}
     if tail is None or head is None:
         return "Tail NDCG@10 is missing from this file."
-    if float(tail) >= float(item_tail) and float(tail) > float(ref_tail):
+    if float(ref_tail) >= float(item_tail):
+        if float(tail) > float(ref_tail):
+            verdict = (
+                "There was no tail gap versus item-item to fix. "
+                f"`{name}` is higher than the reference"
+            )
+        else:
+            verdict = (
+                "No. There was no tail gap versus item-item, and "
+                f"`{name}` is not higher than the reference"
+            )
+    elif float(tail) >= float(item_tail) and float(tail) > float(ref_tail):
         verdict = "Yes"
     elif float(tail) > float(ref_tail):
         verdict = "It beats the reference two-tower and is still below item-item"
@@ -1447,22 +1467,30 @@ def _answer_ranker(payload: dict) -> str:
     lift = ranker["paired_vs_no_ranker"]["ndcg@10"]
     versus = ranker["paired_vs_reference_ranker"]["ndcg@10"]
     published = payload["reference_published"]
-    if new_point > no_ranker and lift.get("excludes_zero") and float(lift["mean"]) > 0:
-        over_list = "Yes, it adds lift over its candidate list"
+    beats_list = (
+        new_point > no_ranker and lift.get("excludes_zero") and float(lift["mean"]) > 0
+    )
+    beats_old = float(versus["mean"]) > 0 and versus.get("excludes_zero")
+    if beats_list and beats_old:
+        lead = "Yes."
+    else:
+        lead = "No."
+    if beats_list:
+        over_list = "It adds lift over its candidate list"
     elif new_point > no_ranker:
         over_list = (
             "The point estimate is above the candidate list and the paired interval includes 0"
         )
     else:
         over_list = "No lift over its candidate list"
-    if float(versus["mean"]) > 0 and versus.get("excludes_zero"):
-        over_old = "and it beats the reference-tower ranker"
+    if beats_old:
+        over_old = "It beats the reference-tower ranker"
     elif float(versus["mean"]) > 0:
-        over_old = "and the gain versus the reference-tower ranker includes 0"
+        over_old = "The gain versus the reference-tower ranker includes 0"
     else:
-        over_old = "and it does not beat the reference-tower ranker"
+        over_old = "It does not beat the reference-tower ranker"
     return (
-        f"{over_list} {over_old}. New ranker NDCG@10 {_fmt(new_point)} versus "
+        f"{lead} {over_list}. {over_old}. New ranker NDCG@10 {_fmt(new_point)} versus "
         f"`no_ranker` {_fmt(no_ranker)}. "
         + _v2_pair_sentence("Paired versus no_ranker", lift)
         + ". "
@@ -1488,7 +1516,8 @@ def render_two_tower_v2() -> str:
     lines.append(
         "From `results/two-tower-v2/`. The reference loss is the in-batch "
         "sampled softmax. Temperature, learning rate, and embedding dim were "
-        "chosen on validation only. Paired intervals are the primary seed, "
+        "chosen on validation only. NDCG@10 in the table is the seed mean. "
+        "The 95% CI column and the paired intervals are the primary seed, "
         "candidate minus reference."
     )
     lines.append("")
@@ -1527,7 +1556,7 @@ def render_two_tower_v2() -> str:
                         name,
                         _fmt(float(block["val_ndcg@10"])),
                         str(block["best_epoch"]),
-                        _v2_edges(block.get("grid_edges") or []),
+                        _v2_edge_text(block),
                     ]
                 )
                 + " |"
@@ -1594,12 +1623,15 @@ def render_two_tower_v2() -> str:
         lines.append("")
         compute = payload.get("compute") or {}
         if compute:
+            def _sec(value: float) -> str:
+                return f"{float(value):.3f}"
+
             lines.append(
-                f"Compute: tune {_fmt(float(compute['tune_wall_sec']))}s, "
-                f"test training {_fmt(float(compute['test_train_sec']))}s, "
+                f"Compute: tune {_sec(compute['tune_wall_sec'])}s, "
+                f"test training {_sec(compute['test_train_sec'])}s, "
                 f"ranker "
                 + (
-                    f"{_fmt(float(compute['ranker_wall_sec']))}s"
+                    f"{_sec(compute['ranker_wall_sec'])}s"
                     if compute.get("ranker_wall_sec") is not None
                     else "not run"
                 )

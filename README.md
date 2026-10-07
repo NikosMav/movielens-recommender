@@ -883,4 +883,41 @@ Warmed new-user top-10 latency (five popular titles rated 5): 0.0850s. Method `c
 
 Cold-start experiment runtime: 501.8226s.
 
+### Full-softmax two-tower (S3e)
+
+From `results/two-tower-v2/`. The reference loss is the in-batch sampled softmax. Temperature, learning rate, and embedding dim were chosen on validation only. NDCG@10 in the table is the seed mean. The 95% CI column and the paired intervals are the primary seed, candidate minus reference.
+
+#### `ml-1m`
+
+Published reference two-tower (`results/ml-1m.json`): NDCG@10 0.1192 [0.1150, 0.1230], Recall@10 0.0901, Recall@100 0.4354, Recall@200 0.6037, Coverage@10 0.4723, head 0.1364, tail 0.0825. Validation NDCG@10 0.0826.
+
+| loss | val NDCG@10 | best epoch | grid edges |
+| --- | --- | --- | --- |
+| reference in_batch | 0.0826 | 6 | published config |
+| full_softmax | 0.0855 | 9 | embedding_dim=64.0 (high of [32.0, 64.0]); learning_rate=0.003 (high of [0.0003, 0.001, 0.003]); temperature=0.2 (high of [0.05, 0.1, 0.2]) |
+| sampled_softmax | 0.0856 | 20 | embedding_dim=64.0 (high of [32.0, 64.0]); learning_rate=0.003 (high of [0.0003, 0.001, 0.003]); temperature=0.2 (high of [0.05, 0.1, 0.2]); best_epoch equals max_epochs 20 |
+
+Validation winner: `sampled_softmax` (0.0856). Beats the reference on validation: True.
+
+| model | NDCG@10 | 95% CI | Recall@10 | Recall@100 | Recall@200 | Coverage@10 | head | tail |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| in_batch (3-seed mean) | 0.1192 | [0.1150, 0.1230] | 0.0901 | 0.4354 | 0.6037 | 0.4723 | 0.1364 | 0.0825 |
+| full_softmax (3-seed mean) | 0.1286 | [0.1247, 0.1340] | 0.0912 | 0.4383 | 0.6101 | 0.3310 | 0.1429 | 0.0867 |
+| sampled_softmax (3-seed mean) | 0.1305 | [0.1254, 0.1347] | 0.0891 | 0.4280 | 0.6004 | 0.3002 | 0.1432 | 0.0816 |
+
+Paired NDCG@10, full_softmax minus reference 0.0105 [0.0077, 0.0130] (excludes 0).
+Paired head NDCG@10, full_softmax 0.0065 [0.0039, 0.0092] (excludes 0).
+Paired tail NDCG@10, full_softmax 0.0042 [0.0008, 0.0074] (excludes 0).
+Paired NDCG@10, sampled_softmax minus reference 0.0110 [0.0081, 0.0138] (excludes 0).
+Paired head NDCG@10, sampled_softmax 0.0069 [0.0040, 0.0098] (excludes 0).
+Paired tail NDCG@10, sampled_softmax -0.0009 [-0.0048, 0.0023] (includes 0).
+
+Did full softmax help? Yes. Full softmax test NDCG@10 is 0.1286 against the reference rerun 0.1192. Paired difference 0.0105 [0.0077, 0.0130] (excludes 0). Validation was 0.0855 against reference 0.0826.
+
+Does it fix the tail weakness? There was no tail gap versus item-item to fix. `full_softmax` is higher than the reference. `full_softmax` tail NDCG@10 is 0.0867 (head 0.1429). Published reference tail is 0.0825; item-item tail is 0.0321. Paired tail difference versus the reference rerun 0.0042 [0.0008, 0.0074] (excludes 0).
+
+Does the ranker gain? No. The point estimate is above the candidate list and the paired interval includes 0. It does not beat the reference-tower ranker. New ranker NDCG@10 0.1301 versus `no_ranker` 0.1300. Paired versus no_ranker 0.0010 [-0.0025, 0.0044] (includes 0). Paired versus the reference-tower ranker -0.0013 [-0.0043, 0.0019] (includes 0). Published LambdaRank in `results/ml-1m.json` is 0.1273 (demographics off).
+
+Compute: tune 7315.623s, test training 706.290s, ranker 325.702s, seeds [42, 43, 44].
+
 <!-- END RESULTS TABLE -->
