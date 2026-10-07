@@ -1,4 +1,42 @@
 {
+  "beats_reference_validation": false,
+  "best_by_loss": {
+    "sampled_softmax": {
+      "best_epoch": 3,
+      "grid_edges": [
+        {
+          "edge": "only_value",
+          "grid_values": [
+            64.0
+          ],
+          "parameter": "embedding_dim",
+          "value": 64.0
+        },
+        {
+          "edge": "low",
+          "grid_values": [
+            0.1,
+            0.2
+          ],
+          "parameter": "temperature",
+          "value": 0.1
+        }
+      ],
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.001,
+        "loss": "sampled_softmax",
+        "max_epochs": 3,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 1,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.096709
+    }
+  },
   "budget_source": "results/budget/two-tower-v2-ml32m-reduced.json",
   "dataset": "ml-32m",
   "dataset_sha256": "e4a68655d7386b8f95f2f2424b2ff975dfdd15ffd59e0d864a14dca43e99d6ee",
@@ -44,7 +82,9 @@
   "reference_source": "results/tuning/two_tower_ml-32m.json",
   "reference_val_ndcg@10": 0.100781,
   "seed": 42,
-  "status": "running",
+  "selected_loss": "sampled_softmax",
+  "selected_val_ndcg@10": 0.096709,
+  "status": "complete",
   "trials": [
     {
       "best_epoch": 3,
@@ -81,7 +121,25 @@
       },
       "val_ndcg@10": 0.096709,
       "wall_time_sec": 2100.978
+    },
+    {
+      "best_epoch": 3,
+      "epochs_trained": 3,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.0003,
+        "loss": "sampled_softmax",
+        "max_epochs": 3,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 1,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.094712,
+      "wall_time_sec": 2012.403
     }
   ],
-  "tune_wall_sec": 5163.673
+  "tune_wall_sec": 7176.076
 }
