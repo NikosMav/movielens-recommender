@@ -24,7 +24,7 @@ The code was written by AI coding agents (Cursor) working from a staged plan wit
 | **S4** | Done | Learned ranker (LightGBM LambdaRank over a validation-chosen candidate set) |
 | **S4b** | Done | S4b: user demographic features experiment (ml-1m) |
 | **S3d** | Done | S3d: scale-up to MovieLens 32M |
-| **S3e** | In progress | S3e: full-softmax two-tower |
+| **S3e** | Done | S3e: full-softmax two-tower |
 | **S5a** | Done | Streamlit explainable UI |
 | **S5c** | Done | S5c: new-user profile (cold start) |
 | **S5b** | Planned | Batch recs, FastAPI, Dockerfile |
@@ -919,5 +919,32 @@ Does it fix the tail weakness? There was no tail gap versus item-item to fix. `f
 Does the ranker gain? No. The point estimate is above the candidate list and the paired interval includes 0. It does not beat the reference-tower ranker. New ranker NDCG@10 0.1301 versus `no_ranker` 0.1300. Paired versus no_ranker 0.0010 [-0.0025, 0.0044] (includes 0). Paired versus the reference-tower ranker -0.0013 [-0.0043, 0.0019] (includes 0). Published LambdaRank in `results/ml-1m.json` is 0.1273 (demographics off).
 
 Compute: tune 7315.623s, test training 706.290s, ranker 325.702s, seeds [42, 43, 44].
+
+#### `ml-32m`
+
+Published reference two-tower (`results/ml-32m.json`): NDCG@10 0.1436 [0.1398, 0.1479], Recall@10 0.1138, Recall@100 0.4742, Recall@200 0.6243, Coverage@10 0.0411, head 0.1460, tail 0.0006. Validation NDCG@10 0.1008.
+
+| loss | val NDCG@10 | best epoch | grid edges |
+| --- | --- | --- | --- |
+| reference in_batch | 0.1008 | 5 | published config |
+| sampled_softmax | 0.0967 | 3 | embedding_dim=64.0 (only_value of [64.0]); temperature=0.1 (low of [0.1, 0.2]); best_epoch equals max_epochs 3 |
+
+Validation winner: `sampled_softmax` (0.0967). Beats the reference on validation: False.
+
+| model | NDCG@10 | 95% CI | Recall@10 | Recall@100 | Recall@200 | Coverage@10 | head | tail |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| sampled_softmax (1 seed) | 0.1379 | [0.1343, 0.1424] | 0.1106 | 0.4653 | 0.6144 | 0.0373 | 0.1383 | 0.0035 |
+
+Paired interval versus the published two-tower was not computed. The published two-tower was not refit. The published results file has no per-user scores, so a paired interval versus that reference was not computed.
+Unpaired point difference, `sampled_softmax` minus the published two-tower: NDCG@10 -0.0057, head -0.0076, tail 0.0029.
+Paired interval versus the published LambdaRank was not computed. The published ranker was not refit and this run has no per-user scores for it.
+
+Did full softmax help? Skipped for compute. One full-softmax epoch is 6860.3s, which does not fit beside the sampled-softmax work inside the 14400.0s cap.
+
+Does it fix the tail weakness? The point estimate is above the published two-tower and above item-item. A paired interval was not computed. `sampled_softmax` tail NDCG@10 is 0.0035 (head 0.1383). Published reference tail is 0.0006; item-item tail is 0.0022.
+
+Does the ranker gain? No. The new two-tower did not beat the reference on validation.
+
+Compute: tune 7176.076s, test training 2400.219s, ranker not run, seeds [42].
 
 <!-- END RESULTS TABLE -->

@@ -89,7 +89,7 @@ The app stays on the current model. The app rule needs a paired interval against
 
 ## Outcome
 
-ml-32M has no validation file and no test file. The reduced budget above was written before either. The numbers below are ml-1m only, copied from `results/tuning/two_tower_v2_ml-1m.json` and `results/two-tower-v2/ml-1m.json`. The ml-1m grid was not changed after those files existed.
+ml-1m was scored before the ml-32m amendment. Its grid was not changed after `results/two-tower-v2/ml-1m.json` existed. The ml-1m numbers are copied from `results/tuning/two_tower_v2_ml-1m.json` and `results/two-tower-v2/ml-1m.json`. The ml-32m numbers are copied from `results/tuning/two_tower_v2_ml-32m.json` and `results/two-tower-v2/ml-32m.json`, both written after the amendment above.
 
 **ml-1m validation.** 36 trials, `tune_wall_sec` 7315.623, under the 7704.0 s cap. Reference validation NDCG@10 is 0.082601.
 
@@ -133,3 +133,32 @@ Full softmax helped on ml-1m. Sampled softmax helped by more on NDCG@10. Publish
 The reference-tower ranker mean matches `results/demographics/ml-1m.json` `variants.both.summary.ndcg@10_mean` 0.13341. Paired, primary seed, new ranker minus the reference-tower ranker: mean -0.001341, low -0.004345, high 0.001913, includes 0, 5958 users. New ranker minus `no_ranker`: mean 0.00099, low -0.002499, high 0.004415, includes 0. The ranker does not gain. It does not beat the reference-tower ranker, and it does not add a lift over its candidate list whose interval excludes 0.
 
 The app stays on the current model. The new tower beat the reference on validation, and the other two conditions fail: the new ranker's test mean 0.1301 is below the reference-tower ranker 0.13341, and the paired interval's low end is -0.004345.
+
+**ml-32m validation.** Three sampled-softmax trials, `max_epochs` 3, patience 1, seed 42. `tune_wall_sec` 7176.076, under the 14400 s cap. Full softmax was not run. Reference validation NDCG@10 is 0.100781.
+
+| learning rate | temperature | val NDCG@10 | best epoch | epochs trained | wall s |
+| --- | --- | --- | --- | --- | --- |
+| 0.003 | 0.2 | 0.078218 | 3 | 3 | 3062.695 |
+| 0.001 | 0.1 | 0.096709 | 3 | 3 | 2100.978 |
+| 0.0003 | 0.1 | 0.094712 | 3 | 3 | 2012.403 |
+
+The winner is learning rate 0.001, temperature 0.1, dim 64, 256 negatives. It does not beat the reference (0.096709 < 0.100781). Every trial's `best_epoch` equals `max_epochs` 3, so each was still improving when the epoch cap stopped it. That cap was not extended. Embedding dim 64 is the only value in the slice. Temperature 0.1 is the low edge of `{0.1, 0.2}`. Learning rate 0.001 is interior: 0.0003 and 0.003 were both tried and lost.
+
+**ml-32m test.** One seed, 42, as fixed in the amendment. The published two-tower was not refit. `test_train_sec` 2400.219. `test_wall_sec` 2457.849. NDCG@10 and the 95% interval are that one seed, 1000 resamples, alpha 0.05. The eval sample hash is `6b0d5cf6ce14cf5815e71f620b1dd5f37f7e6f09ac13ae5f3d138563b035c980`.
+
+| model | NDCG@10 | 95% CI | Recall@10 | Recall@100 | Recall@200 | Coverage@10 | head | tail |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| published in_batch | 0.14361 | [0.139788, 0.147949] | 0.113759 | 0.474196 | 0.624256 | 0.041099 | 0.145979 | 0.000577 |
+| sampled_softmax | 0.137912 | [0.13429, 0.142417] | 0.110554 | 0.465346 | 0.614399 | 0.037344 | 0.138332 | 0.003451 |
+
+Sampled-softmax head NDCG@10 is 0.138332, interval [0.134506, 0.142554]. Tail NDCG@10 is 0.003451, interval [0.00081, 0.006749], 579 users. Published item–item tail is 0.002161 and published item–item head is 0.111443.
+
+A paired interval versus the published two-tower was not computed. The published file has no per-user scores, and this run did not refit that tower. The unpaired point difference, sampled softmax minus the published two-tower, is NDCG@10 -0.005698, head -0.007647, tail 0.002874. The tail point is above the published two-tower and above item–item. That is not a paired result.
+
+**ml-32m ranker.** Not run. The new two-tower did not beat the reference on validation. A paired interval versus the published LambdaRank was not computed. That published ranker is NDCG@10 0.142276, interval [0.13908, 0.147192], demographics off, and its `no_ranker` point is 0.14361.
+
+Full softmax did not help on ml-32m because it was skipped for compute. One full-softmax epoch is 6860.3 s, and the sampled-softmax plan already uses 14260.5 s of the 14400 s cap.
+
+Tune plus test training is 7176.076 + 2400.219 = 9576.295 s, inside 14400 s. The ranker added none.
+
+The app stays on the current model. The new tower did not beat the reference on validation, and the ranker was not run, so the other two switch conditions were not met.

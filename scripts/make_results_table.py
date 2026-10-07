@@ -1372,8 +1372,7 @@ def _answer_full_softmax(payload: dict) -> str:
         return (
             "Skipped for compute. "
             f"One full-softmax epoch is {float(one):.1f}s, which does not fit "
-            f"beside the sampled-softmax work inside the {float(cap):.1f}s cap. "
-            f"{skipped.get('reason') or ''}".rstrip()
+            f"beside the sampled-softmax work inside the {float(cap):.1f}s cap."
         )
     tuning = payload.get("tuning") or {}
     best = (tuning.get("best_by_loss") or {}).get("full_softmax") or {}
@@ -1440,6 +1439,12 @@ def _answer_tail(payload: dict) -> str:
         verdict = "It beats the reference two-tower and is still below item-item"
     else:
         verdict = "No"
+    unpaired = (payload.get("reference_comparison") or {}).get("paired") is False
+    if unpaired and verdict == "Yes":
+        verdict = (
+            "The point estimate is above the published two-tower and above item-item. "
+            "A paired interval was not computed"
+        )
     text = (
         f"{verdict}. `{name}` tail NDCG@10 is {_fmt(float(tail))} "
         f"(head {_fmt(float(head))}). Published reference tail is {_fmt(float(ref_tail))}; "

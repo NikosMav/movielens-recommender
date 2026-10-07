@@ -1,0 +1,497 @@
+{
+  "adr": "ADR-0013",
+  "budget_source": "results/budget/two-tower-v2-ml32m-reduced.json",
+  "compute": {
+    "cpu_count": 4,
+    "ranker_wall_sec": null,
+    "seeds": [
+      42
+    ],
+    "test_train_sec": 2400.219,
+    "test_wall_sec": 2457.849,
+    "tune_wall_sec": 7176.076
+  },
+  "dataset": "ml-32m",
+  "dataset_sha256": "e4a68655d7386b8f95f2f2424b2ff975dfdd15ffd59e0d864a14dca43e99d6ee",
+  "eval_user_sample": {
+    "enabled": true,
+    "histories": "not_truncated",
+    "n_eligible_users": 196517,
+    "n_sampled_users": 8000,
+    "n_test_rows": 244960,
+    "n_val_rows": 95970,
+    "requested_users": 8000,
+    "seed": 42,
+    "selection": "Users with at least one warm relevant test item (rating >= 4.0, item in full train). The same ids are used for validation metrics, ranker labels, and test metrics.",
+    "train_matrix": "all_training_interactions",
+    "user_ids_sha256": "6b0d5cf6ce14cf5815e71f620b1dd5f37f7e6f09ac13ae5f3d138563b035c980"
+  },
+  "experiment": "s3e_full_softmax_two_tower",
+  "full_softmax": {
+    "cap_sec": 14400.0,
+    "full_softmax_one_epoch_sec": 6860.3,
+    "projected_test_train_sec": 3547.8,
+    "projected_total_sec": 14260.5,
+    "projected_tune_sec": 10712.7,
+    "reason": "Skipped for compute. One full-softmax epoch does not fit beside the sampled-softmax trials inside the reduced cap.",
+    "status": "skipped"
+  },
+  "models": {
+    "sampled_softmax": {
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.001,
+        "loss": "sampled_softmax",
+        "max_epochs": 3,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 1,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      "loss": "sampled_softmax",
+      "metrics": {
+        "cold_start": {
+          "n_cold_items_in_test": 485,
+          "n_eval_users": 8000,
+          "n_relevant_dropped_cold_item": 116,
+          "n_train_items": 71364,
+          "n_train_users": 200948,
+          "n_users_excluded_no_warm_relevant": 0
+        },
+        "confidence_intervals": {
+          "mean_popularity@10": {
+            "high": 40208.609161,
+            "low": 39488.765551,
+            "mean": 39846.0435
+          },
+          "mean_popularity@100": {
+            "high": 26169.967413,
+            "low": 25843.308418,
+            "mean": 26000.926981
+          },
+          "mean_popularity@20": {
+            "high": 36539.016516,
+            "low": 35963.081362,
+            "mean": 36246.463169
+          },
+          "mean_popularity@200": {
+            "high": 21418.745815,
+            "low": 21189.036518,
+            "mean": 21301.319078
+          },
+          "ndcg@10": {
+            "high": 0.142417,
+            "low": 0.13429,
+            "mean": 0.137912
+          },
+          "ndcg@100": {
+            "high": 0.252261,
+            "low": 0.24466,
+            "mean": 0.248142
+          },
+          "ndcg@20": {
+            "high": 0.1598,
+            "low": 0.152216,
+            "mean": 0.155677
+          },
+          "ndcg@200": {
+            "high": 0.298158,
+            "low": 0.290582,
+            "mean": 0.294134
+          },
+          "precision@10": {
+            "high": 0.109601,
+            "low": 0.103425,
+            "mean": 0.106463
+          },
+          "precision@100": {
+            "high": 0.052447,
+            "low": 0.050217,
+            "mean": 0.051341
+          },
+          "precision@20": {
+            "high": 0.092863,
+            "low": 0.088263,
+            "mean": 0.090475
+          },
+          "precision@200": {
+            "high": 0.037,
+            "low": 0.03536,
+            "mean": 0.036199
+          },
+          "recall@10": {
+            "high": 0.114551,
+            "low": 0.106735,
+            "mean": 0.110554
+          },
+          "recall@100": {
+            "high": 0.472018,
+            "low": 0.45926,
+            "mean": 0.465346
+          },
+          "recall@20": {
+            "high": 0.186629,
+            "low": 0.176667,
+            "mean": 0.181542
+          },
+          "recall@200": {
+            "high": 0.620846,
+            "low": 0.608335,
+            "mean": 0.614399
+          }
+        },
+        "coverage@10": 0.037344,
+        "coverage@100": 0.090312,
+        "coverage@20": 0.049156,
+        "coverage@200": 0.117847,
+        "mean_popularity@10": 39846.0435,
+        "mean_popularity@100": 26000.926981,
+        "mean_popularity@20": 36246.463169,
+        "mean_popularity@200": 21301.319078,
+        "n_eval_users": 8000.0,
+        "n_seeds": 1,
+        "ndcg@10": 0.137912,
+        "ndcg@100": 0.248142,
+        "ndcg@20": 0.155677,
+        "ndcg@200": 0.294134,
+        "precision@10": 0.106463,
+        "precision@100": 0.051341,
+        "precision@20": 0.090475,
+        "precision@200": 0.036199,
+        "recall@10": 0.110554,
+        "recall@100": 0.465346,
+        "recall@20": 0.181542,
+        "recall@200": 0.614399,
+        "seed_summary": {
+          "coverage@10": {
+            "max": 0.037344,
+            "mean": 0.037344,
+            "min": 0.037344,
+            "std": 0.0,
+            "values": [
+              0.037344
+            ]
+          },
+          "mean_popularity@10": {
+            "max": 39846.0435,
+            "mean": 39846.0435,
+            "min": 39846.0435,
+            "std": 0.0,
+            "values": [
+              39846.0435
+            ]
+          },
+          "ndcg@10": {
+            "max": 0.137912,
+            "mean": 0.137912,
+            "min": 0.137912,
+            "std": 0.0,
+            "values": [
+              0.137912
+            ]
+          },
+          "ndcg@20": {
+            "max": 0.155677,
+            "mean": 0.155677,
+            "min": 0.155677,
+            "std": 0.0,
+            "values": [
+              0.155677
+            ]
+          },
+          "precision@10": {
+            "max": 0.106463,
+            "mean": 0.106463,
+            "min": 0.106463,
+            "std": 0.0,
+            "values": [
+              0.106463
+            ]
+          },
+          "precision@20": {
+            "max": 0.090475,
+            "mean": 0.090475,
+            "min": 0.090475,
+            "std": 0.0,
+            "values": [
+              0.090475
+            ]
+          },
+          "recall@10": {
+            "max": 0.110554,
+            "mean": 0.110554,
+            "min": 0.110554,
+            "std": 0.0,
+            "values": [
+              0.110554
+            ]
+          },
+          "recall@100": {
+            "max": 0.465346,
+            "mean": 0.465346,
+            "min": 0.465346,
+            "std": 0.0,
+            "values": [
+              0.465346
+            ]
+          },
+          "recall@20": {
+            "max": 0.181542,
+            "mean": 0.181542,
+            "min": 0.181542,
+            "std": 0.0,
+            "values": [
+              0.181542
+            ]
+          },
+          "recall@200": {
+            "max": 0.614399,
+            "mean": 0.614399,
+            "min": 0.614399,
+            "std": 0.0,
+            "values": [
+              0.614399
+            ]
+          }
+        },
+        "segments": {
+          "definitions": {
+            "head_fraction": 0.2,
+            "item_head_tail": "Head items = top 20% of train catalog by interaction count (ties broken by item_id ascending). Tail = remaining train items.",
+            "item_segment_metric": "For an item segment S: relevant_S = relevant \u2229 S; recommendations are filtered to items in S (order preserved) and scored at k against relevant_S. Users with empty relevant_S are excluded from that segment's average.",
+            "user_activity": "Eval users partitioned into low/mid/high terciles by train rating count (full_train interaction count). Ties broken by user_id ascending before assigning ranks so boundaries are deterministic."
+          },
+          "item_head_tail": {
+            "head": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.142554,
+                  "low": 0.134506,
+                  "mean": 0.138332
+                }
+              },
+              "n_segment_items": 14272,
+              "n_users": 7992,
+              "ndcg@10": 0.138332
+            },
+            "tail": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.006749,
+                  "low": 0.00081,
+                  "mean": 0.003451
+                }
+              },
+              "n_segment_items": 57092,
+              "n_users": 579,
+              "ndcg@10": 0.003451
+            }
+          },
+          "user_activity_terciles": {
+            "high": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.190786,
+                  "low": 0.17645,
+                  "mean": 0.183432
+                }
+              },
+              "n_users": 2667,
+              "ndcg@10": 0.183432,
+              "train_rating_count_max": 3761,
+              "train_rating_count_min": 100
+            },
+            "low": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.126767,
+                  "low": 0.112536,
+                  "mean": 0.119543
+                }
+              },
+              "n_users": 2667,
+              "ndcg@10": 0.119543,
+              "train_rating_count_max": 38,
+              "train_rating_count_min": 16
+            },
+            "mid": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.116451,
+                  "low": 0.104979,
+                  "mean": 0.110752
+                }
+              },
+              "n_users": 2666,
+              "ndcg@10": 0.110752,
+              "train_rating_count_max": 100,
+              "train_rating_count_min": 38
+            }
+          }
+        },
+        "uncertainty_policy": {
+          "bootstrap_over_users": [
+            "precision@k",
+            "recall@k",
+            "ndcg@k",
+            "mean_popularity@k"
+          ],
+          "coverage_ci_policy": "point_estimate_only",
+          "coverage_ci_rationale": "Coverage is |union of top-k lists| / |catalog|. User bootstrap with replacement reduces unique users and biases the union downward, so CIs would not contain the full-sample estimate.",
+          "point_estimate_only": [
+            "coverage@k"
+          ]
+        }
+      },
+      "n_epochs": 3,
+      "per_seed": [
+        {
+          "coverage@10": 0.037344,
+          "head_ndcg@10": 0.138332,
+          "ndcg@10": 0.137912,
+          "ndcg@10_ci": {
+            "high": 0.142417,
+            "low": 0.13429,
+            "mean": 0.137912
+          },
+          "recall@10": 0.110554,
+          "recall@100": 0.465346,
+          "recall@200": 0.614399,
+          "seed": 42,
+          "tail_ndcg@10": 0.003451,
+          "train_wall_time_sec": 2400.219
+        }
+      ],
+      "role": "candidate"
+    }
+  },
+  "paired_vs_reference": null,
+  "ranker": {
+    "reason": "The new two-tower did not beat the reference on validation.",
+    "status": "not_run"
+  },
+  "reference_comparison": {
+    "candidate_head_ndcg@10": 0.138332,
+    "candidate_loss": "sampled_softmax",
+    "candidate_minus_published_head_ndcg@10": -0.007647,
+    "candidate_minus_published_ndcg@10": -0.005698,
+    "candidate_minus_published_tail_ndcg@10": 0.002874,
+    "candidate_ndcg@10": 0.137912,
+    "candidate_tail_ndcg@10": 0.003451,
+    "paired": false,
+    "paired_vs_published_ranker": false,
+    "paired_vs_published_ranker_reason": "The published ranker was not refit and this run has no per-user scores for it.",
+    "published_head_ndcg@10": 0.145979,
+    "published_lambdarank_ndcg@10": 0.142276,
+    "published_lambdarank_ndcg@10_ci": {
+      "high": 0.147192,
+      "low": 0.13908
+    },
+    "published_ndcg@10": 0.14361,
+    "published_ndcg@10_ci": {
+      "high": 0.147949,
+      "low": 0.139788
+    },
+    "published_source": "results/ml-32m.json",
+    "published_tail_ndcg@10": 0.000577,
+    "reason": "The published two-tower was not refit. The published results file has no per-user scores, so a paired interval versus that reference was not computed."
+  },
+  "reference_published": {
+    "best_epoch": 5,
+    "coverage@10": 0.041099,
+    "head_ndcg@10": 0.145979,
+    "hyperparams": {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.001,
+      "max_epochs": 6,
+      "max_history": 50,
+      "patience": 2,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    },
+    "item_item_head_ndcg@10": 0.111443,
+    "item_item_ndcg@10": 0.111284,
+    "item_item_tail_ndcg@10": 0.002161,
+    "lambdarank_demographics": "off",
+    "lambdarank_ndcg@10": 0.142276,
+    "lambdarank_ndcg@10_ci": {
+      "high": 0.147192,
+      "low": 0.13908
+    },
+    "lambdarank_source": "results/ml-32m.json",
+    "loss": "in_batch",
+    "n_seeds": 1,
+    "ndcg@10": 0.14361,
+    "ndcg@10_ci": {
+      "high": 0.147949,
+      "low": 0.139788
+    },
+    "no_ranker_ndcg@10": 0.14361,
+    "recall@10": 0.113759,
+    "recall@100": 0.474196,
+    "recall@200": 0.624256,
+    "seed_std": 0.0,
+    "source": "results/ml-32m.json",
+    "tail_ndcg@10": 0.000577,
+    "tuning_source": "results/tuning/two_tower_ml-32m.json",
+    "val_ndcg@10": 0.100781
+  },
+  "refit_reference": false,
+  "runtime_sec": 2457.851,
+  "seed": 42,
+  "seed_count": 1,
+  "seed_note": "One seed, fixed in the reduced ml-32m budget before this test.",
+  "test_both_losses": false,
+  "test_seeds": [
+    42
+  ],
+  "tuning": {
+    "beats_reference_validation": false,
+    "best_by_loss": {
+      "sampled_softmax": {
+        "best_epoch": 3,
+        "grid_edges": [
+          {
+            "edge": "only_value",
+            "grid_values": [
+              64.0
+            ],
+            "parameter": "embedding_dim",
+            "value": 64.0
+          },
+          {
+            "edge": "low",
+            "grid_values": [
+              0.1,
+              0.2
+            ],
+            "parameter": "temperature",
+            "value": 0.1
+          }
+        ],
+        "hyperparams": {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.001,
+          "loss": "sampled_softmax",
+          "max_epochs": 3,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 1,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        "val_ndcg@10": 0.096709
+      }
+    },
+    "n_trials": 3,
+    "reference_val_ndcg@10": 0.100781,
+    "selected_loss": "sampled_softmax",
+    "selected_val_ndcg@10": 0.096709,
+    "tune_wall_sec": 7176.076
+  },
+  "tuning_source": "results/tuning/two_tower_v2_ml-32m.json"
+}
