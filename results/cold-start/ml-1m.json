@@ -1,0 +1,2832 @@
+{
+  "by_n": [
+    {
+      "beats_most_popular": false,
+      "best_simple_baseline": "most_popular",
+      "counts": {
+        "n_eval_users": 604,
+        "n_held_out_users": 604,
+        "n_relevant_dropped_cold_item": 7,
+        "n_users_no_warm_relevant": 0,
+        "n_users_shorter_than_or_equal_n": 0
+      },
+      "models": {
+        "cold_start_ranker": {
+          "coverage@10": 0.010938,
+          "n_eval_users": 604,
+          "ndcg@10": 0.403491,
+          "ndcg@10_ci": {
+            "high": 0.422841,
+            "low": 0.381732,
+            "mean": 0.403491
+          },
+          "recall@10": 0.057713
+        },
+        "ease_fold_in": {
+          "coverage@10": 0.281925,
+          "n_eval_users": 604,
+          "ndcg@10": 0.203732,
+          "ndcg@10_ci": {
+            "high": 0.225252,
+            "low": 0.182888,
+            "mean": 0.203732
+          },
+          "recall@10": 0.025707
+        },
+        "history_two_tower": {
+          "coverage@10": 0.292863,
+          "n_eval_users": 604,
+          "ndcg@10": 0.244827,
+          "ndcg@10_ci": {
+            "high": 0.265197,
+            "low": 0.222933,
+            "mean": 0.244827
+          },
+          "recall@10": 0.033061
+        },
+        "item_item_fold_in": {
+          "coverage@10": 0.331693,
+          "n_eval_users": 604,
+          "ndcg@10": 0.21405,
+          "ndcg@10_ci": {
+            "high": 0.236713,
+            "low": 0.190999,
+            "mean": 0.21405
+          },
+          "recall@10": 0.027046
+        },
+        "most_popular": {
+          "coverage@10": 0.003008,
+          "n_eval_users": 604,
+          "ndcg@10": 0.394351,
+          "ndcg@10_ci": {
+            "high": 0.414514,
+            "low": 0.373228,
+            "mean": 0.394351
+          },
+          "recall@10": 0.05702
+        },
+        "pipeline_v1": {
+          "copied_from": "round1",
+          "coverage@10": 0.376265,
+          "n_eval_users": 604,
+          "ndcg@10": 0.134591,
+          "ndcg@10_ci": {
+            "high": 0.151437,
+            "low": 0.118512,
+            "mean": 0.134591
+          },
+          "recall@10": 0.015935
+        },
+        "served": {
+          "coverage@10": 0.010938,
+          "n_eval_users": 604,
+          "ndcg@10": 0.403491,
+          "ndcg@10_ci": {
+            "high": 0.422841,
+            "low": 0.381732,
+            "mean": 0.403491
+          },
+          "recall@10": 0.057713
+        }
+      },
+      "n": 1,
+      "n_eval_users": 604,
+      "paired_bootstrap": {
+        "alpha": 0.05,
+        "baseline": "most_popular",
+        "beats_baseline": false,
+        "comparison": "served_minus_best_simple",
+        "excludes_zero": false,
+        "high": 0.018419,
+        "low": -0.000148,
+        "mean": 0.009141,
+        "n_bootstrap": 1000,
+        "n_users": 604,
+        "seed": 42
+      },
+      "paired_vs_most_popular": {
+        "alpha": 0.05,
+        "baseline": "most_popular",
+        "beats_baseline": false,
+        "comparison": "served_minus_most_popular",
+        "excludes_zero": false,
+        "high": 0.018419,
+        "low": -0.000148,
+        "mean": 0.009141,
+        "n_bootstrap": 1000,
+        "n_users": 604,
+        "seed": 42
+      },
+      "ranker_paired_vs_best_simple": {
+        "alpha": 0.05,
+        "baseline": "most_popular",
+        "beats_baseline": false,
+        "comparison": "cold_start_ranker_minus_best_simple",
+        "excludes_zero": false,
+        "high": 0.018419,
+        "low": -0.000148,
+        "mean": 0.009141,
+        "n_bootstrap": 1000,
+        "n_users": 604,
+        "seed": 42
+      },
+      "ranker_paired_vs_most_popular": {
+        "alpha": 0.05,
+        "baseline": "most_popular",
+        "beats_baseline": false,
+        "comparison": "cold_start_ranker_minus_most_popular",
+        "excludes_zero": false,
+        "high": 0.018419,
+        "low": -0.000148,
+        "mean": 0.009141,
+        "n_bootstrap": 1000,
+        "n_users": 604,
+        "seed": 42
+      },
+      "served_method": "cold_start_ranker",
+      "target": "all_later_ratings"
+    },
+    {
+      "beats_most_popular": true,
+      "best_simple_baseline": "most_popular",
+      "counts": {
+        "n_eval_users": 604,
+        "n_held_out_users": 604,
+        "n_relevant_dropped_cold_item": 7,
+        "n_users_no_warm_relevant": 0,
+        "n_users_shorter_than_or_equal_n": 0
+      },
+      "models": {
+        "cold_start_ranker": {
+          "coverage@10": 0.013946,
+          "n_eval_users": 604,
+          "ndcg@10": 0.408116,
+          "ndcg@10_ci": {
+            "high": 0.428813,
+            "low": 0.38552,
+            "mean": 0.408116
+          },
+          "recall@10": 0.058602
+        },
+        "ease_fold_in": {
+          "coverage@10": 0.152584,
+          "n_eval_users": 604,
+          "ndcg@10": 0.292558,
+          "ndcg@10_ci": {
+            "high": 0.314322,
+            "low": 0.270564,
+            "mean": 0.292558
+          },
+          "recall@10": 0.037567
+        },
+        "history_two_tower": {
+          "coverage@10": 0.138091,
+          "n_eval_users": 604,
+          "ndcg@10": 0.325211,
+          "ndcg@10_ci": {
+            "high": 0.347518,
+            "low": 0.302732,
+            "mean": 0.325211
+          },
+          "recall@10": 0.046604
+        },
+        "item_item_fold_in": {
+          "coverage@10": 0.135083,
+          "n_eval_users": 604,
+          "ndcg@10": 0.308793,
+          "ndcg@10_ci": {
+            "high": 0.330203,
+            "low": 0.286262,
+            "mean": 0.308793
+          },
+          "recall@10": 0.039094
+        },
+        "most_popular": {
+          "coverage@10": 0.003281,
+          "n_eval_users": 604,
+          "ndcg@10": 0.386298,
+          "ndcg@10_ci": {
+            "high": 0.406805,
+            "low": 0.364612,
+            "mean": 0.386298
+          },
+          "recall@10": 0.055503
+        },
+        "pipeline_v1": {
+          "copied_from": "round1",
+          "coverage@10": 0.289308,
+          "n_eval_users": 604,
+          "ndcg@10": 0.244204,
+          "ndcg@10_ci": {
+            "high": 0.263132,
+            "low": 0.225151,
+            "mean": 0.244204
+          },
+          "recall@10": 0.030328
+        },
+        "served": {
+          "coverage@10": 0.013946,
+          "n_eval_users": 604,
+          "ndcg@10": 0.408116,
+          "ndcg@10_ci": {
+            "high": 0.428813,
+            "low": 0.38552,
+            "mean": 0.408116
+          },
+          "recall@10": 0.058602
+        }
+      },
+      "n": 3,
+      "n_eval_users": 604,
+      "paired_bootstrap": {
+        "alpha": 0.05,
+        "baseline": "most_popular",
+        "beats_baseline": true,
+        "comparison": "served_minus_best_simple",
+        "excludes_zero": true,
+        "high": 0.031947,
+        "low": 0.011524,
+        "mean": 0.021817,
+        "n_bootstrap": 1000,
+        "n_users": 604,
+        "seed": 42
+      },
+      "paired_vs_most_popular": {
+        "alpha": 0.05,
+        "baseline": "most_popular",
+        "beats_baseline": true,
+        "comparison": "served_minus_most_popular",
+        "excludes_zero": true,
+        "high": 0.031947,
+        "low": 0.011524,
+        "mean": 0.021817,
+        "n_bootstrap": 1000,
+        "n_users": 604,
+        "seed": 42
+      },
+      "ranker_paired_vs_best_simple": {
+        "alpha": 0.05,
+        "baseline": "most_popular",
+        "beats_baseline": true,
+        "comparison": "cold_start_ranker_minus_best_simple",
+        "excludes_zero": true,
+        "high": 0.031947,
+        "low": 0.011524,
+        "mean": 0.021817,
+        "n_bootstrap": 1000,
+        "n_users": 604,
+        "seed": 42
+      },
+      "ranker_paired_vs_most_popular": {
+        "alpha": 0.05,
+        "baseline": "most_popular",
+        "beats_baseline": true,
+        "comparison": "cold_start_ranker_minus_most_popular",
+        "excludes_zero": true,
+        "high": 0.031947,
+        "low": 0.011524,
+        "mean": 0.021817,
+        "n_bootstrap": 1000,
+        "n_users": 604,
+        "seed": 42
+      },
+      "served_method": "cold_start_ranker",
+      "target": "all_later_ratings"
+    },
+    {
+      "beats_most_popular": true,
+      "best_simple_baseline": "most_popular",
+      "counts": {
+        "n_eval_users": 604,
+        "n_held_out_users": 604,
+        "n_relevant_dropped_cold_item": 5,
+        "n_users_no_warm_relevant": 0,
+        "n_users_shorter_than_or_equal_n": 0
+      },
+      "models": {
+        "cold_start_ranker": {
+          "coverage@10": 0.017501,
+          "n_eval_users": 604,
+          "ndcg@10": 0.407593,
+          "ndcg@10_ci": {
+            "high": 0.428085,
+            "low": 0.385452,
+            "mean": 0.407593
+          },
+          "recall@10": 0.059577
+        },
+        "ease_fold_in": {
+          "coverage@10": 0.112934,
+          "n_eval_users": 604,
+          "ndcg@10": 0.323677,
+          "ndcg@10_ci": {
+            "high": 0.346462,
+            "low": 0.301472,
+            "mean": 0.323677
+          },
+          "recall@10": 0.04418
+        },
+        "history_two_tower": {
+          "coverage@10": 0.099809,
+          "n_eval_users": 604,
+          "ndcg@10": 0.358266,
+          "ndcg@10_ci": {
+            "high": 0.379757,
+            "low": 0.33646,
+            "mean": 0.358266
+          },
+          "recall@10": 0.050321
+        },
+        "item_item_fold_in": {
+          "coverage@10": 0.105824,
+          "n_eval_users": 604,
+          "ndcg@10": 0.335085,
+          "ndcg@10_ci": {
+            "high": 0.358069,
+            "low": 0.312266,
+            "mean": 0.335085
+          },
+          "recall@10": 0.045839
+        },
+        "most_popular": {
+          "coverage@10": 0.003555,
+          "n_eval_users": 604,
+          "ndcg@10": 0.37666,
+          "ndcg@10_ci": {
+            "high": 0.396619,
+            "low": 0.355133,
+            "mean": 0.37666
+          },
+          "recall@10": 0.053427
+        },
+        "pipeline_v1": {
+          "copied_from": "round1",
+          "coverage@10": 0.228876,
+          "n_eval_users": 604,
+          "ndcg@10": 0.282941,
+          "ndcg@10_ci": {
+            "high": 0.303226,
+            "low": 0.263355,
+            "mean": 0.282941
+          },
+          "recall@10": 0.038318
+        },
+        "served": {
+          "coverage@10": 0.017501,
+          "n_eval_users": 604,
+          "ndcg@10": 0.407593,
+          "ndcg@10_ci": {
+            "high": 0.428085,
+            "low": 0.385452,
+            "mean": 0.407593
+          },
+          "recall@10": 0.059577
+        }
+      },
+      "n": 5,
+      "n_eval_users": 604,
+      "paired_bootstrap": {
+        "alpha": 0.05,
+        "baseline": "most_popular",
+        "beats_baseline": true,
+        "comparison": "served_minus_best_simple",
+        "excludes_zero": true,
+        "high": 0.041617,
+        "low": 0.02042,
+        "mean": 0.030933,
+        "n_bootstrap": 1000,
+        "n_users": 604,
+        "seed": 42
+      },
+      "paired_vs_most_popular": {
+        "alpha": 0.05,
+        "baseline": "most_popular",
+        "beats_baseline": true,
+        "comparison": "served_minus_most_popular",
+        "excludes_zero": true,
+        "high": 0.041617,
+        "low": 0.02042,
+        "mean": 0.030933,
+        "n_bootstrap": 1000,
+        "n_users": 604,
+        "seed": 42
+      },
+      "ranker_paired_vs_best_simple": {
+        "alpha": 0.05,
+        "baseline": "most_popular",
+        "beats_baseline": true,
+        "comparison": "cold_start_ranker_minus_best_simple",
+        "excludes_zero": true,
+        "high": 0.041617,
+        "low": 0.02042,
+        "mean": 0.030933,
+        "n_bootstrap": 1000,
+        "n_users": 604,
+        "seed": 42
+      },
+      "ranker_paired_vs_most_popular": {
+        "alpha": 0.05,
+        "baseline": "most_popular",
+        "beats_baseline": true,
+        "comparison": "cold_start_ranker_minus_most_popular",
+        "excludes_zero": true,
+        "high": 0.041617,
+        "low": 0.02042,
+        "mean": 0.030933,
+        "n_bootstrap": 1000,
+        "n_users": 604,
+        "seed": 42
+      },
+      "served_method": "cold_start_ranker",
+      "target": "all_later_ratings"
+    },
+    {
+      "beats_most_popular": true,
+      "best_simple_baseline": "item_item_fold_in",
+      "counts": {
+        "n_eval_users": 604,
+        "n_held_out_users": 604,
+        "n_relevant_dropped_cold_item": 5,
+        "n_users_no_warm_relevant": 0,
+        "n_users_shorter_than_or_equal_n": 0
+      },
+      "models": {
+        "cold_start_ranker": {
+          "coverage@10": 0.060432,
+          "n_eval_users": 604,
+          "ndcg@10": 0.404614,
+          "ndcg@10_ci": {
+            "high": 0.426581,
+            "low": 0.384251,
+            "mean": 0.404614
+          },
+          "recall@10": 0.069661
+        },
+        "ease_fold_in": {
+          "coverage@10": 0.085863,
+          "n_eval_users": 604,
+          "ndcg@10": 0.358806,
+          "ndcg@10_ci": {
+            "high": 0.380023,
+            "low": 0.338956,
+            "mean": 0.358806
+          },
+          "recall@10": 0.065039
+        },
+        "history_two_tower": {
+          "coverage@10": 0.056057,
+          "n_eval_users": 604,
+          "ndcg@10": 0.371606,
+          "ndcg@10_ci": {
+            "high": 0.393841,
+            "low": 0.349003,
+            "mean": 0.371606
+          },
+          "recall@10": 0.061387
+        },
+        "item_item_fold_in": {
+          "coverage@10": 0.087777,
+          "n_eval_users": 604,
+          "ndcg@10": 0.377477,
+          "ndcg@10_ci": {
+            "high": 0.399054,
+            "low": 0.355073,
+            "mean": 0.377477
+          },
+          "recall@10": 0.062055
+        },
+        "most_popular": {
+          "coverage@10": 0.004375,
+          "n_eval_users": 604,
+          "ndcg@10": 0.346903,
+          "ndcg@10_ci": {
+            "high": 0.367036,
+            "low": 0.325275,
+            "mean": 0.346903
+          },
+          "recall@10": 0.0508
+        },
+        "pipeline_v1": {
+          "copied_from": "round1",
+          "coverage@10": 0.162702,
+          "n_eval_users": 604,
+          "ndcg@10": 0.338091,
+          "ndcg@10_ci": {
+            "high": 0.358199,
+            "low": 0.317881,
+            "mean": 0.338091
+          },
+          "recall@10": 0.06125
+        },
+        "served": {
+          "coverage@10": 0.060432,
+          "n_eval_users": 604,
+          "ndcg@10": 0.404614,
+          "ndcg@10_ci": {
+            "high": 0.426581,
+            "low": 0.384251,
+            "mean": 0.404614
+          },
+          "recall@10": 0.069661
+        }
+      },
+      "n": 10,
+      "n_eval_users": 604,
+      "paired_bootstrap": {
+        "alpha": 0.05,
+        "baseline": "item_item_fold_in",
+        "beats_baseline": true,
+        "comparison": "served_minus_best_simple",
+        "excludes_zero": true,
+        "high": 0.038201,
+        "low": 0.015067,
+        "mean": 0.027137,
+        "n_bootstrap": 1000,
+        "n_users": 604,
+        "seed": 42
+      },
+      "paired_vs_most_popular": {
+        "alpha": 0.05,
+        "baseline": "most_popular",
+        "beats_baseline": true,
+        "comparison": "served_minus_most_popular",
+        "excludes_zero": true,
+        "high": 0.073973,
+        "low": 0.042425,
+        "mean": 0.057711,
+        "n_bootstrap": 1000,
+        "n_users": 604,
+        "seed": 42
+      },
+      "ranker_paired_vs_best_simple": {
+        "alpha": 0.05,
+        "baseline": "item_item_fold_in",
+        "beats_baseline": true,
+        "comparison": "cold_start_ranker_minus_best_simple",
+        "excludes_zero": true,
+        "high": 0.038201,
+        "low": 0.015067,
+        "mean": 0.027137,
+        "n_bootstrap": 1000,
+        "n_users": 604,
+        "seed": 42
+      },
+      "ranker_paired_vs_most_popular": {
+        "alpha": 0.05,
+        "baseline": "most_popular",
+        "beats_baseline": true,
+        "comparison": "cold_start_ranker_minus_most_popular",
+        "excludes_zero": true,
+        "high": 0.073973,
+        "low": 0.042425,
+        "mean": 0.057711,
+        "n_bootstrap": 1000,
+        "n_users": 604,
+        "seed": 42
+      },
+      "served_method": "cold_start_ranker",
+      "target": "all_later_ratings"
+    }
+  ],
+  "candidates": {
+    "k": 50,
+    "k_grid": [
+      50,
+      100,
+      200
+    ],
+    "note": "Round 2 does not pick one source. The ranker sees the union. Item-item fold-in is a serving option and a feature when the item is in its top K. It does not add candidates. Round 1's candidate choice is under round1.",
+    "pool": [
+      "ease_fold_in",
+      "most_popular",
+      "history_two_tower"
+    ],
+    "winner": "union"
+  },
+  "dataset": "ml-1m",
+  "dataset_sha256": "a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20",
+  "dataset_version": "ml-1m@sha256:a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20",
+  "difference_from_s4b": "This is not the S4b simulated cold start. S4b keeps each evaluated user in the training matrices, truncates the query to the earliest N full-train ratings (N of 5 and 10), and scores the original per-user test split. The user-id embedding is the one learned for that user, and item-item similarities include that user's later train ratings. Here the user is absent from every training row. The model sees only the first N chronological ratings, N in {1, 3, 5, 10}, and is scored on the later ratings with relevance at least 4. There is no user-id embedding at score time, and demographic features are not used.",
+  "evaluation": {
+    "known_users": "copied from results/ml-1m.json",
+    "primary": "All later ratings after the first N, relevance at least 4, item in the refit catalog, profile items excluded.",
+    "sensitivity_added_after_first_results": true
+  },
+  "experiment": "s5c_new_user_cold_start",
+  "holdout": {
+    "absent_from_training": true,
+    "fraction": 0.1,
+    "held_out_user_ids": [
+      33,
+      38,
+      49,
+      57,
+      81,
+      85,
+      97,
+      103,
+      116,
+      131,
+      136,
+      151,
+      152,
+      163,
+      168,
+      175,
+      182,
+      192,
+      193,
+      196,
+      209,
+      234,
+      277,
+      281,
+      286,
+      325,
+      331,
+      350,
+      351,
+      353,
+      356,
+      362,
+      369,
+      385,
+      388,
+      401,
+      417,
+      420,
+      426,
+      429,
+      454,
+      456,
+      467,
+      477,
+      503,
+      519,
+      536,
+      558,
+      583,
+      586,
+      622,
+      624,
+      632,
+      634,
+      639,
+      644,
+      661,
+      663,
+      685,
+      721,
+      723,
+      725,
+      758,
+      776,
+      780,
+      784,
+      796,
+      798,
+      803,
+      807,
+      813,
+      820,
+      850,
+      861,
+      864,
+      865,
+      867,
+      871,
+      872,
+      878,
+      881,
+      896,
+      899,
+      901,
+      907,
+      911,
+      926,
+      928,
+      930,
+      931,
+      942,
+      957,
+      961,
+      966,
+      976,
+      984,
+      987,
+      1010,
+      1022,
+      1026,
+      1033,
+      1037,
+      1052,
+      1056,
+      1093,
+      1098,
+      1128,
+      1139,
+      1142,
+      1145,
+      1167,
+      1169,
+      1171,
+      1181,
+      1184,
+      1187,
+      1189,
+      1205,
+      1209,
+      1218,
+      1226,
+      1231,
+      1267,
+      1271,
+      1274,
+      1277,
+      1278,
+      1285,
+      1307,
+      1325,
+      1335,
+      1379,
+      1385,
+      1392,
+      1415,
+      1428,
+      1430,
+      1442,
+      1452,
+      1466,
+      1467,
+      1484,
+      1495,
+      1532,
+      1540,
+      1544,
+      1569,
+      1575,
+      1583,
+      1598,
+      1602,
+      1616,
+      1623,
+      1628,
+      1637,
+      1640,
+      1643,
+      1645,
+      1654,
+      1661,
+      1693,
+      1694,
+      1696,
+      1717,
+      1728,
+      1729,
+      1731,
+      1760,
+      1761,
+      1767,
+      1819,
+      1844,
+      1848,
+      1860,
+      1889,
+      1897,
+      1917,
+      1919,
+      1940,
+      1947,
+      1952,
+      1954,
+      1962,
+      1964,
+      2000,
+      2001,
+      2009,
+      2033,
+      2041,
+      2045,
+      2048,
+      2050,
+      2053,
+      2054,
+      2066,
+      2069,
+      2098,
+      2106,
+      2113,
+      2119,
+      2121,
+      2126,
+      2147,
+      2150,
+      2161,
+      2177,
+      2199,
+      2212,
+      2234,
+      2254,
+      2272,
+      2301,
+      2305,
+      2311,
+      2324,
+      2334,
+      2342,
+      2350,
+      2371,
+      2376,
+      2377,
+      2382,
+      2393,
+      2398,
+      2411,
+      2425,
+      2433,
+      2469,
+      2480,
+      2482,
+      2493,
+      2506,
+      2507,
+      2522,
+      2540,
+      2551,
+      2552,
+      2554,
+      2562,
+      2565,
+      2566,
+      2579,
+      2594,
+      2604,
+      2606,
+      2640,
+      2641,
+      2653,
+      2656,
+      2664,
+      2676,
+      2692,
+      2712,
+      2718,
+      2722,
+      2730,
+      2731,
+      2732,
+      2742,
+      2784,
+      2787,
+      2790,
+      2796,
+      2800,
+      2824,
+      2825,
+      2827,
+      2835,
+      2843,
+      2851,
+      2872,
+      2873,
+      2879,
+      2881,
+      2886,
+      2899,
+      2900,
+      2905,
+      2912,
+      2915,
+      2921,
+      2923,
+      2925,
+      2932,
+      2941,
+      2955,
+      2975,
+      3014,
+      3017,
+      3040,
+      3042,
+      3050,
+      3051,
+      3060,
+      3066,
+      3083,
+      3093,
+      3107,
+      3110,
+      3111,
+      3129,
+      3141,
+      3153,
+      3165,
+      3168,
+      3169,
+      3176,
+      3178,
+      3184,
+      3190,
+      3195,
+      3201,
+      3223,
+      3231,
+      3232,
+      3249,
+      3259,
+      3275,
+      3279,
+      3305,
+      3307,
+      3315,
+      3334,
+      3349,
+      3351,
+      3356,
+      3380,
+      3381,
+      3387,
+      3395,
+      3406,
+      3416,
+      3425,
+      3437,
+      3465,
+      3468,
+      3469,
+      3474,
+      3477,
+      3482,
+      3492,
+      3512,
+      3514,
+      3516,
+      3521,
+      3522,
+      3531,
+      3536,
+      3557,
+      3562,
+      3566,
+      3580,
+      3583,
+      3603,
+      3609,
+      3620,
+      3625,
+      3646,
+      3665,
+      3675,
+      3677,
+      3680,
+      3696,
+      3698,
+      3703,
+      3731,
+      3734,
+      3742,
+      3744,
+      3757,
+      3764,
+      3767,
+      3790,
+      3791,
+      3794,
+      3796,
+      3819,
+      3834,
+      3871,
+      3900,
+      3904,
+      3925,
+      3940,
+      3941,
+      3942,
+      3952,
+      3956,
+      4010,
+      4029,
+      4030,
+      4034,
+      4035,
+      4037,
+      4038,
+      4040,
+      4060,
+      4071,
+      4072,
+      4082,
+      4102,
+      4107,
+      4112,
+      4115,
+      4117,
+      4142,
+      4143,
+      4170,
+      4172,
+      4174,
+      4180,
+      4196,
+      4205,
+      4208,
+      4215,
+      4220,
+      4222,
+      4228,
+      4232,
+      4256,
+      4266,
+      4268,
+      4283,
+      4289,
+      4290,
+      4301,
+      4311,
+      4312,
+      4315,
+      4327,
+      4330,
+      4343,
+      4349,
+      4377,
+      4386,
+      4393,
+      4395,
+      4398,
+      4404,
+      4406,
+      4427,
+      4431,
+      4441,
+      4443,
+      4459,
+      4468,
+      4469,
+      4472,
+      4474,
+      4479,
+      4490,
+      4504,
+      4531,
+      4534,
+      4546,
+      4582,
+      4610,
+      4626,
+      4643,
+      4666,
+      4683,
+      4689,
+      4692,
+      4704,
+      4705,
+      4717,
+      4725,
+      4727,
+      4728,
+      4745,
+      4762,
+      4782,
+      4793,
+      4799,
+      4819,
+      4845,
+      4849,
+      4858,
+      4860,
+      4871,
+      4877,
+      4888,
+      4889,
+      4894,
+      4895,
+      4898,
+      4910,
+      4928,
+      4940,
+      4961,
+      4968,
+      4969,
+      4970,
+      4977,
+      4979,
+      4984,
+      4989,
+      4998,
+      5017,
+      5026,
+      5044,
+      5051,
+      5053,
+      5064,
+      5078,
+      5088,
+      5112,
+      5120,
+      5121,
+      5124,
+      5146,
+      5150,
+      5172,
+      5174,
+      5183,
+      5191,
+      5193,
+      5201,
+      5204,
+      5208,
+      5225,
+      5242,
+      5243,
+      5251,
+      5253,
+      5254,
+      5263,
+      5276,
+      5277,
+      5282,
+      5286,
+      5314,
+      5328,
+      5330,
+      5347,
+      5360,
+      5372,
+      5373,
+      5395,
+      5444,
+      5447,
+      5477,
+      5480,
+      5489,
+      5492,
+      5496,
+      5497,
+      5507,
+      5509,
+      5533,
+      5536,
+      5545,
+      5552,
+      5553,
+      5555,
+      5558,
+      5563,
+      5576,
+      5578,
+      5590,
+      5606,
+      5610,
+      5617,
+      5634,
+      5636,
+      5637,
+      5642,
+      5651,
+      5655,
+      5660,
+      5663,
+      5683,
+      5688,
+      5697,
+      5698,
+      5736,
+      5743,
+      5762,
+      5766,
+      5767,
+      5769,
+      5771,
+      5776,
+      5780,
+      5784,
+      5805,
+      5815,
+      5827,
+      5829,
+      5845,
+      5849,
+      5866,
+      5920,
+      5940,
+      5941,
+      5951,
+      5954,
+      5956,
+      5996,
+      6000,
+      6008,
+      6010,
+      6022,
+      6036,
+      6037
+    ],
+    "n_eligible_users": 6040,
+    "n_held_out_users": 604,
+    "selection": "Seeded shuffle of user ids with at least min_ratings rows. Rating values and which rows would fall in a test tail are not inputs.",
+    "training_matrix": "Per-user full train (fit-train union validation) of users who were not held out. Their per-user test tails are unused, matching the repo's full-train refit. Held-out users contribute no rows."
+  },
+  "known_users": {
+    "models": {
+      "item_item_cosine": {
+        "aggregation": "single_run",
+        "coverage@10": 0.127352,
+        "ndcg@10": 0.120135,
+        "ndcg@10_ci": {
+          "high": 0.124155,
+          "low": 0.115829,
+          "mean": 0.120135
+        },
+        "recall@10": 0.07859
+      },
+      "lambdarank": {
+        "aggregation": "mean_over_seeds",
+        "ci_note": "primary-seed user bootstrap; the point estimate is the 3-seed mean",
+        "coverage@10": 0.38951,
+        "ndcg@10": 0.127264,
+        "ndcg@10_ci": {
+          "high": 0.132934,
+          "low": 0.12469,
+          "mean": 0.128786
+        },
+        "ndcg@10_std": 0.001287,
+        "recall@10": 0.092817
+      },
+      "most_popular": {
+        "aggregation": "single_run",
+        "coverage@10": 0.032452,
+        "ndcg@10": 0.089508,
+        "ndcg@10_ci": {
+          "high": 0.093487,
+          "low": 0.085661,
+          "mean": 0.089508
+        },
+        "recall@10": 0.046634
+      },
+      "two_tower": {
+        "aggregation": "mean_over_seeds",
+        "ci_note": "primary-seed user bootstrap; the point estimate is the seed mean",
+        "coverage@10": 0.472321,
+        "ndcg@10": 0.119246,
+        "ndcg@10_ci": {
+          "high": 0.123048,
+          "low": 0.114975,
+          "mean": 0.119078
+        },
+        "ndcg@10_std": 0.000135,
+        "recall@10": 0.090056
+      }
+    },
+    "protocol": "Headline per-user time split. These users were in training. Copied from the committed results file and not recomputed.",
+    "source": "results/ml-1m.json"
+  },
+  "library_versions": {
+    "implicit": "0.7.3",
+    "lightgbm": "4.6.0",
+    "movielens-recommender": "0.1.0",
+    "numpy": "2.2.6",
+    "pandas": "2.2.3",
+    "pyyaml": "6.0.3",
+    "scipy": "1.15.3",
+    "torch": "2.6.0+cpu"
+  },
+  "popularity_vs_known_users": "Cold-start most-popular NDCG is higher than the known-user most-popular number because the targets are every later rating, a long tail, and the short profile has not consumed the popular titles. The known-user number is a short per-user test tail after a long history.",
+  "ranker": {
+    "best_iteration": 88,
+    "demographics": "off",
+    "feature_names": [
+      "item_item_score",
+      "item_item_rank",
+      "two_tower_score",
+      "two_tower_rank",
+      "ease_score",
+      "ease_rank",
+      "in_both",
+      "item_popularity",
+      "item_recency",
+      "item_year",
+      "user_n_ratings",
+      "user_mean_rating",
+      "user_std_rating",
+      "genre_action",
+      "genre_adventure",
+      "genre_animation",
+      "genre_children",
+      "genre_comedy",
+      "genre_crime",
+      "genre_documentary",
+      "genre_drama",
+      "genre_fantasy",
+      "genre_film_noir",
+      "genre_horror",
+      "genre_imax",
+      "genre_musical",
+      "genre_mystery",
+      "genre_romance",
+      "genre_sci_fi",
+      "genre_thriller",
+      "genre_war",
+      "genre_western",
+      "genre_no_genres_listed",
+      "affinity_action",
+      "affinity_adventure",
+      "affinity_animation",
+      "affinity_children",
+      "affinity_comedy",
+      "affinity_crime",
+      "affinity_documentary",
+      "affinity_drama",
+      "affinity_fantasy",
+      "affinity_film_noir",
+      "affinity_horror",
+      "affinity_imax",
+      "affinity_musical",
+      "affinity_mystery",
+      "affinity_romance",
+      "affinity_sci_fi",
+      "affinity_thriller",
+      "affinity_war",
+      "affinity_western",
+      "affinity_no_genres_listed",
+      "profile_n",
+      "from_ease",
+      "from_most_popular",
+      "from_history_tower"
+    ],
+    "note": "Trained on simulated short profiles from the 90%. Round 1's ranker is under round1 and was not rerun.",
+    "num_trees": 88,
+    "winner": "cold_start_ranker"
+  },
+  "representation": {
+    "best_epoch": 2,
+    "dropout_best_at_edge": false,
+    "dropout_best_p": 0.25,
+    "dropout_best_val_ndcg@10": 0.071919,
+    "dropout_grid": [
+      0.0,
+      0.1,
+      0.25,
+      0.5,
+      0.75
+    ],
+    "fixed_hyperparams": {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.003,
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    },
+    "history_only": false,
+    "hyperparams_source": "results/tuning/two_tower_ml-1m.json",
+    "note": "Round 2 grid, including p=0.0 and p=0.1. Round 1's representation search is under round1 and was not recomputed. p=0.0 uses the same loop with the id mask never applied. Scoring still zeros the id.",
+    "selected_at_grid_edge": false,
+    "tie_break": "higher validation NDCG@10, then history_only, then lower dropout p",
+    "trials": [
+      {
+        "best_epoch": 1,
+        "epochs_trained": 4,
+        "history_only": true,
+        "name": "history_only",
+        "user_id_dropout": 0.0,
+        "val_ndcg@10": 0.069339,
+        "wall_time_sec": 31.456
+      },
+      {
+        "best_epoch": 6,
+        "epochs_trained": 9,
+        "history_only": false,
+        "name": "dropout_0.0",
+        "user_id_dropout": 0.0,
+        "val_ndcg@10": 0.068959,
+        "wall_time_sec": 73.102
+      },
+      {
+        "best_epoch": 2,
+        "epochs_trained": 5,
+        "history_only": false,
+        "name": "dropout_0.1",
+        "user_id_dropout": 0.1,
+        "val_ndcg@10": 0.068212,
+        "wall_time_sec": 39.824
+      },
+      {
+        "best_epoch": 2,
+        "epochs_trained": 5,
+        "history_only": false,
+        "name": "dropout_0.25",
+        "user_id_dropout": 0.25,
+        "val_ndcg@10": 0.071919,
+        "wall_time_sec": 40.408
+      },
+      {
+        "best_epoch": 2,
+        "epochs_trained": 5,
+        "history_only": false,
+        "name": "dropout_0.5",
+        "user_id_dropout": 0.5,
+        "val_ndcg@10": 0.07044,
+        "wall_time_sec": 40.592
+      },
+      {
+        "best_epoch": 1,
+        "epochs_trained": 4,
+        "history_only": false,
+        "name": "dropout_0.75",
+        "user_id_dropout": 0.75,
+        "val_ndcg@10": 0.069066,
+        "wall_time_sec": 32.017
+      }
+    ],
+    "user_id_dropout": 0.25,
+    "val_ndcg@10": 0.071919,
+    "winner": "dropout_0.25"
+  },
+  "round": 2,
+  "round1": {
+    "by_n": [
+      {
+        "best_simple_baseline": "most_popular",
+        "models": {
+          "ease_fold_in": {
+            "coverage@10": 0.281925,
+            "n_eval_users": 604,
+            "ndcg@10": 0.203732,
+            "ndcg@10_ci": {
+              "high": 0.225252,
+              "low": 0.182888,
+              "mean": 0.203732
+            },
+            "recall@10": 0.025707
+          },
+          "history_two_tower": {
+            "coverage@10": 0.292863,
+            "n_eval_users": 604,
+            "ndcg@10": 0.244827,
+            "ndcg@10_ci": {
+              "high": 0.265197,
+              "low": 0.222933,
+              "mean": 0.244827
+            },
+            "recall@10": 0.033061
+          },
+          "item_item_fold_in": {
+            "coverage@10": 0.331693,
+            "n_eval_users": 604,
+            "ndcg@10": 0.21405,
+            "ndcg@10_ci": {
+              "high": 0.236713,
+              "low": 0.190999,
+              "mean": 0.21405
+            },
+            "recall@10": 0.027046
+          },
+          "most_popular": {
+            "coverage@10": 0.003008,
+            "n_eval_users": 604,
+            "ndcg@10": 0.394351,
+            "ndcg@10_ci": {
+              "high": 0.414514,
+              "low": 0.373228,
+              "mean": 0.394351
+            },
+            "recall@10": 0.05702
+          },
+          "pipeline": {
+            "coverage@10": 0.376265,
+            "n_eval_users": 604,
+            "ndcg@10": 0.134591,
+            "ndcg@10_ci": {
+              "high": 0.151437,
+              "low": 0.118512,
+              "mean": 0.134591
+            },
+            "recall@10": 0.015935
+          }
+        },
+        "n": 1,
+        "n_eval_users": 604,
+        "n_held_out_users": 604,
+        "n_relevant_dropped_cold_item": 7,
+        "n_users_no_warm_relevant": 0,
+        "n_users_shorter_than_or_equal_n": 0,
+        "paired_bootstrap": {
+          "alpha": 0.05,
+          "baseline": "most_popular",
+          "comparison": "pipeline_minus_most_popular",
+          "excludes_zero": true,
+          "high": -0.2388,
+          "low": -0.280871,
+          "mean": -0.25976,
+          "metric": "ndcg@10",
+          "n_bootstrap": 1000,
+          "n_users": 604,
+          "seed": 42,
+          "selection": "Highest NDCG@10 point estimate among most_popular, item_item_fold_in, and ease_fold_in on this same table. Ties prefer most_popular, then item_item_fold_in, then ease_fold_in. The interval describes that gap."
+        }
+      },
+      {
+        "best_simple_baseline": "most_popular",
+        "models": {
+          "ease_fold_in": {
+            "coverage@10": 0.152584,
+            "n_eval_users": 604,
+            "ndcg@10": 0.292558,
+            "ndcg@10_ci": {
+              "high": 0.314322,
+              "low": 0.270564,
+              "mean": 0.292558
+            },
+            "recall@10": 0.037567
+          },
+          "history_two_tower": {
+            "coverage@10": 0.138091,
+            "n_eval_users": 604,
+            "ndcg@10": 0.325211,
+            "ndcg@10_ci": {
+              "high": 0.347518,
+              "low": 0.302732,
+              "mean": 0.325211
+            },
+            "recall@10": 0.046604
+          },
+          "item_item_fold_in": {
+            "coverage@10": 0.135083,
+            "n_eval_users": 604,
+            "ndcg@10": 0.308793,
+            "ndcg@10_ci": {
+              "high": 0.330203,
+              "low": 0.286262,
+              "mean": 0.308793
+            },
+            "recall@10": 0.039094
+          },
+          "most_popular": {
+            "coverage@10": 0.003281,
+            "n_eval_users": 604,
+            "ndcg@10": 0.386298,
+            "ndcg@10_ci": {
+              "high": 0.406805,
+              "low": 0.364612,
+              "mean": 0.386298
+            },
+            "recall@10": 0.055503
+          },
+          "pipeline": {
+            "coverage@10": 0.289308,
+            "n_eval_users": 604,
+            "ndcg@10": 0.244204,
+            "ndcg@10_ci": {
+              "high": 0.263132,
+              "low": 0.225151,
+              "mean": 0.244204
+            },
+            "recall@10": 0.030328
+          }
+        },
+        "n": 3,
+        "n_eval_users": 604,
+        "n_held_out_users": 604,
+        "n_relevant_dropped_cold_item": 7,
+        "n_users_no_warm_relevant": 0,
+        "n_users_shorter_than_or_equal_n": 0,
+        "paired_bootstrap": {
+          "alpha": 0.05,
+          "baseline": "most_popular",
+          "comparison": "pipeline_minus_most_popular",
+          "excludes_zero": true,
+          "high": -0.124142,
+          "low": -0.162014,
+          "mean": -0.142094,
+          "metric": "ndcg@10",
+          "n_bootstrap": 1000,
+          "n_users": 604,
+          "seed": 42,
+          "selection": "Highest NDCG@10 point estimate among most_popular, item_item_fold_in, and ease_fold_in on this same table. Ties prefer most_popular, then item_item_fold_in, then ease_fold_in. The interval describes that gap."
+        }
+      },
+      {
+        "best_simple_baseline": "most_popular",
+        "models": {
+          "ease_fold_in": {
+            "coverage@10": 0.112934,
+            "n_eval_users": 604,
+            "ndcg@10": 0.323677,
+            "ndcg@10_ci": {
+              "high": 0.346462,
+              "low": 0.301472,
+              "mean": 0.323677
+            },
+            "recall@10": 0.04418
+          },
+          "history_two_tower": {
+            "coverage@10": 0.099809,
+            "n_eval_users": 604,
+            "ndcg@10": 0.358266,
+            "ndcg@10_ci": {
+              "high": 0.379757,
+              "low": 0.33646,
+              "mean": 0.358266
+            },
+            "recall@10": 0.050321
+          },
+          "item_item_fold_in": {
+            "coverage@10": 0.105824,
+            "n_eval_users": 604,
+            "ndcg@10": 0.335085,
+            "ndcg@10_ci": {
+              "high": 0.358069,
+              "low": 0.312266,
+              "mean": 0.335085
+            },
+            "recall@10": 0.045839
+          },
+          "most_popular": {
+            "coverage@10": 0.003555,
+            "n_eval_users": 604,
+            "ndcg@10": 0.37666,
+            "ndcg@10_ci": {
+              "high": 0.396619,
+              "low": 0.355133,
+              "mean": 0.37666
+            },
+            "recall@10": 0.053427
+          },
+          "pipeline": {
+            "coverage@10": 0.228876,
+            "n_eval_users": 604,
+            "ndcg@10": 0.282941,
+            "ndcg@10_ci": {
+              "high": 0.303226,
+              "low": 0.263355,
+              "mean": 0.282941
+            },
+            "recall@10": 0.038318
+          }
+        },
+        "n": 5,
+        "n_eval_users": 604,
+        "n_held_out_users": 604,
+        "n_relevant_dropped_cold_item": 5,
+        "n_users_no_warm_relevant": 0,
+        "n_users_shorter_than_or_equal_n": 0,
+        "paired_bootstrap": {
+          "alpha": 0.05,
+          "baseline": "most_popular",
+          "comparison": "pipeline_minus_most_popular",
+          "excludes_zero": true,
+          "high": -0.076215,
+          "low": -0.110429,
+          "mean": -0.093719,
+          "metric": "ndcg@10",
+          "n_bootstrap": 1000,
+          "n_users": 604,
+          "seed": 42,
+          "selection": "Highest NDCG@10 point estimate among most_popular, item_item_fold_in, and ease_fold_in on this same table. Ties prefer most_popular, then item_item_fold_in, then ease_fold_in. The interval describes that gap."
+        }
+      },
+      {
+        "best_simple_baseline": "item_item_fold_in",
+        "models": {
+          "ease_fold_in": {
+            "coverage@10": 0.085863,
+            "n_eval_users": 604,
+            "ndcg@10": 0.358806,
+            "ndcg@10_ci": {
+              "high": 0.380023,
+              "low": 0.338956,
+              "mean": 0.358806
+            },
+            "recall@10": 0.065039
+          },
+          "history_two_tower": {
+            "coverage@10": 0.056057,
+            "n_eval_users": 604,
+            "ndcg@10": 0.371606,
+            "ndcg@10_ci": {
+              "high": 0.393841,
+              "low": 0.349003,
+              "mean": 0.371606
+            },
+            "recall@10": 0.061387
+          },
+          "item_item_fold_in": {
+            "coverage@10": 0.087777,
+            "n_eval_users": 604,
+            "ndcg@10": 0.377477,
+            "ndcg@10_ci": {
+              "high": 0.399054,
+              "low": 0.355073,
+              "mean": 0.377477
+            },
+            "recall@10": 0.062055
+          },
+          "most_popular": {
+            "coverage@10": 0.004375,
+            "n_eval_users": 604,
+            "ndcg@10": 0.346903,
+            "ndcg@10_ci": {
+              "high": 0.367036,
+              "low": 0.325275,
+              "mean": 0.346903
+            },
+            "recall@10": 0.0508
+          },
+          "pipeline": {
+            "coverage@10": 0.162702,
+            "n_eval_users": 604,
+            "ndcg@10": 0.338091,
+            "ndcg@10_ci": {
+              "high": 0.358199,
+              "low": 0.317881,
+              "mean": 0.338091
+            },
+            "recall@10": 0.06125
+          }
+        },
+        "n": 10,
+        "n_eval_users": 604,
+        "n_held_out_users": 604,
+        "n_relevant_dropped_cold_item": 5,
+        "n_users_no_warm_relevant": 0,
+        "n_users_shorter_than_or_equal_n": 0,
+        "paired_bootstrap": {
+          "alpha": 0.05,
+          "baseline": "item_item_fold_in",
+          "comparison": "pipeline_minus_item_item_fold_in",
+          "excludes_zero": true,
+          "high": -0.026206,
+          "low": -0.053201,
+          "mean": -0.039387,
+          "metric": "ndcg@10",
+          "n_bootstrap": 1000,
+          "n_users": 604,
+          "seed": 42,
+          "selection": "Highest NDCG@10 point estimate among most_popular, item_item_fold_in, and ease_fold_in on this same table. Ties prefer most_popular, then item_item_fold_in, then ease_fold_in. The interval describes that gap."
+        }
+      }
+    ],
+    "candidates": {
+      "ease_hyperparams": {
+        "l2": 5000.0
+      },
+      "ease_hyperparams_source": "results/tuning/ml-1m.json",
+      "item_item_hyperparams": {
+        "k_neighbors": 200,
+        "min_common": 1,
+        "shrinkage": 100.0
+      },
+      "item_item_hyperparams_source": "results/tuning/ml-1m.json",
+      "k": 200,
+      "query": "Fit-train profile of each validation user. The history tower zeros the id embedding. Item-item uses ratings. EASE uses a binary fold-in. This is not the N-shot protocol.",
+      "reports": {
+        "ease_fold_in": {
+          "mean_size": 200.0,
+          "n_eval_users": 5058,
+          "recall@100": 0.488925,
+          "recall@200": 0.661893
+        },
+        "history_two_tower": {
+          "mean_size": 200.0,
+          "n_eval_users": 5058,
+          "recall@100": 0.423225,
+          "recall@200": 0.596463
+        },
+        "item_item_fold_in": {
+          "mean_size": 200.0,
+          "n_eval_users": 5058,
+          "recall@100": 0.435251,
+          "recall@200": 0.591635
+        }
+      },
+      "rule": "validation recall@200, then recall@100, then item_item_fold_in, ease_fold_in, history_two_tower",
+      "winner": "ease_fold_in"
+    },
+    "evaluation": {
+      "bootstrap_alpha": 0.05,
+      "bootstrap_seed": 42,
+      "candidate_k": 200,
+      "catalog": "items in the refit training matrix",
+      "cold_items": "items absent from the refit catalog are dropped from relevance",
+      "k": 10,
+      "metrics": "ndcg@10 with user bootstrap CI, recall@10, coverage@10 (point only)",
+      "n_bootstrap": 1000,
+      "ns": [
+        1,
+        3,
+        5,
+        10
+      ],
+      "relevance_threshold": 4.0,
+      "seen_filter": "the N profile items are excluded; later ratings are the targets"
+    },
+    "note": "Round 1 pipeline. Copied from the first cold-start measurement and not recomputed. It loses to a simple baseline at every N.",
+    "ranker": {
+      "best_iteration": 32,
+      "demographics_missing_for_new_users": false,
+      "feature_names": [
+        "item_item_score",
+        "item_item_rank",
+        "two_tower_score",
+        "two_tower_rank",
+        "ease_score",
+        "ease_rank",
+        "in_both",
+        "item_popularity",
+        "item_recency",
+        "item_year",
+        "user_n_ratings",
+        "user_mean_rating",
+        "user_std_rating",
+        "genre_action",
+        "genre_adventure",
+        "genre_animation",
+        "genre_children",
+        "genre_comedy",
+        "genre_crime",
+        "genre_documentary",
+        "genre_drama",
+        "genre_fantasy",
+        "genre_film_noir",
+        "genre_horror",
+        "genre_imax",
+        "genre_musical",
+        "genre_mystery",
+        "genre_romance",
+        "genre_sci_fi",
+        "genre_thriller",
+        "genre_war",
+        "genre_western",
+        "genre_no_genres_listed",
+        "affinity_action",
+        "affinity_adventure",
+        "affinity_animation",
+        "affinity_children",
+        "affinity_comedy",
+        "affinity_crime",
+        "affinity_documentary",
+        "affinity_drama",
+        "affinity_fantasy",
+        "affinity_film_noir",
+        "affinity_horror",
+        "affinity_imax",
+        "affinity_musical",
+        "affinity_mystery",
+        "affinity_romance",
+        "affinity_sci_fi",
+        "affinity_thriller",
+        "affinity_war",
+        "affinity_western",
+        "affinity_no_genres_listed"
+      ],
+      "nan_variant_categoricals": true,
+      "refit_num_trees": 32,
+      "seed": 42,
+      "selection_metric": "NDCG@10 on the early-stop slice of validation users, scored with demographic and group columns missing. The nan variant is trained with those columns filled and early-stopped on a copy of the slice with the columns set to NaN. demographics_off never has the columns. One LightGBM seed.",
+      "tie_break": "Higher early-stop-slice NDCG@10 wins. An exact tie selects demographics_off.",
+      "variants": {
+        "demographics_nan": {
+          "best_iteration": 11,
+          "demographics_missing_at_score_time": true,
+          "early_stop_n_eval_users": 952,
+          "early_stop_ndcg@10": 0.088365,
+          "early_stop_ndcg@10_ci": {
+            "high": 0.098784,
+            "low": 0.078766,
+            "mean": 0.088365
+          },
+          "mode": "both"
+        },
+        "demographics_off": {
+          "best_iteration": 32,
+          "demographics_missing_at_score_time": false,
+          "early_stop_n_eval_users": 952,
+          "early_stop_ndcg@10": 0.093165,
+          "early_stop_ndcg@10_ci": {
+            "high": 0.102553,
+            "low": 0.08316,
+            "mean": 0.093165
+          },
+          "mode": "off"
+        }
+      },
+      "winner": "demographics_off"
+    },
+    "representation": {
+      "best_epoch": 2,
+      "dropout_best_at_edge": true,
+      "dropout_best_p": 0.25,
+      "dropout_best_val_ndcg@10": 0.071919,
+      "dropout_grid": [
+        0.25,
+        0.5,
+        0.75
+      ],
+      "fixed_hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.003,
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      "history_only": false,
+      "hyperparams_source": "results/tuning/two_tower_ml-1m.json",
+      "note": "Embedding size, learning rate, and temperature are the ADR-0006 winners. They were not searched again. Early stopping uses validation NDCG@10 with the id embedding removed.",
+      "selected_at_grid_edge": true,
+      "tie_break": "higher validation NDCG@10, then history_only, then lower dropout p",
+      "trials": [
+        {
+          "best_epoch": 1,
+          "epochs_trained": 4,
+          "history_only": true,
+          "name": "history_only",
+          "user_id_dropout": 0.0,
+          "val_ndcg@10": 0.069339,
+          "wall_time_sec": 31.085
+        },
+        {
+          "best_epoch": 2,
+          "epochs_trained": 5,
+          "history_only": false,
+          "name": "dropout_0.25",
+          "user_id_dropout": 0.25,
+          "val_ndcg@10": 0.071919,
+          "wall_time_sec": 40.634
+        },
+        {
+          "best_epoch": 2,
+          "epochs_trained": 5,
+          "history_only": false,
+          "name": "dropout_0.5",
+          "user_id_dropout": 0.5,
+          "val_ndcg@10": 0.07044,
+          "wall_time_sec": 39.564
+        },
+        {
+          "best_epoch": 1,
+          "epochs_trained": 4,
+          "history_only": false,
+          "name": "dropout_0.75",
+          "user_id_dropout": 0.75,
+          "val_ndcg@10": 0.069066,
+          "wall_time_sec": 31.271
+        }
+      ],
+      "user_id_dropout": 0.25,
+      "val_ndcg@10": 0.071919,
+      "winner": "dropout_0.25"
+    },
+    "serving": {
+      "latency_sec": 0.08471,
+      "n": 10,
+      "n_ratings": 5,
+      "note": "Second call to recommend_new_user in one process, after one warmup call on the same profile. The profile is the five most common training items, ties broken by item id, each rated 5.",
+      "profile_item_ids": [
+        2858,
+        1196,
+        260,
+        1210,
+        2028
+      ],
+      "rating": 5.0,
+      "warmed": true
+    }
+  },
+  "round2": {
+    "best_iteration": 88,
+    "candidate_k": 50,
+    "candidate_k_grid": [
+      50,
+      100,
+      200
+    ],
+    "candidate_k_rule": "Highest mean validation NDCG@10 of the cold-start ranker across N in {1, 3, 5, 10}. Ties keep the smaller K.",
+    "candidate_k_trials": [
+      {
+        "best_iteration": 88,
+        "by_n": {
+          "1": 0.40574,
+          "10": 0.425611,
+          "3": 0.407085,
+          "5": 0.405488
+        },
+        "k": 50,
+        "mean_val_ndcg@10": 0.410981,
+        "n_train_groups": 13786,
+        "n_train_rows": 1301584
+      },
+      {
+        "best_iteration": 101,
+        "by_n": {
+          "1": 0.406027,
+          "10": 0.423581,
+          "3": 0.407352,
+          "5": 0.405662
+        },
+        "k": 100,
+        "mean_val_ndcg@10": 0.410656,
+        "n_train_groups": 13871,
+        "n_train_rows": 2546539
+      },
+      {
+        "best_iteration": 106,
+        "by_n": {
+          "1": 0.405677,
+          "10": 0.423554,
+          "3": 0.408524,
+          "5": 0.405999
+        },
+        "k": 200,
+        "mean_val_ndcg@10": 0.410938,
+        "n_train_groups": 13899,
+        "n_train_rows": 4882627
+      }
+    ],
+    "candidate_pool": [
+      "ease_fold_in",
+      "most_popular",
+      "history_two_tower"
+    ],
+    "demographics": "off",
+    "dropout_best_at_edge": false,
+    "dropout_best_p": 0.25,
+    "dropout_grid": [
+      0.0,
+      0.1,
+      0.25,
+      0.5,
+      0.75
+    ],
+    "feature_names": [
+      "item_item_score",
+      "item_item_rank",
+      "two_tower_score",
+      "two_tower_rank",
+      "ease_score",
+      "ease_rank",
+      "in_both",
+      "item_popularity",
+      "item_recency",
+      "item_year",
+      "user_n_ratings",
+      "user_mean_rating",
+      "user_std_rating",
+      "genre_action",
+      "genre_adventure",
+      "genre_animation",
+      "genre_children",
+      "genre_comedy",
+      "genre_crime",
+      "genre_documentary",
+      "genre_drama",
+      "genre_fantasy",
+      "genre_film_noir",
+      "genre_horror",
+      "genre_imax",
+      "genre_musical",
+      "genre_mystery",
+      "genre_romance",
+      "genre_sci_fi",
+      "genre_thriller",
+      "genre_war",
+      "genre_western",
+      "genre_no_genres_listed",
+      "affinity_action",
+      "affinity_adventure",
+      "affinity_animation",
+      "affinity_children",
+      "affinity_comedy",
+      "affinity_crime",
+      "affinity_documentary",
+      "affinity_drama",
+      "affinity_fantasy",
+      "affinity_film_noir",
+      "affinity_horror",
+      "affinity_imax",
+      "affinity_musical",
+      "affinity_mystery",
+      "affinity_romance",
+      "affinity_sci_fi",
+      "affinity_thriller",
+      "affinity_war",
+      "affinity_western",
+      "affinity_no_genres_listed",
+      "profile_n",
+      "from_ease",
+      "from_most_popular",
+      "from_history_tower"
+    ],
+    "history_only": false,
+    "leakage_note": "Ranker-train users' later full-train ratings can sit in the item similarity. That can bias the ranker fit. It does not enter the selection metric: ranker-validation users are absent from those retrievers. Per-user test tails are labels only.",
+    "popularity_vs_known_users": "Cold-start most-popular NDCG is higher than the known-user most-popular number because the targets are every later rating, a long tail, and the short profile has not consumed the popular titles. The known-user number is a short per-user test tail after a long history.",
+    "profile_bucket_rule": "A live profile of length n uses the largest grid N that is <= n.",
+    "protocol": "Simulated profiles truncate each ranker-train user to the first N ratings. History features are recomputed from that prefix. Labels are later ratings with relevance at least 4. The ranker is fit once per K on all N stacked as separate groups. The held-out 604 are scored after these choices, on all later ratings.",
+    "ranker_validation": {
+      "fraction": 0.2,
+      "n_ranker_train_users": 4349,
+      "n_ranker_val_users": 1087,
+      "seed": 42,
+      "source": "Carved with select_held_out_user_ids from the 90% full-train users. Disjoint from the held-out 604. Selection retrievers are fit on the ranker-train users only."
+    },
+    "representation_best_epoch": 2,
+    "representation_val_ndcg@10": 0.071919,
+    "representation_winner": "dropout_0.25",
+    "selected_at_grid_edge": false,
+    "serving_by_n": {
+      "1": "cold_start_ranker",
+      "10": "cold_start_ranker",
+      "3": "cold_start_ranker",
+      "5": "cold_start_ranker"
+    },
+    "serving_rule": "For each N, the highest validation NDCG@10 among the cold-start ranker, most-popular, item-item fold-in, and the history two-tower. Ties prefer most-popular, then item-item fold-in, then the history two-tower, then the ranker.",
+    "serving_val_ndcg@10": {
+      "1": {
+        "cold_start_ranker": 0.40574,
+        "history_two_tower": 0.247397,
+        "item_item_fold_in": 0.238157,
+        "most_popular": 0.40205
+      },
+      "10": {
+        "cold_start_ranker": 0.425611,
+        "history_two_tower": 0.378393,
+        "item_item_fold_in": 0.394324,
+        "most_popular": 0.349625
+      },
+      "3": {
+        "cold_start_ranker": 0.407085,
+        "history_two_tower": 0.320555,
+        "item_item_fold_in": 0.317112,
+        "most_popular": 0.393122
+      },
+      "5": {
+        "cold_start_ranker": 0.405488,
+        "history_two_tower": 0.348941,
+        "item_item_fold_in": 0.33922,
+        "most_popular": 0.385137
+      }
+    },
+    "user_id_dropout": 0.25
+  },
+  "runtime_sec": 501.822581,
+  "s4b_simulated_cold_start_n5": {
+    "n": 5,
+    "note": "Copied for contrast. S4b does not remove the user from training. Those numbers are not the S5c result.",
+    "rows": [
+      {
+        "coverage@10": 0.032452,
+        "history_dependent": false,
+        "model": "most_popular",
+        "n": 5,
+        "n_eval_users": 5958.0,
+        "n_users_shorter_than_n": 0,
+        "n_users_truncated": 5958,
+        "ndcg@10": 0.089508,
+        "ndcg@10_ci": {
+          "high": 0.093487,
+          "low": 0.085661,
+          "mean": 0.089508
+        },
+        "recall@10": 0.046634
+      },
+      {
+        "coverage@10": 0.061358,
+        "history_dependent": false,
+        "model": "group_most_popular",
+        "n": 5,
+        "n_eval_users": 5958.0,
+        "n_users_shorter_than_n": 0,
+        "n_users_truncated": 5958,
+        "ndcg@10": 0.09599,
+        "ndcg@10_ci": {
+          "high": 0.100119,
+          "low": 0.092267,
+          "mean": 0.09599
+        },
+        "recall@10": 0.051006
+      },
+      {
+        "coverage@10": 0.234524,
+        "history_dependent": true,
+        "model": "item_item",
+        "n": 5,
+        "n_eval_users": 5958.0,
+        "n_users_shorter_than_n": 0,
+        "n_users_truncated": 5958,
+        "ndcg@10": 0.081463,
+        "ndcg@10_ci": {
+          "high": 0.085045,
+          "low": 0.07745,
+          "mean": 0.081463
+        },
+        "recall@10": 0.042071
+      },
+      {
+        "coverage@10": 0.491955,
+        "history_dependent": true,
+        "model": "ranker_baseline",
+        "n": 5,
+        "n_eval_users": 5958.0,
+        "n_users_shorter_than_n": 0,
+        "n_users_truncated": 5958,
+        "ndcg@10": 0.098233,
+        "ndcg@10_ci": {
+          "high": 0.101745,
+          "low": 0.094381,
+          "mean": 0.098233
+        },
+        "recall@10": 0.069617
+      },
+      {
+        "coverage@10": 0.468776,
+        "history_dependent": true,
+        "model": "ranker_both",
+        "n": 5,
+        "n_eval_users": 5958.0,
+        "n_users_shorter_than_n": 0,
+        "n_users_truncated": 5958,
+        "ndcg@10": 0.102431,
+        "ndcg@10_ci": {
+          "high": 0.106156,
+          "low": 0.098636,
+          "mean": 0.102431
+        },
+        "recall@10": 0.071466
+      }
+    ],
+    "source": "results/demographics/ml-1m.json"
+  },
+  "seed": 42,
+  "sensitivity_last_20_percent": {
+    "added_after_first_results": true,
+    "by_n": [
+      {
+        "beats_most_popular": false,
+        "best_simple_baseline": "most_popular",
+        "counts": {
+          "n_eval_users": 599,
+          "n_held_out_users": 604,
+          "n_relevant_dropped_cold_item": 1,
+          "n_users_no_warm_relevant": 5,
+          "n_users_shorter_than_or_equal_n": 0
+        },
+        "models": {
+          "cold_start_ranker": {
+            "coverage@10": 0.010938,
+            "n_eval_users": 599,
+            "ndcg@10": 0.042489,
+            "ndcg@10_ci": {
+              "high": 0.049444,
+              "low": 0.036072,
+              "mean": 0.042489
+            },
+            "recall@10": 0.031202
+          },
+          "ease_fold_in": {
+            "coverage@10": 0.281652,
+            "n_eval_users": 599,
+            "ndcg@10": 0.028672,
+            "ndcg@10_ci": {
+              "high": 0.035722,
+              "low": 0.023136,
+              "mean": 0.028672
+            },
+            "recall@10": 0.018066
+          },
+          "history_two_tower": {
+            "coverage@10": 0.291769,
+            "n_eval_users": 599,
+            "ndcg@10": 0.028065,
+            "ndcg@10_ci": {
+              "high": 0.033783,
+              "low": 0.02252,
+              "mean": 0.028065
+            },
+            "recall@10": 0.01871
+          },
+          "item_item_fold_in": {
+            "coverage@10": 0.331146,
+            "n_eval_users": 599,
+            "ndcg@10": 0.026433,
+            "ndcg@10_ci": {
+              "high": 0.032639,
+              "low": 0.02132,
+              "mean": 0.026433
+            },
+            "recall@10": 0.016346
+          },
+          "most_popular": {
+            "coverage@10": 0.003008,
+            "n_eval_users": 599,
+            "ndcg@10": 0.039669,
+            "ndcg@10_ci": {
+              "high": 0.046604,
+              "low": 0.032775,
+              "mean": 0.039669
+            },
+            "recall@10": 0.028913
+          },
+          "served": {
+            "coverage@10": 0.010938,
+            "n_eval_users": 599,
+            "ndcg@10": 0.042489,
+            "ndcg@10_ci": {
+              "high": 0.049444,
+              "low": 0.036072,
+              "mean": 0.042489
+            },
+            "recall@10": 0.031202
+          }
+        },
+        "n": 1,
+        "n_eval_users": 599,
+        "paired_bootstrap": {
+          "alpha": 0.05,
+          "baseline": "most_popular",
+          "beats_baseline": false,
+          "comparison": "served_minus_best_simple",
+          "excludes_zero": false,
+          "high": 0.007538,
+          "low": -0.001724,
+          "mean": 0.00282,
+          "n_bootstrap": 1000,
+          "n_users": 599,
+          "seed": 42
+        },
+        "paired_vs_most_popular": {
+          "alpha": 0.05,
+          "baseline": "most_popular",
+          "beats_baseline": false,
+          "comparison": "served_minus_most_popular",
+          "excludes_zero": false,
+          "high": 0.007538,
+          "low": -0.001724,
+          "mean": 0.00282,
+          "n_bootstrap": 1000,
+          "n_users": 599,
+          "seed": 42
+        },
+        "ranker_paired_vs_best_simple": {
+          "alpha": 0.05,
+          "baseline": "most_popular",
+          "beats_baseline": false,
+          "comparison": "cold_start_ranker_minus_best_simple",
+          "excludes_zero": false,
+          "high": 0.007538,
+          "low": -0.001724,
+          "mean": 0.00282,
+          "n_bootstrap": 1000,
+          "n_users": 599,
+          "seed": 42
+        },
+        "ranker_paired_vs_most_popular": {
+          "alpha": 0.05,
+          "baseline": "most_popular",
+          "beats_baseline": false,
+          "comparison": "cold_start_ranker_minus_most_popular",
+          "excludes_zero": false,
+          "high": 0.007538,
+          "low": -0.001724,
+          "mean": 0.00282,
+          "n_bootstrap": 1000,
+          "n_users": 599,
+          "seed": 42
+        },
+        "served_method": "cold_start_ranker",
+        "target": "harness_tail"
+      },
+      {
+        "beats_most_popular": true,
+        "best_simple_baseline": "most_popular",
+        "counts": {
+          "n_eval_users": 599,
+          "n_held_out_users": 604,
+          "n_relevant_dropped_cold_item": 1,
+          "n_users_no_warm_relevant": 5,
+          "n_users_shorter_than_or_equal_n": 0
+        },
+        "models": {
+          "cold_start_ranker": {
+            "coverage@10": 0.013946,
+            "n_eval_users": 599,
+            "ndcg@10": 0.045866,
+            "ndcg@10_ci": {
+              "high": 0.052758,
+              "low": 0.038843,
+              "mean": 0.045866
+            },
+            "recall@10": 0.032422
+          },
+          "ease_fold_in": {
+            "coverage@10": 0.152037,
+            "n_eval_users": 599,
+            "ndcg@10": 0.038178,
+            "ndcg@10_ci": {
+              "high": 0.046091,
+              "low": 0.031317,
+              "mean": 0.038178
+            },
+            "recall@10": 0.021949
+          },
+          "history_two_tower": {
+            "coverage@10": 0.137544,
+            "n_eval_users": 599,
+            "ndcg@10": 0.042024,
+            "ndcg@10_ci": {
+              "high": 0.049355,
+              "low": 0.034955,
+              "mean": 0.042024
+            },
+            "recall@10": 0.029631
+          },
+          "item_item_fold_in": {
+            "coverage@10": 0.135083,
+            "n_eval_users": 599,
+            "ndcg@10": 0.039794,
+            "ndcg@10_ci": {
+              "high": 0.048371,
+              "low": 0.032042,
+              "mean": 0.039794
+            },
+            "recall@10": 0.023961
+          },
+          "most_popular": {
+            "coverage@10": 0.003281,
+            "n_eval_users": 599,
+            "ndcg@10": 0.04052,
+            "ndcg@10_ci": {
+              "high": 0.047619,
+              "low": 0.033649,
+              "mean": 0.04052
+            },
+            "recall@10": 0.02934
+          },
+          "served": {
+            "coverage@10": 0.013946,
+            "n_eval_users": 599,
+            "ndcg@10": 0.045866,
+            "ndcg@10_ci": {
+              "high": 0.052758,
+              "low": 0.038843,
+              "mean": 0.045866
+            },
+            "recall@10": 0.032422
+          }
+        },
+        "n": 3,
+        "n_eval_users": 599,
+        "paired_bootstrap": {
+          "alpha": 0.05,
+          "baseline": "most_popular",
+          "beats_baseline": true,
+          "comparison": "served_minus_best_simple",
+          "excludes_zero": true,
+          "high": 0.01028,
+          "low": 0.000797,
+          "mean": 0.005346,
+          "n_bootstrap": 1000,
+          "n_users": 599,
+          "seed": 42
+        },
+        "paired_vs_most_popular": {
+          "alpha": 0.05,
+          "baseline": "most_popular",
+          "beats_baseline": true,
+          "comparison": "served_minus_most_popular",
+          "excludes_zero": true,
+          "high": 0.01028,
+          "low": 0.000797,
+          "mean": 0.005346,
+          "n_bootstrap": 1000,
+          "n_users": 599,
+          "seed": 42
+        },
+        "ranker_paired_vs_best_simple": {
+          "alpha": 0.05,
+          "baseline": "most_popular",
+          "beats_baseline": true,
+          "comparison": "cold_start_ranker_minus_best_simple",
+          "excludes_zero": true,
+          "high": 0.01028,
+          "low": 0.000797,
+          "mean": 0.005346,
+          "n_bootstrap": 1000,
+          "n_users": 599,
+          "seed": 42
+        },
+        "ranker_paired_vs_most_popular": {
+          "alpha": 0.05,
+          "baseline": "most_popular",
+          "beats_baseline": true,
+          "comparison": "cold_start_ranker_minus_most_popular",
+          "excludes_zero": true,
+          "high": 0.01028,
+          "low": 0.000797,
+          "mean": 0.005346,
+          "n_bootstrap": 1000,
+          "n_users": 599,
+          "seed": 42
+        },
+        "served_method": "cold_start_ranker",
+        "target": "harness_tail"
+      },
+      {
+        "beats_most_popular": false,
+        "best_simple_baseline": "ease_fold_in",
+        "counts": {
+          "n_eval_users": 599,
+          "n_held_out_users": 604,
+          "n_relevant_dropped_cold_item": 1,
+          "n_users_no_warm_relevant": 5,
+          "n_users_shorter_than_or_equal_n": 0
+        },
+        "models": {
+          "cold_start_ranker": {
+            "coverage@10": 0.017501,
+            "n_eval_users": 599,
+            "ndcg@10": 0.044282,
+            "ndcg@10_ci": {
+              "high": 0.051032,
+              "low": 0.037923,
+              "mean": 0.044282
+            },
+            "recall@10": 0.032473
+          },
+          "ease_fold_in": {
+            "coverage@10": 0.112114,
+            "n_eval_users": 599,
+            "ndcg@10": 0.042067,
+            "ndcg@10_ci": {
+              "high": 0.050007,
+              "low": 0.034691,
+              "mean": 0.042067
+            },
+            "recall@10": 0.025849
+          },
+          "history_two_tower": {
+            "coverage@10": 0.098988,
+            "n_eval_users": 599,
+            "ndcg@10": 0.041847,
+            "ndcg@10_ci": {
+              "high": 0.049356,
+              "low": 0.035221,
+              "mean": 0.041847
+            },
+            "recall@10": 0.029524
+          },
+          "item_item_fold_in": {
+            "coverage@10": 0.105004,
+            "n_eval_users": 599,
+            "ndcg@10": 0.041159,
+            "ndcg@10_ci": {
+              "high": 0.049776,
+              "low": 0.033769,
+              "mean": 0.041159
+            },
+            "recall@10": 0.025911
+          },
+          "most_popular": {
+            "coverage@10": 0.003555,
+            "n_eval_users": 599,
+            "ndcg@10": 0.041404,
+            "ndcg@10_ci": {
+              "high": 0.048744,
+              "low": 0.03447,
+              "mean": 0.041404
+            },
+            "recall@10": 0.029569
+          },
+          "served": {
+            "coverage@10": 0.017501,
+            "n_eval_users": 599,
+            "ndcg@10": 0.044282,
+            "ndcg@10_ci": {
+              "high": 0.051032,
+              "low": 0.037923,
+              "mean": 0.044282
+            },
+            "recall@10": 0.032473
+          }
+        },
+        "n": 5,
+        "n_eval_users": 599,
+        "paired_bootstrap": {
+          "alpha": 0.05,
+          "baseline": "ease_fold_in",
+          "beats_baseline": false,
+          "comparison": "served_minus_best_simple",
+          "excludes_zero": false,
+          "high": 0.008853,
+          "low": -0.004548,
+          "mean": 0.002214,
+          "n_bootstrap": 1000,
+          "n_users": 599,
+          "seed": 42
+        },
+        "paired_vs_most_popular": {
+          "alpha": 0.05,
+          "baseline": "most_popular",
+          "beats_baseline": false,
+          "comparison": "served_minus_most_popular",
+          "excludes_zero": false,
+          "high": 0.008315,
+          "low": -0.002454,
+          "mean": 0.002878,
+          "n_bootstrap": 1000,
+          "n_users": 599,
+          "seed": 42
+        },
+        "ranker_paired_vs_best_simple": {
+          "alpha": 0.05,
+          "baseline": "ease_fold_in",
+          "beats_baseline": false,
+          "comparison": "cold_start_ranker_minus_best_simple",
+          "excludes_zero": false,
+          "high": 0.008853,
+          "low": -0.004548,
+          "mean": 0.002214,
+          "n_bootstrap": 1000,
+          "n_users": 599,
+          "seed": 42
+        },
+        "ranker_paired_vs_most_popular": {
+          "alpha": 0.05,
+          "baseline": "most_popular",
+          "beats_baseline": false,
+          "comparison": "cold_start_ranker_minus_most_popular",
+          "excludes_zero": false,
+          "high": 0.008315,
+          "low": -0.002454,
+          "mean": 0.002878,
+          "n_bootstrap": 1000,
+          "n_users": 599,
+          "seed": 42
+        },
+        "served_method": "cold_start_ranker",
+        "target": "harness_tail"
+      },
+      {
+        "beats_most_popular": false,
+        "best_simple_baseline": "item_item_fold_in",
+        "counts": {
+          "n_eval_users": 599,
+          "n_held_out_users": 604,
+          "n_relevant_dropped_cold_item": 1,
+          "n_users_no_warm_relevant": 5,
+          "n_users_shorter_than_or_equal_n": 0
+        },
+        "models": {
+          "cold_start_ranker": {
+            "coverage@10": 0.060432,
+            "n_eval_users": 599,
+            "ndcg@10": 0.041365,
+            "ndcg@10_ci": {
+              "high": 0.047985,
+              "low": 0.035084,
+              "mean": 0.041365
+            },
+            "recall@10": 0.030449
+          },
+          "ease_fold_in": {
+            "coverage@10": 0.085863,
+            "n_eval_users": 599,
+            "ndcg@10": 0.037859,
+            "ndcg@10_ci": {
+              "high": 0.044541,
+              "low": 0.031348,
+              "mean": 0.037859
+            },
+            "recall@10": 0.026194
+          },
+          "history_two_tower": {
+            "coverage@10": 0.055783,
+            "n_eval_users": 599,
+            "ndcg@10": 0.044979,
+            "ndcg@10_ci": {
+              "high": 0.052322,
+              "low": 0.038206,
+              "mean": 0.044979
+            },
+            "recall@10": 0.033015
+          },
+          "item_item_fold_in": {
+            "coverage@10": 0.086136,
+            "n_eval_users": 599,
+            "ndcg@10": 0.045713,
+            "ndcg@10_ci": {
+              "high": 0.054107,
+              "low": 0.03859,
+              "mean": 0.045713
+            },
+            "recall@10": 0.031881
+          },
+          "most_popular": {
+            "coverage@10": 0.004375,
+            "n_eval_users": 599,
+            "ndcg@10": 0.044243,
+            "ndcg@10_ci": {
+              "high": 0.051756,
+              "low": 0.036946,
+              "mean": 0.044243
+            },
+            "recall@10": 0.032038
+          },
+          "served": {
+            "coverage@10": 0.060432,
+            "n_eval_users": 599,
+            "ndcg@10": 0.041365,
+            "ndcg@10_ci": {
+              "high": 0.047985,
+              "low": 0.035084,
+              "mean": 0.041365
+            },
+            "recall@10": 0.030449
+          }
+        },
+        "n": 10,
+        "n_eval_users": 599,
+        "paired_bootstrap": {
+          "alpha": 0.05,
+          "baseline": "item_item_fold_in",
+          "beats_baseline": false,
+          "comparison": "served_minus_best_simple",
+          "excludes_zero": false,
+          "high": 0.001459,
+          "low": -0.010375,
+          "mean": -0.004348,
+          "n_bootstrap": 1000,
+          "n_users": 599,
+          "seed": 42
+        },
+        "paired_vs_most_popular": {
+          "alpha": 0.05,
+          "baseline": "most_popular",
+          "beats_baseline": false,
+          "comparison": "served_minus_most_popular",
+          "excludes_zero": false,
+          "high": 0.00377,
+          "low": -0.00946,
+          "mean": -0.002879,
+          "n_bootstrap": 1000,
+          "n_users": 599,
+          "seed": 42
+        },
+        "ranker_paired_vs_best_simple": {
+          "alpha": 0.05,
+          "baseline": "item_item_fold_in",
+          "beats_baseline": false,
+          "comparison": "cold_start_ranker_minus_best_simple",
+          "excludes_zero": false,
+          "high": 0.001459,
+          "low": -0.010375,
+          "mean": -0.004348,
+          "n_bootstrap": 1000,
+          "n_users": 599,
+          "seed": 42
+        },
+        "ranker_paired_vs_most_popular": {
+          "alpha": 0.05,
+          "baseline": "most_popular",
+          "beats_baseline": false,
+          "comparison": "cold_start_ranker_minus_most_popular",
+          "excludes_zero": false,
+          "high": 0.00377,
+          "low": -0.00946,
+          "mean": -0.002879,
+          "n_bootstrap": 1000,
+          "n_users": 599,
+          "seed": 42
+        },
+        "served_method": "cold_start_ranker",
+        "target": "harness_tail"
+      }
+    ],
+    "note": "Added after the first held-out results. Targets are each held-out user's harness tail: the last max(1, int(n_ratings * test_fraction)) ratings, leaving at least one head row, and only where that tail is after the first N. The serving rule was not re-chosen on this view. Pipeline v1 is not scored here.",
+    "serving_rule_rechosen": false,
+    "test_fraction": 0.2
+  },
+  "serving": {
+    "latency_sec": 0.084979,
+    "method": "cold_start_ranker",
+    "method_sentence": "The list is a ranker trained on short profiles. It re-ranks popular titles and neighbours of the films you rated. For a profile of 5 ratings, using the rule chosen for N=5.",
+    "n": 10,
+    "n_ratings": 5,
+    "note": "Second call to recommend_new_user in one process, after one warmup call on the same profile. The profile is the five most common training items, ties broken by item id, each rated 5.",
+    "profile_bucket": 5,
+    "profile_item_ids": [
+      2858,
+      1196,
+      260,
+      1210,
+      2028
+    ],
+    "rating": 5.0,
+    "warmed": true
+  }
+}

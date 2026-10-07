@@ -20,6 +20,8 @@ from movielens_recommender.ranker.explain import explain_candidates
 from movielens_recommender.ranker.features import (
     FeatureContext,
     build_feature_matrix,
+    cold_start_feature_names,
+    cold_start_ranker_feature_names,
     feature_names,
 )
 from movielens_recommender.serving.reasons import (
@@ -473,6 +475,8 @@ def _save_two_tower(model: TwoTowerRecommender, directory: Path) -> None:
         "year_std": float(features.year_std),
         "relevance_threshold": float(features.relevance_threshold),
         "hyperparams": model._hyperparams,
+        "history_only": bool(torch_model.history_only),
+        "score_without_user_id": bool(model.score_without_user_id),
     }
     (directory / "two_tower_meta.json").write_text(
         json.dumps(meta, indent=2, sort_keys=True) + "\n",
@@ -517,16 +521,21 @@ def _load_two_tower(directory: Path) -> TwoTowerRecommender:
         n_genres=int(meta["n_genres"]),
         embedding_dim=int(meta["embedding_dim"]),
         temperature=float(meta["temperature"]),
+        history_only=bool(meta.get("history_only", False)),
     )
     state = torch.load(directory / "two_tower_model.pt", map_location="cpu", weights_only=True)
     network.load_state_dict(state)
-    return TwoTowerRecommender.from_trained(
+    recommender = TwoTowerRecommender.from_trained(
         network,
         features,
         max_history=int(meta["max_history"]),
         device="cpu",
         hyperparams=dict(meta.get("hyperparams") or {}),
     )
+    recommender.score_without_user_id = bool(meta.get("score_without_user_id", False)) or bool(
+        network.history_only
+    )
+    return recommender
 
 
 def _save_context(ctx: FeatureContext, directory: Path) -> None:
@@ -589,7 +598,12 @@ def _save_context(ctx: FeatureContext, directory: Path) -> None:
         "relevance_threshold": float(ctx.relevance_threshold),
     }
     expected = feature_names(ctx.demo_mode)
-    if list(ctx.names) != expected:
+    allowed = [expected]
+    if ctx.demo_mode in {"off", "both"}:
+        allowed.append(cold_start_feature_names(ctx.demo_mode))
+    if ctx.demo_mode == "off":
+        allowed.append(cold_start_ranker_feature_names())
+    if list(ctx.names) not in allowed:
         raise ValueError("feature context names drifted from feature_names(mode)")
     (directory / "feature_context_meta.json").write_text(
         json.dumps(meta, indent=2, sort_keys=True) + "\n",

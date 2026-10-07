@@ -1,6 +1,6 @@
 # movielens-recommender
 
-A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). S3c adds two more classic baselines, EASE^R and RP3beta (ADR-0008), tuned on the same validation split. On ml-1m, the two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. On ml-32M, two-tower and LambdaRank tie at the top and beat item–item. The ranker gate against item–item cosine, and the EASE / RP3beta comparison, are in the results table. S4b (ADR-0009) tested user demographic features on ml-1m only. The pre-registered rule adopted them, so `configs/ml-1m.yaml` sets `models.ranker.demographics` to `both`. `configs/default.yaml` stays `off` because ml-latest-small has no `users.dat`. The headline LambdaRank row is still the S4 feature set in `results/ml-1m.json`. S5a is a Streamlit demo of that ml-1m ranker with plain-language reasons (ADR-0010). Batch recommendations, a FastAPI service, and a Dockerfile (S5b) are still planned. Operations (S6) are still planned.
+A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). S3c adds two more classic baselines, EASE^R and RP3beta (ADR-0008), tuned on the same validation split. On ml-1m, the two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. On ml-32M, two-tower and LambdaRank tie at the top and beat item–item. The ranker gate against item–item cosine, and the EASE / RP3beta comparison, are in the results table. S4b (ADR-0009) tested user demographic features on ml-1m only. The pre-registered rule adopted them, so `configs/ml-1m.yaml` sets `models.ranker.demographics` to `both`. `configs/default.yaml` stays `off` because ml-latest-small has no `users.dat`. The headline LambdaRank row is still the S4 feature set in `results/ml-1m.json`. S5a is a Streamlit demo of that ml-1m ranker with plain-language reasons (ADR-0010). S5c adds a new-user profile: a person with no MovieLens id rates a few films and gets an explained top 10 (ADR-0012). The cold-start panel below says how good that is after 1, 3, 5, and 10 ratings, next to known users and popularity. Batch recommendations, a FastAPI service, and a Dockerfile (S5b) are still planned. Operations (S6) are still planned.
 
 The code is MIT, and the MovieLens data is not included: it is downloaded by the script and stays under the [GroupLens terms of use](https://grouplens.org/datasets/movielens/). Those terms apply to ml-32M as well as to ml-latest-small and ml-1m. S3d (ADR-0011) repeats the harness on MovieLens 32M.
 
@@ -25,6 +25,7 @@ The code was written by AI coding agents (Cursor) working from a staged plan wit
 | **S4b** | Done | S4b: user demographic features experiment (ml-1m) |
 | **S3d** | Done | S3d: scale-up to MovieLens 32M |
 | **S5a** | Done | Streamlit explainable UI |
+| **S5c** | Done | S5c: new-user profile (cold start) |
 | **S5b** | Planned | Batch recs, FastAPI, Dockerfile |
 | **S6** | Planned (not built yet) | Operations |
 
@@ -62,18 +63,21 @@ pip install -e ".[ui]"
 
 ## Try the demo
 
-The page recommends for an existing ml-1m user. It loads a local snapshot of the production pipeline: validation-chosen candidates re-ranked by LightGBM LambdaRank, including the demographic group-affinity features from ADR-0009. It does not train. A typed-in profile is not supported; see [ADR-0010](docs/adr/0010-streamlit-ui.md). Metrics stay in the results section below. Nothing under `artifacts/` is committed.
+The page recommends for an existing ml-1m user, and it has a New user mode. Existing users load a local snapshot of the production pipeline: validation-chosen candidates re-ranked by LightGBM LambdaRank, including the demographic group-affinity features from ADR-0009. A new user searches titles, rates at least three films (about five is a good start), and gets a top 10 with plain-language reasons. The page says, in plain words, which method produced the list for that profile size. The page does not ask for gender, age, occupation, or ZIP, and it does not save the profile. See [ADR-0010](docs/adr/0010-streamlit-ui.md) and [ADR-0012](docs/adr/0012-new-user-cold-start.md). Metrics stay in the results section below. Nothing under `artifacts/` is committed.
 
 ```bash
 pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
 pip install -e ".[rank,deep,ui]"
 movielens-recommender build-artifacts --config configs/ml-1m.yaml
+movielens-recommender cold-start --config configs/ml-1m.yaml
 streamlit run app/streamlit_app.py
 ```
 
-`build-artifacts` downloads ml-1m if `data/` does not already have it, reads the tuned hyperparameters from `results/tuning/`, and writes `artifacts/ml-1m/`. The first Streamlit load reads that directory once.
+`build-artifacts` downloads ml-1m if `data/` does not already have it, reads the tuned hyperparameters from `results/tuning/`, and writes `artifacts/ml-1m/`. `cold-start` writes the new-user snapshot to `artifacts/ml-1m/cold_start/` and the measured table to `results/cold-start/ml-1m.json`. The first Streamlit load reads a snapshot once.
 
 ![ml-1m user 155: training history and an open explanation for Sleepless in Seattle](docs/demo/streamlit.png)
+
+![New user: about five ratings and an open explanation](docs/demo/streamlit-new-user.png)
 
 ## Download data
 
@@ -770,5 +774,112 @@ Demographic feature gains from the +both primary-seed refit booster. Rank is amo
 **Decision: keep demographic features as the ranker default.** +both mean NDCG@10=0.1334 versus baseline 0.1267. The paired CI low is above 0.
 
 Demographic experiment runtime: 400.0710s.
+
+### New-user cold start (`ml-1m`, S5c)
+
+This is not the S4b simulated cold start. S4b keeps each evaluated user in the training matrices, truncates the query to the earliest N full-train ratings (N of 5 and 10), and scores the original per-user test split. The user-id embedding is the one learned for that user, and item-item similarities include that user's later train ratings. Here the user is absent from every training row. The model sees only the first N chronological ratings, N in {1, 3, 5, 10}, and is scored on the later ratings with relevance at least 4. There is no user-id embedding at score time, and demographic features are not used.
+
+The first pipeline is a negative result. It was trained on long histories and re-ranked one candidate source. Those numbers are copied below as `pipeline_v1` and were not recomputed. Round 2 was redesigned after those results on the same 604 held-out users: dropout p=0.0 and p=0.1, the short-profile ranker, and the per-N rule. The round-2 held-out numbers are not a fully fresh test. Every choice was frozen on validation before that second score.
+
+Round 2 representation: `dropout_0.25` (validation NDCG@10 0.0719). Dropout grid edge: best p=0.25 (at edge: False); selected model at edge: False.
+
+Cold-start ranker K=50 (88 trees, demographics off). Served method by profile size: N=1 `cold_start_ranker`, N=3 `cold_start_ranker`, N=5 `cold_start_ranker`, N=10 `cold_start_ranker`.
+
+Cold-start most-popular NDCG is higher than the known-user most-popular number because the targets are every later rating, a long tail, and the short profile has not consumed the popular titles. The known-user number is a short per-user test tail after a long history.
+
+Known users below are copied from `results/ml-1m.json`. They were in the training matrix. The new-user rows were not.
+
+| known-user model | NDCG@10 | 95% CI | Recall@10 | Coverage@10 |
+| --- | --- | --- | --- | --- |
+| most_popular | 0.0895 | [0.0857, 0.0935] | 0.0466 | 0.0325 |
+| item_item_cosine | 0.1201 | [0.1158, 0.1242] | 0.0786 | 0.1274 |
+| two_tower | 0.1192 | [0.1150, 0.1230] | 0.0901 | 0.4723 |
+| lambdarank | 0.1273 | [0.1247, 0.1329] | 0.0928 | 0.3895 |
+
+Primary protocol, fixed before this run: the model sees the first N chronological ratings, and the targets are all later ratings (relevance at least 4). Coverage has no interval.
+
+| N | model | NDCG@10 | 95% CI | Recall@10 | Coverage@10 | eval users |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | pipeline_v1 | 0.1346 | [0.1185, 0.1514] | 0.0159 | 0.3763 | 604 |
+| 1 | cold_start_ranker | 0.4035 | [0.3817, 0.4228] | 0.0577 | 0.0109 | 604 |
+| 1 | served | 0.4035 | [0.3817, 0.4228] | 0.0577 | 0.0109 | 604 |
+| 1 | most_popular | 0.3944 | [0.3732, 0.4145] | 0.0570 | 0.0030 | 604 |
+| 1 | item_item_fold_in | 0.2140 | [0.1910, 0.2367] | 0.0270 | 0.3317 | 604 |
+| 1 | history_two_tower | 0.2448 | [0.2229, 0.2652] | 0.0331 | 0.2929 | 604 |
+| 1 | ease_fold_in | 0.2037 | [0.1829, 0.2253] | 0.0257 | 0.2819 | 604 |
+| 3 | pipeline_v1 | 0.2442 | [0.2252, 0.2631] | 0.0303 | 0.2893 | 604 |
+| 3 | cold_start_ranker | 0.4081 | [0.3855, 0.4288] | 0.0586 | 0.0139 | 604 |
+| 3 | served | 0.4081 | [0.3855, 0.4288] | 0.0586 | 0.0139 | 604 |
+| 3 | most_popular | 0.3863 | [0.3646, 0.4068] | 0.0555 | 0.0033 | 604 |
+| 3 | item_item_fold_in | 0.3088 | [0.2863, 0.3302] | 0.0391 | 0.1351 | 604 |
+| 3 | history_two_tower | 0.3252 | [0.3027, 0.3475] | 0.0466 | 0.1381 | 604 |
+| 3 | ease_fold_in | 0.2926 | [0.2706, 0.3143] | 0.0376 | 0.1526 | 604 |
+| 5 | pipeline_v1 | 0.2829 | [0.2634, 0.3032] | 0.0383 | 0.2289 | 604 |
+| 5 | cold_start_ranker | 0.4076 | [0.3855, 0.4281] | 0.0596 | 0.0175 | 604 |
+| 5 | served | 0.4076 | [0.3855, 0.4281] | 0.0596 | 0.0175 | 604 |
+| 5 | most_popular | 0.3767 | [0.3551, 0.3966] | 0.0534 | 0.0036 | 604 |
+| 5 | item_item_fold_in | 0.3351 | [0.3123, 0.3581] | 0.0458 | 0.1058 | 604 |
+| 5 | history_two_tower | 0.3583 | [0.3365, 0.3798] | 0.0503 | 0.0998 | 604 |
+| 5 | ease_fold_in | 0.3237 | [0.3015, 0.3465] | 0.0442 | 0.1129 | 604 |
+| 10 | pipeline_v1 | 0.3381 | [0.3179, 0.3582] | 0.0612 | 0.1627 | 604 |
+| 10 | cold_start_ranker | 0.4046 | [0.3843, 0.4266] | 0.0697 | 0.0604 | 604 |
+| 10 | served | 0.4046 | [0.3843, 0.4266] | 0.0697 | 0.0604 | 604 |
+| 10 | most_popular | 0.3469 | [0.3253, 0.3670] | 0.0508 | 0.0044 | 604 |
+| 10 | item_item_fold_in | 0.3775 | [0.3551, 0.3991] | 0.0621 | 0.0878 | 604 |
+| 10 | history_two_tower | 0.3716 | [0.3490, 0.3938] | 0.0614 | 0.0561 | 604 |
+| 10 | ease_fold_in | 0.3588 | [0.3390, 0.3800] | 0.0650 | 0.0859 | 604 |
+
+Coverage trade-off: the served ranker's Coverage@10 is 0.0109, 0.0139, 0.0175, 0.0604 at N=1, 3, 5, 10. Most-popular is 0.0030, 0.0033, 0.0036, 0.0044. Item-item fold-in is 0.3317, 0.1351, 0.1058, 0.0878 and EASE fold-in is 0.2819, 0.1526, 0.1129, 0.0859. The served list stays close to popularity and far below those fold-in methods, so it leans on popular titles.
+
+N=1: `cold_start_ranker` is above most-popular by 0.0091, and the interval [-0.0001, 0.0184] includes 0.
+N=3: the served method `cold_start_ranker` beats most-popular. Difference 0.0218 [0.0115, 0.0319] (excludes 0).
+N=5: the served method `cold_start_ranker` beats most-popular. Difference 0.0309 [0.0204, 0.0416] (excludes 0).
+N=10: the served method `cold_start_ranker` beats most-popular. Difference 0.0577 [0.0424, 0.0740] (excludes 0).
+N=10: served minus `item_item_fold_in` NDCG@10 0.0271 [0.0151, 0.0382] (excludes 0).
+
+Round 1 paired gaps (pipeline minus the best simple baseline on that table) stay the recorded miss:
+
+N=1: pipeline_v1 minus `most_popular` NDCG@10 -0.2598 [-0.2809, -0.2388] (excludes 0).
+N=3: pipeline_v1 minus `most_popular` NDCG@10 -0.1421 [-0.1620, -0.1241] (excludes 0).
+N=5: pipeline_v1 minus `most_popular` NDCG@10 -0.0937 [-0.1104, -0.0762] (excludes 0).
+N=10: pipeline_v1 minus `item_item_fold_in` NDCG@10 -0.0394 [-0.0532, -0.0262] (excludes 0).
+
+Sensitivity view, added after the first results. Targets are only each held-out user's last 20% of ratings (the harness tail), and only where that tail is after the first N. The serving rule was not re-chosen here. Pipeline v1 is not scored on this target.
+
+| N | model | NDCG@10 | 95% CI | Recall@10 | Coverage@10 | eval users |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | cold_start_ranker | 0.0425 | [0.0361, 0.0494] | 0.0312 | 0.0109 | 599 |
+| 1 | served | 0.0425 | [0.0361, 0.0494] | 0.0312 | 0.0109 | 599 |
+| 1 | most_popular | 0.0397 | [0.0328, 0.0466] | 0.0289 | 0.0030 | 599 |
+| 1 | item_item_fold_in | 0.0264 | [0.0213, 0.0326] | 0.0163 | 0.3311 | 599 |
+| 1 | history_two_tower | 0.0281 | [0.0225, 0.0338] | 0.0187 | 0.2918 | 599 |
+| 1 | ease_fold_in | 0.0287 | [0.0231, 0.0357] | 0.0181 | 0.2817 | 599 |
+| 3 | cold_start_ranker | 0.0459 | [0.0388, 0.0528] | 0.0324 | 0.0139 | 599 |
+| 3 | served | 0.0459 | [0.0388, 0.0528] | 0.0324 | 0.0139 | 599 |
+| 3 | most_popular | 0.0405 | [0.0336, 0.0476] | 0.0293 | 0.0033 | 599 |
+| 3 | item_item_fold_in | 0.0398 | [0.0320, 0.0484] | 0.0240 | 0.1351 | 599 |
+| 3 | history_two_tower | 0.0420 | [0.0350, 0.0494] | 0.0296 | 0.1375 | 599 |
+| 3 | ease_fold_in | 0.0382 | [0.0313, 0.0461] | 0.0219 | 0.1520 | 599 |
+| 5 | cold_start_ranker | 0.0443 | [0.0379, 0.0510] | 0.0325 | 0.0175 | 599 |
+| 5 | served | 0.0443 | [0.0379, 0.0510] | 0.0325 | 0.0175 | 599 |
+| 5 | most_popular | 0.0414 | [0.0345, 0.0487] | 0.0296 | 0.0036 | 599 |
+| 5 | item_item_fold_in | 0.0412 | [0.0338, 0.0498] | 0.0259 | 0.1050 | 599 |
+| 5 | history_two_tower | 0.0418 | [0.0352, 0.0494] | 0.0295 | 0.0990 | 599 |
+| 5 | ease_fold_in | 0.0421 | [0.0347, 0.0500] | 0.0258 | 0.1121 | 599 |
+| 10 | cold_start_ranker | 0.0414 | [0.0351, 0.0480] | 0.0304 | 0.0604 | 599 |
+| 10 | served | 0.0414 | [0.0351, 0.0480] | 0.0304 | 0.0604 | 599 |
+| 10 | most_popular | 0.0442 | [0.0369, 0.0518] | 0.0320 | 0.0044 | 599 |
+| 10 | item_item_fold_in | 0.0457 | [0.0386, 0.0541] | 0.0319 | 0.0861 | 599 |
+| 10 | history_two_tower | 0.0450 | [0.0382, 0.0523] | 0.0330 | 0.0558 | 599 |
+| 10 | ease_fold_in | 0.0379 | [0.0313, 0.0445] | 0.0262 | 0.0859 | 599 |
+
+Sensitivity N=1: `cold_start_ranker` is above most-popular by 0.0028, and the interval [-0.0017, 0.0075] includes 0.
+Sensitivity N=3: the served method `cold_start_ranker` beats most-popular. Difference 0.0053 [0.0008, 0.0103] (excludes 0).
+Sensitivity N=5: `cold_start_ranker` is above most-popular by 0.0029, and the interval [-0.0025, 0.0083] includes 0.
+Sensitivity N=10: `cold_start_ranker` does not beat most-popular. Difference -0.0029 [-0.0095, 0.0038] (includes 0). The served ranker (0.0414) is below item-item fold-in (0.0457) and the history two-tower (0.0450).
+
+Warmed new-user top-10 latency (five popular titles rated 5): 0.0850s. Method `cold_start_ranker`.
+
+Cold-start experiment runtime: 501.8226s.
 
 <!-- END RESULTS TABLE -->

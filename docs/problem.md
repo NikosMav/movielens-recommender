@@ -58,6 +58,7 @@ Committed numbers live in `results/*.json`. Tuning grids and val scores live in 
 | **S4b** | User demographic features experiment (ml-1m only; ADR-0009). ml-latest-small is unchanged. |
 | **S3d** | Scale-up to MovieLens 32M (ADR-0011). Same protocol; budget limits are recorded before test metrics. |
 | **S5** | Serving (inference path, latency budget) |
+| **S5c** | New-user profile (cold start): rate a few films with no MovieLens id (ADR-0012) |
 | **S6** | Operations (monitoring, refresh, drift) |
 
 Each modeling stage reuses this harness. If a stage does not improve NDCG@10 (with CI context), write it up as a negative result rather than claiming progress.

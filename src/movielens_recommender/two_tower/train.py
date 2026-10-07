@@ -79,6 +79,7 @@ def _batch_loss(
     item_idx: torch.Tensor,
     device: torch.device,
     max_history: int,
+    user_id_dropout: float = 0.0,
 ) -> torch.Tensor:
     u_np = user_idx.cpu().numpy()
     i_np = item_idx.cpu().numpy()
@@ -87,7 +88,18 @@ def _batch_loss(
     )
     hist_t = torch.from_numpy(hist).to(device)
     mask_t = torch.from_numpy(mask).to(device)
-    user_vec = model.encode_users(user_idx, hist_t, mask_t)
+    zero_user_id = None
+    if user_id_dropout > 0.0 and model.training and not model.history_only:
+        zero_user_id = torch.bernoulli(
+            torch.full(
+                (user_idx.shape[0],),
+                float(user_id_dropout),
+                device=device,
+            )
+        )
+    user_vec = model.encode_users(
+        user_idx, hist_t, mask_t, zero_user_id=zero_user_id
+    )
 
     genres = torch.from_numpy(features.genres[i_np]).to(device)
     years = torch.from_numpy(features.years[i_np]).to(device)
@@ -120,6 +132,7 @@ def train_two_tower(
     relevance_threshold: float = 4.0,
     device: str | None = None,
     show_progress: bool = False,
+    score_without_user_id: bool = False,
 ) -> tuple[TwoTowerModel, TrainResult]:
     """Train on ``features``; optionally early-stop on validation NDCG@10.
 
@@ -139,6 +152,9 @@ def train_two_tower(
     max_epochs = int(hyperparams.get("max_epochs", 20))
     patience = int(hyperparams.get("patience", 3))
     max_history = int(hyperparams.get("max_history", 50))
+    user_id_dropout = float(hyperparams.get("user_id_dropout", 0.0))
+    history_only = bool(hyperparams.get("history_only", False))
+    cold_eval = bool(score_without_user_id) or history_only
 
     model = TwoTowerModel(
         n_users=features.n_users,
@@ -146,6 +162,7 @@ def train_two_tower(
         n_genres=features.n_genres,
         embedding_dim=emb,
         temperature=temperature,
+        history_only=history_only,
     ).to(dev)
 
     dataset = TensorDataset(
@@ -175,7 +192,13 @@ def train_two_tower(
             item_idx = item_idx.to(dev)
             opt.zero_grad(set_to_none=True)
             loss = _batch_loss(
-                model, features, user_idx, item_idx, dev, max_history
+                model,
+                features,
+                user_idx,
+                item_idx,
+                dev,
+                max_history,
+                user_id_dropout=user_id_dropout,
             )
             loss.backward()
             opt.step()
@@ -189,6 +212,7 @@ def train_two_tower(
             rec = TwoTowerRecommender.from_trained(
                 model, features, max_history=max_history, device=str(dev)
             )
+            rec.score_without_user_id = cold_eval
             score = ndcg_point_estimate(
                 rec.recommend,
                 val_split.train,
@@ -281,6 +305,9 @@ def fit_two_tower_recommender(
         relevance_threshold=relevance_threshold,
         max_history=int(hp.get("max_history", 50)),
     )
+    cold_eval = bool(hp.get("score_without_user_id", False)) or bool(
+        hp.get("history_only", False)
+    )
     model, result = train_two_tower(
         features,
         hyperparams=hp,
@@ -289,13 +316,16 @@ def fit_two_tower_recommender(
         relevance_threshold=relevance_threshold,
         device=device,
         show_progress=show_progress,
+        score_without_user_id=cold_eval,
     )
     rec = TwoTowerRecommender.from_trained(
         model,
         features,
         max_history=int(hp.get("max_history", 50)),
         device=device or ("cuda" if torch.cuda.is_available() else "cpu"),
+        hyperparams=hp,
     )
+    rec.score_without_user_id = cold_eval or bool(model.history_only)
     return rec, features, result
 
 

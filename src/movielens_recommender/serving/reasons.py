@@ -44,13 +44,16 @@ _SLUG_TO_GENRE: dict[str, str] = {slug_genre(genre): genre for genre in GENRES}
 
 _NEIGHBOR_FEATURES = frozenset({"item_item_score", "item_item_rank"})
 _RETRIEVER_FEATURES = frozenset({"two_tower_score", "two_tower_rank"})
+_EASE_FEATURES = frozenset({"ease_score", "ease_rank"})
 _ACTIVITY_FEATURES = frozenset({"user_n_ratings", "user_mean_rating", "user_std_rating"})
 
 _GENERIC_SIMILAR_VIEWERS = "Popular with viewers similar to you"
 _RETRIEVER_TEXT = "Ranked highly by the neural retriever for your taste profile"
+_EASE_TEXT = "Lines up with movies you have already rated"
 _NEIGHBOR_FALLBACK = "Close to movies you have already rated"
 _IN_BOTH_TEXT = "Both the neighbourhood model and the neural retriever suggested it"
 _POPULARITY_TEXT = "Widely rated by other viewers"
+POPULAR_WITH_MANY_VIEWERS = "Popular with many viewers"
 _RECENCY_TEXT = "Recently active in other viewers' ratings"
 _YEAR_TEXT = "Its release year fits the films you rate"
 _ACTIVITY_TEXT = "Your rating history is a pattern this ranker scores up"
@@ -123,6 +126,8 @@ def _family(feature: str) -> str | None:
         return "neighbor"
     if feature in _RETRIEVER_FEATURES:
         return "retriever"
+    if feature in _EASE_FEATURES:
+        return "ease"
     if feature == "in_both":
         return "in_both"
     if feature == "item_popularity":
@@ -161,6 +166,31 @@ def _best_neighbor(
             continue
         # Item–item scores are ``S @ r``, so the driver is similarity times
         # the rating, not similarity alone.
+        key = (sim * float(row.rating), sim, int(row.timestamp))
+        if best_key is None or key > best_key:
+            best_key = key
+            best = row
+    return best
+
+
+def _highly_rated_neighbor(
+    history: Sequence[HistoryItem],
+    similarity: Mapping[int, float],
+    *,
+    min_rating: float = 4.0,
+) -> HistoryItem | None:
+    """History row with rating >= ``min_rating`` and positive item similarity.
+
+    The driver is similarity times rating, matching the item–item score.
+    """
+    best: HistoryItem | None = None
+    best_key: tuple[float, float, int] | None = None
+    for row in history:
+        if float(row.rating) < min_rating:
+            continue
+        sim = float(similarity.get(int(row.item_id), 0.0))
+        if sim <= 0.0:
+            continue
         key = (sim * float(row.rating), sim, int(row.timestamp))
         if best_key is None or key > best_key:
             best_key = key
@@ -213,6 +243,9 @@ def explain_recommendation(
     top_k: int = 3,
     detail_k: int = 8,
     affinity_positive: Mapping[str, bool] | None = None,
+    include_demographics: bool = True,
+    because_rated: bool = False,
+    popularity_text: str | None = None,
 ) -> RecommendationExplanation:
     """Turn positive contributions into at most ``top_k`` sentences.
 
@@ -235,6 +268,8 @@ def explain_recommendation(
         family = _family(str(name))
         if family is None or value <= 0.0:
             continue
+        if not include_demographics and family == "similar_viewers":
+            continue
         grouped[family] = grouped.get(family, 0.0) + value
         if str(name).startswith("affinity_"):
             affinity_pos[str(name)[len("affinity_") :]] = True
@@ -247,15 +282,37 @@ def explain_recommendation(
     for family, mass in ranked:
         if len(reasons) >= top_k:
             break
-        text = _render(family, history, sims, affinity_pos)
+        text = _render(
+            family,
+            history,
+            sims,
+            affinity_pos,
+            popularity_text=popularity_text,
+        )
         if text is None:
             continue
         reasons.append(Reason(text=text, contribution=float(mass)))
 
+    if because_rated:
+        linked = _highly_rated_neighbor(history, sims)
+        if linked is not None:
+            title = display_title(linked.title)
+            reasons.append(
+                Reason(
+                    text=f"Because you rated {title} highly",
+                    contribution=float(sims.get(int(linked.item_id), 0.0)),
+                )
+            )
+
     detail_rows = [
         (str(name), float(value))
         for name, value in contributions.items()
-        if str(name) != "bias" and float(value) != 0.0
+        if str(name) != "bias"
+        and float(value) != 0.0
+        and (
+            include_demographics
+            or not (str(name).startswith("demo_") or str(name).startswith("group_"))
+        )
     ]
     detail_rows.sort(key=lambda item: (-abs(item[1]), item[0]))
     if detail_k >= 0:
@@ -274,15 +331,19 @@ def _render(
     history: Sequence[HistoryItem],
     similarity: Mapping[int, float],
     affinity_pos: Mapping[str, bool],
+    *,
+    popularity_text: str | None = None,
 ) -> str | None:
     if family == "neighbor":
         return _neighbor_text(history, similarity)
     if family == "retriever":
         return _RETRIEVER_TEXT
+    if family == "ease":
+        return _EASE_TEXT
     if family == "in_both":
         return _IN_BOTH_TEXT
     if family == "popularity":
-        return _POPULARITY_TEXT
+        return popularity_text or _POPULARITY_TEXT
     if family == "recency":
         return _RECENCY_TEXT
     if family == "year":

@@ -952,6 +952,390 @@ def render_demographics() -> str:
     return "\n".join(lines)
 
 
+def _cold_metric_row(n: int, name: str, metrics: dict, n_users: int) -> str:
+    return (
+        "| "
+        + " | ".join(
+            [
+                str(n),
+                name,
+                _fmt(float(metrics["ndcg@10"])),
+                _fmt_ci_cell(metrics.get("ndcg@10_ci")),
+                _fmt(float(metrics["recall@10"])),
+                _fmt(float(metrics["coverage@10"])),
+                str(n_users),
+            ]
+        )
+        + " |"
+    )
+
+
+def _beats_popularity_sentence(block: dict) -> str:
+    n = int(block["n"])
+    method = str(block.get("served_method"))
+    paired = block.get("paired_vs_most_popular") or {}
+    mean = float(paired["mean"])
+    low = float(paired["low"])
+    high = float(paired["high"])
+    excludes = "excludes 0" if paired.get("excludes_zero") else "includes 0"
+    gap = f"{_fmt(mean)} [{_fmt(low)}, {_fmt(high)}] ({excludes})"
+    if method == "most_popular":
+        return (
+            f"N={n}: the served method is most-popular, so it does not beat "
+            f"popularity. Serving popularity at this profile size is the "
+            f"validation choice. Difference {gap}."
+        )
+    if paired.get("beats_baseline"):
+        return (
+            f"N={n}: the served method `{method}` beats most-popular. "
+            f"Difference {gap}."
+        )
+    if mean > 0.0 and not paired.get("excludes_zero"):
+        return (
+            f"N={n}: `{method}` is above most-popular by {_fmt(mean)}, and the "
+            f"interval [{_fmt(low)}, {_fmt(high)}] includes 0."
+        )
+    return f"N={n}: `{method}` does not beat most-popular. Difference {gap}."
+
+
+def _coverage_tradeoff(by_n: list) -> str:
+    """Served Coverage@10 against popularity and the fold-in lists."""
+
+    def _cov(block: dict, name: str) -> str:
+        return _fmt(float(block["models"][name]["coverage@10"]))
+
+    ns = ", ".join(str(int(block["n"])) for block in by_n)
+    served = ", ".join(_cov(block, "served") for block in by_n)
+    popular = ", ".join(_cov(block, "most_popular") for block in by_n)
+    item_item = ", ".join(_cov(block, "item_item_fold_in") for block in by_n)
+    ease = ", ".join(_cov(block, "ease_fold_in") for block in by_n)
+    return (
+        f"Coverage trade-off: the served ranker's Coverage@10 is {served} at "
+        f"N={ns}. Most-popular is {popular}. Item-item fold-in is {item_item} "
+        f"and EASE fold-in is {ease}. The served list stays close to popularity "
+        "and far below those fold-in methods, so it leans on popular titles."
+    )
+
+
+def _sensitivity_n10_note(block: dict) -> str:
+    """Point comparison at N=10 on the harness tail, from the JSON."""
+    if int(block["n"]) != 10:
+        return ""
+    models = block.get("models") or {}
+    served = float(models["served"]["ndcg@10"])
+    item_item = float(models["item_item_fold_in"]["ndcg@10"])
+    tower = float(models["history_two_tower"]["ndcg@10"])
+    if served >= item_item or served >= tower:
+        return ""
+    return (
+        f" The served ranker ({_fmt(served)}) is below item-item fold-in "
+        f"({_fmt(item_item)}) and the history two-tower ({_fmt(tower)})."
+    )
+
+
+def _render_cold_start_round2(payload: dict) -> str:
+    """Panel once a round-2 measurement is in the JSON. Round 1 stays visible."""
+    lines: list[str] = []
+    lines.append("### New-user cold start (`ml-1m`, S5c)")
+    lines.append("")
+    lines.append(str(payload.get("difference_from_s4b", "")).strip())
+    lines.append("")
+    lines.append(
+        "The first pipeline is a negative result. It was trained on long "
+        "histories and re-ranked one candidate source. Those numbers are copied "
+        "below as `pipeline_v1` and were not recomputed. Round 2 was redesigned "
+        "after those results on the same 604 held-out users: dropout p=0.0 and "
+        "p=0.1, the short-profile ranker, and the per-N rule. The round-2 "
+        "held-out numbers are not a fully fresh test. Every choice was frozen "
+        "on validation before that second score."
+    )
+    lines.append("")
+    round2 = payload.get("round2") or {}
+    representation = payload.get("representation") or {}
+    serving = round2.get("serving_by_n") or {}
+    serving_text = ", ".join(
+        f"N={n} `{serving[n]}`" for n in ("1", "3", "5", "10") if n in serving
+    )
+    lines.append(
+        f"Round 2 representation: `{representation.get('winner')}` "
+        f"(validation NDCG@10 {_fmt(float(representation.get('val_ndcg@10', 0.0)))}). "
+        f"Dropout grid edge: best p={representation.get('dropout_best_p')} "
+        f"(at edge: {representation.get('dropout_best_at_edge')}); "
+        f"selected model at edge: {representation.get('selected_at_grid_edge')}."
+    )
+    lines.append("")
+    lines.append(
+        f"Cold-start ranker K={round2.get('candidate_k')} "
+        f"({round2.get('best_iteration')} trees, demographics off). "
+        f"Served method by profile size: {serving_text}."
+    )
+    lines.append("")
+    why = round2.get("popularity_vs_known_users") or payload.get("popularity_vs_known_users") or ""
+    lines.append(str(why))
+    lines.append("")
+    lines.append(
+        "Known users below are copied from `results/ml-1m.json`. "
+        "They were in the training matrix. The new-user rows were not."
+    )
+    lines.append("")
+    lines.append("| known-user model | NDCG@10 | 95% CI | Recall@10 | Coverage@10 |")
+    lines.append("| --- | --- | --- | --- | --- |")
+    known = (payload.get("known_users") or {}).get("models") or {}
+    for name in ("most_popular", "item_item_cosine", "two_tower", "lambdarank"):
+        block = known.get(name) or {}
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    name,
+                    _fmt(float(block["ndcg@10"])),
+                    _fmt_ci_cell(block.get("ndcg@10_ci")),
+                    _fmt(float(block["recall@10"])),
+                    _fmt(float(block["coverage@10"])),
+                ]
+            )
+            + " |"
+        )
+    lines.append("")
+    lines.append(
+        "Primary protocol, fixed before this run: the model sees the first N "
+        "chronological ratings, and the targets are all later ratings "
+        "(relevance at least 4). Coverage has no interval."
+    )
+    lines.append("")
+    lines.append(
+        "| N | model | NDCG@10 | 95% CI | Recall@10 | Coverage@10 | eval users |"
+    )
+    lines.append("| --- | --- | --- | --- | --- | --- | --- |")
+    order = (
+        "pipeline_v1",
+        "cold_start_ranker",
+        "served",
+        "most_popular",
+        "item_item_fold_in",
+        "history_two_tower",
+        "ease_fold_in",
+    )
+    for block in payload.get("by_n") or []:
+        n = int(block["n"])
+        models = block.get("models") or {}
+        n_users = int(block.get("n_eval_users", 0))
+        for name in order:
+            metrics = models.get(name) or {}
+            lines.append(_cold_metric_row(n, name, metrics, n_users))
+    lines.append("")
+    primary = list(payload.get("by_n") or [])
+    if primary:
+        lines.append(_coverage_tradeoff(primary))
+        lines.append("")
+    for block in primary:
+        lines.append(_beats_popularity_sentence(block))
+        paired = block.get("paired_bootstrap") or {}
+        # Same gap as the popularity sentence when most-popular is the best simple baseline.
+        if paired.get("baseline") == "most_popular":
+            continue
+        n = int(block["n"])
+        excludes = "excludes 0" if paired.get("excludes_zero") else "includes 0"
+        lines.append(
+            f"N={n}: served minus `{paired.get('baseline')}` "
+            f"NDCG@10 {_fmt(float(paired['mean']))} "
+            f"[{_fmt(float(paired['low']))}, {_fmt(float(paired['high']))}] "
+            f"({excludes})."
+        )
+    lines.append("")
+    round1 = payload.get("round1") or {}
+    lines.append(
+        "Round 1 paired gaps (pipeline minus the best simple baseline on that "
+        "table) stay the recorded miss:"
+    )
+    lines.append("")
+    for block in round1.get("by_n") or []:
+        paired = block.get("paired_bootstrap") or {}
+        n = int(block["n"])
+        excludes = "excludes 0" if paired.get("excludes_zero") else "includes 0"
+        lines.append(
+            f"N={n}: pipeline_v1 minus `{paired.get('baseline')}` "
+            f"NDCG@10 {_fmt(float(paired['mean']))} "
+            f"[{_fmt(float(paired['low']))}, {_fmt(float(paired['high']))}] "
+            f"({excludes})."
+        )
+    lines.append("")
+    sens = payload.get("sensitivity_last_20_percent") or {}
+    lines.append(
+        "Sensitivity view, added after the first results. Targets are only each "
+        "held-out user's last 20% of ratings (the harness tail), and only where "
+        "that tail is after the first N. The serving rule was not re-chosen here. "
+        "Pipeline v1 is not scored on this target."
+    )
+    lines.append("")
+    lines.append(
+        "| N | model | NDCG@10 | 95% CI | Recall@10 | Coverage@10 | eval users |"
+    )
+    lines.append("| --- | --- | --- | --- | --- | --- | --- |")
+    sens_order = (
+        "cold_start_ranker",
+        "served",
+        "most_popular",
+        "item_item_fold_in",
+        "history_two_tower",
+        "ease_fold_in",
+    )
+    for block in sens.get("by_n") or []:
+        n = int(block["n"])
+        models = block.get("models") or {}
+        n_users = int(block.get("n_eval_users", 0))
+        for name in sens_order:
+            metrics = models.get(name) or {}
+            lines.append(_cold_metric_row(n, name, metrics, n_users))
+    lines.append("")
+    for block in sens.get("by_n") or []:
+        lines.append(
+            "Sensitivity " + _beats_popularity_sentence(block) + _sensitivity_n10_note(block)
+        )
+    lines.append("")
+    serving_latency = payload.get("serving") or {}
+    if serving_latency.get("latency_sec") is not None:
+        method = serving_latency.get("method")
+        extra = f" Method `{method}`." if method else ""
+        lines.append(
+            "Warmed new-user top-10 latency "
+            f"(five popular titles rated 5): {_fmt(float(serving_latency['latency_sec']))}s."
+            f"{extra}"
+        )
+        lines.append("")
+    if payload.get("runtime_sec") is not None:
+        lines.append(f"Cold-start experiment runtime: {_fmt(float(payload['runtime_sec']))}s.")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def render_cold_start() -> str:
+    """S5c panel. Empty when results/cold-start/ml-1m.json is absent.
+
+    An empty return leaves the earlier README panels byte-identical.
+    A file without ``round2`` keeps the original panel text.
+    """
+    path = RESULTS_DIR / "cold-start" / "ml-1m.json"
+    if not path.is_file():
+        return ""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if "round2" in payload:
+        return _render_cold_start_round2(payload)
+    lines: list[str] = []
+    lines.append("### New-user cold start (`ml-1m`, S5c)")
+    lines.append("")
+    lines.append(str(payload.get("difference_from_s4b", "")).strip())
+    lines.append("")
+    representation = payload.get("representation") or {}
+    candidates = payload.get("candidates") or {}
+    ranker = payload.get("ranker") or {}
+    lines.append(
+        "Choices were fixed on the validation window of the users who stayed "
+        "in training, before the held-out ratings were scored."
+    )
+    lines.append("")
+    lines.append(
+        f"User representation: `{representation.get('winner')}` "
+        f"(validation NDCG@10 {_fmt(float(representation.get('val_ndcg@10', 0.0)))}). "
+        f"Dropout grid edge: best p={representation.get('dropout_best_p')} "
+        f"(at edge: {representation.get('dropout_best_at_edge')}); "
+        f"selected model at edge: {representation.get('selected_at_grid_edge')}."
+    )
+    lines.append("")
+    lines.append(
+        f"Candidate source: `{candidates.get('winner')}` "
+        f"(K={candidates.get('k')}). "
+        f"Ranker: `{ranker.get('winner')}` "
+        f"({ranker.get('best_iteration')} trees)."
+    )
+    lines.append("")
+    lines.append(
+        "Known users below are copied from `results/ml-1m.json`. "
+        "They were in the training matrix. The new-user rows were not."
+    )
+    lines.append("")
+    lines.append("| known-user model | NDCG@10 | 95% CI | Recall@10 | Coverage@10 |")
+    lines.append("| --- | --- | --- | --- | --- |")
+    known = (payload.get("known_users") or {}).get("models") or {}
+    for name in ("most_popular", "item_item_cosine", "two_tower", "lambdarank"):
+        block = known.get(name) or {}
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    name,
+                    _fmt(float(block["ndcg@10"])),
+                    _fmt_ci_cell(block.get("ndcg@10_ci")),
+                    _fmt(float(block["recall@10"])),
+                    _fmt(float(block["coverage@10"])),
+                ]
+            )
+            + " |"
+        )
+    lines.append("")
+    lines.append(
+        "For a brand-new user the model sees only the first N chronological "
+        "ratings. NDCG@10, Recall@10, and Coverage@10 are on the later ratings "
+        "(relevance at least 4). Coverage has no interval."
+    )
+    lines.append("")
+    lines.append(
+        "| N | model | NDCG@10 | 95% CI | Recall@10 | Coverage@10 | eval users |"
+    )
+    lines.append("| --- | --- | --- | --- | --- | --- | --- |")
+    order = (
+        "most_popular",
+        "item_item_fold_in",
+        "ease_fold_in",
+        "history_two_tower",
+        "pipeline",
+    )
+    for block in payload.get("by_n") or []:
+        n = int(block["n"])
+        models = block.get("models") or {}
+        n_users = int(block.get("n_eval_users", 0))
+        for name in order:
+            metrics = models.get(name) or {}
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        str(n),
+                        name,
+                        _fmt(float(metrics["ndcg@10"])),
+                        _fmt_ci_cell(metrics.get("ndcg@10_ci")),
+                        _fmt(float(metrics["recall@10"])),
+                        _fmt(float(metrics["coverage@10"])),
+                        str(n_users),
+                    ]
+                )
+                + " |"
+            )
+    lines.append("")
+    for block in payload.get("by_n") or []:
+        paired = block.get("paired_bootstrap") or {}
+        n = int(block["n"])
+        excludes = "excludes 0" if paired.get("excludes_zero") else "includes 0"
+        lines.append(
+            f"N={n}: pipeline minus `{paired.get('baseline')}` "
+            f"NDCG@10 {_fmt(float(paired['mean']))} "
+            f"[{_fmt(float(paired['low']))}, {_fmt(float(paired['high']))}] "
+            f"({excludes})."
+        )
+    lines.append("")
+    serving = payload.get("serving") or {}
+    if serving.get("latency_sec") is not None:
+        lines.append(
+            "Warmed new-user top-10 latency "
+            f"(five popular titles rated 5): {_fmt(float(serving['latency_sec']))}s."
+        )
+        lines.append("")
+    if payload.get("runtime_sec") is not None:
+        lines.append(f"Cold-start experiment runtime: {_fmt(float(payload['runtime_sec']))}s.")
+        lines.append("")
+    return "\n".join(lines)
+
+
 def build_section(results: list[tuple[str, dict]]) -> str:
     parts = [BEGIN, ""]
     for filename, payload in results:
@@ -962,6 +1346,9 @@ def build_section(results: list[tuple[str, dict]]) -> str:
     demo = render_demographics()
     if demo:
         parts.append(demo)
+    cold = render_cold_start()
+    if cold:
+        parts.append(cold)
     parts.append(END)
     return "\n".join(parts) + "\n"
 

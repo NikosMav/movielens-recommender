@@ -24,6 +24,8 @@ class TwoTowerRecommender:
         self._device = "cpu"
         self._seen: dict[int, np.ndarray | set[int]] = {}
         self._hyperparams: dict[str, Any] = {}
+        # New-user scoring zeros the id embedding. The headline model leaves this off.
+        self.score_without_user_id = False
 
     @classmethod
     def from_trained(
@@ -42,6 +44,9 @@ class TwoTowerRecommender:
         obj._max_history = max_history
         obj._device = device
         obj._hyperparams = dict(hyperparams or {})
+        obj.score_without_user_id = bool(
+            obj._hyperparams.get("score_without_user_id", False)
+        ) or bool(getattr(model, "history_only", False))
         obj._item_vectors = obj._encode_all_items()
         if train_for_seen is not None:
             obj._seen = {
@@ -77,14 +82,10 @@ class TwoTowerRecommender:
             self._features,
             max_history=self._max_history,
         )
-        device = torch.device(self._device)
-        self._model.eval()
-        with torch.no_grad():
-            user_t = torch.tensor([uidx], dtype=torch.long, device=device)
-            hist_t = torch.from_numpy(hist).to(device)
-            mask_t = torch.from_numpy(mask).to(device)
-            vec = self._model.encode_users(user_t, hist_t, mask_t)
-        return vec.detach().cpu().numpy().astype(np.float32)[0]
+        vecs = self._encode_user_batch(
+            np.asarray([uidx], dtype=np.int64), hist, mask
+        )
+        return vecs[0]
 
     def topk_for_user(self, user_id: int, n: int) -> list[tuple[int, float]]:
         """Top-n ``(item_id, score)`` for one fit user.
@@ -149,19 +150,7 @@ class TwoTowerRecommender:
         feat = self._features
         user_idx = np.arange(feat.n_users, dtype=np.int64)
         hist, mask = pad_histories(user_idx, feat, max_history=self._max_history)
-        device = torch.device(self._device)
-        self._model.eval()
-        with torch.no_grad():
-            user_t = torch.from_numpy(user_idx).to(device)
-            hist_t = torch.from_numpy(hist).to(device)
-            mask_t = torch.from_numpy(mask).to(device)
-            user_vecs = (
-                self._model.encode_users(user_t, hist_t, mask_t)
-                .detach()
-                .cpu()
-                .numpy()
-                .astype(np.float32)
-            )
+        user_vecs = self._encode_user_batch(user_idx, hist, mask)
         scores = user_vecs @ self._item_vectors.T
         for uid, seen in self._seen.items():
             uidx = feat.user_index.get(int(uid))
@@ -305,6 +294,91 @@ class TwoTowerRecommender:
                 if np.isfinite(scores[row, j])
             ]
         return out
+
+    def topk_for_new_histories(
+        self,
+        histories: Mapping[int, Sequence[int]],
+        n: int,
+        *,
+        mask_items: Mapping[int, Sequence[int]] | None = None,
+    ) -> dict[int, list[tuple[int, float]]]:
+        """Exact top-n for users who have no id row.
+
+        History is chronological item ids (oldest first). Only the last
+        ``max_history`` ids in the fit catalog are pooled. The id embedding
+        is zero. Profile items are excluded, and so is anything in
+        ``mask_items``. Unknown catalog ids in the history are ignored.
+        """
+        if (
+            n <= 0
+            or self._model is None
+            or self._features is None
+            or self._item_vectors is None
+            or not histories
+        ):
+            return {}
+        feat = self._features
+        uids = [int(uid) for uid in histories]
+        width = int(self._max_history)
+        hist = np.zeros((len(uids), width), dtype=np.int64)
+        mask = np.zeros((len(uids), width), dtype=np.float32)
+        profile_cols: list[list[int]] = []
+        for row, uid in enumerate(uids):
+            cols: list[int] = []
+            for item in histories[uid]:
+                col = feat.item_index.get(int(item))
+                if col is not None:
+                    cols.append(int(col))
+            profile_cols.append(cols)
+            seq = cols[-width:] if len(cols) > width else cols
+            if seq:
+                hist[row, : len(seq)] = seq
+                mask[row, : len(seq)] = 1.0
+        # Dummy ids. history_only ignores them; otherwise zero_user_id drops them.
+        user_idx = np.zeros(len(uids), dtype=np.int64)
+        user_vecs = self._encode_user_batch(user_idx, hist, mask, force_zero_user_id=True)
+        scores = user_vecs @ self._item_vectors.T
+        for row, cols in enumerate(profile_cols):
+            if cols:
+                scores[row, cols] = -np.inf
+        if mask_items:
+            for row, uid in enumerate(uids):
+                for item_id in mask_items.get(uid, ()):
+                    col = feat.item_index.get(int(item_id))
+                    if col is not None:
+                        scores[row, col] = -np.inf
+        out: dict[int, list[tuple[int, float]]] = {}
+        for row, uid in enumerate(uids):
+            chosen = _topk_indices(scores[row], n)
+            out[uid] = [
+                (int(feat.item_ids[j]), float(scores[row, j]))
+                for j in chosen
+                if np.isfinite(scores[row, j])
+            ]
+        return out
+
+    def _encode_user_batch(
+        self,
+        user_idx: np.ndarray,
+        hist: np.ndarray,
+        mask: np.ndarray,
+        *,
+        force_zero_user_id: bool = False,
+    ) -> np.ndarray:
+        assert self._model is not None
+        device = torch.device(self._device)
+        self._model.eval()
+        zero = None
+        if force_zero_user_id or self.score_without_user_id or self._model.history_only:
+            zero = torch.ones(len(user_idx), dtype=torch.float32, device=device)
+        with torch.no_grad():
+            vec = self._model.encode_users(
+                torch.as_tensor(user_idx, dtype=torch.long, device=device),
+                torch.from_numpy(np.ascontiguousarray(hist)).to(device),
+                torch.from_numpy(np.ascontiguousarray(mask)).to(device),
+                zero_user_id=zero,
+            )
+        return vec.detach().cpu().numpy().astype(np.float32)
 
     def hyperparams(self) -> dict[str, Any]:
         return dict(self._hyperparams)
