@@ -90,8 +90,39 @@ On ml-32M the same four differences are taken from the README rendering of `resu
 
 The first end-to-end process exited while retrieving validation candidates, before `results/ml-32m.json` existed. Sparse item–item `topk_with_scores` left a CSR product as a CSR matrix, and `np.asarray` refused it. No test metric was written. The scorer now densifies that product. The sample, EASE head size, grids, and seed counts are unchanged. The run was restarted with the saved tuning files.
 
+After `results/ml-32m.json` was written, the ranker recreate command in that file was corrected from `configs/default.yaml` to `configs/ml-32m.yaml`. No metric changed.
+
 ## Outcome
 
-The test pass had not been run when the decisions above were locked. The paragraph below is copied from `results/ml-32m.json` after that pass and does not change the sample, the EASE head size, the grids, or the seed counts.
+The decisions above were not changed after the test file existed. Chosen configs that sit on a grid edge were left there: item–item `k_neighbors=50` (low edge of `{50, 100, 200}`), RP3beta `top_k=300` (high edge of `{100, 300}`), ALS `alpha=20` (low edge of `{40, 20}`), two-tower learning rate `0.001` (low edge of `{0.001, 0.003}`). EASE `l2=5000` is interior.
 
-Pending: `results/ml-32m.json` is not in the tree yet.
+`results/ml-32m.json` `runtime_sec` is 6560.575. That is the process started with the saved tuning files. It does not include the earlier grid search. The two-tower full-train refit in that file is `train_wall_time_sec` 2637.302 (5 epochs, one seed). The ranker block `runtime_sec` is 2841.798, which includes its own fit-train two-tower refit.
+
+Test NDCG@10 below is the README four-decimal rendering of `results/ml-32m.json`. LambdaRank is the 3-seed mean. Two-tower is one seed.
+
+| model | four-decimal NDCG@10 |
+| --- | --- |
+| two_tower | 0.1436 |
+| lambdarank | 0.1423 |
+| ease | 0.1243 |
+| item_item_cosine (k=100, shrinkage 0) | 0.1113 |
+| item_item_cosine_tuned (k=50, shrinkage 0) | 0.1093 |
+| rp3beta | 0.0991 |
+| als_tuned | 0.0983 |
+| als | 0.0800 |
+| most_popular | 0.0699 |
+
+ml-1m order was lambdarank, item_item_cosine, two_tower, ease, rp3beta, als_tuned, most_popular. On ml-32M it is two_tower, lambdarank, ease, item_item_cosine, rp3beta, als_tuned, most_popular. The ranking does not hold.
+
+Gaps versus the pre-registered four-decimal differences:
+
+- two_tower − item_item_cosine flips, from −0.0009 to +0.0323 (0.1436 − 0.1113).
+- two_tower − ease grows, from +0.0008 to +0.0193 (0.1436 − 0.1243).
+- lambdarank − item_item_cosine grows, from +0.0072 to +0.0310 (0.1423 − 0.1113).
+- lambdarank − ease grows, from +0.0089 to +0.0180 (0.1423 − 0.1243).
+
+Two-tower's point estimate is also above the LambdaRank mean (0.1436 vs 0.1423). On ml-1m LambdaRank led (0.1273 vs 0.1192), so that pair flips too. The intervals overlap: two-tower NDCG@10 CI [0.1398, 0.1479], LambdaRank primary-seed CI [0.1391, 0.1472]. `no_ranker` on the winning two-tower candidate list is 0.1436, the same point as the retriever, so LambdaRank did not raise NDCG@10 over that list.
+
+Recall@200 is 0.6243 (two-tower), 0.5961 (EASE), 0.5541 (item–item). Coverage@10 is 0.0411, 0.0255, and 0.0308 on that same order. Tail NDCG@10 is 0.0006 (two-tower), 0.0000 (EASE), 0.0022 (item–item), 0.0049 (RP3beta). EASE's tail is zero because items outside the top 12000 are not scored. Two-tower's NDCG lead is on the head (head NDCG@10 0.1460 vs item–item 0.1114), not on the tail.
+
+Caveats that were fixed before this file: ml-32M item–item is sparse top-k, not the ml-1m all-neighbour model; the evaluation is 8000 of 196517 users (`user_ids_sha256` `6b0d5cf6ce14cf5815e71f620b1dd5f37f7e6f09ac13ae5f3d138563b035c980`); coverage is that sample's lists; two-tower is one seed here and a 3-seed mean on ml-1m; there is no global time cutoff.

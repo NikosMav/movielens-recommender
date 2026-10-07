@@ -117,6 +117,8 @@ def recreate_command(dataset: str) -> str:
     """CLI command that retrains the gitignored refit ranker for ``dataset``."""
     if dataset == "ml-1m":
         config = "configs/ml-1m.yaml"
+    elif dataset == "ml-32m":
+        config = "configs/ml-32m.yaml"
     else:
         config = "configs/default.yaml"
     return f"movielens-recommender run --config {config}"

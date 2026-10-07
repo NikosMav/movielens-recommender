@@ -1,0 +1,81 @@
+{
+  "dataset": "ml-32m",
+  "dataset_sha256": "e4a68655d7386b8f95f2f2424b2ff975dfdd15ffd59e0d864a14dca43e99d6ee",
+  "primary_metric": "ndcg@10",
+  "protocol": "Fit each trial on fit-train only; select by validation NDCG@10 with early stopping. Never uses test. Refit on full_train for best_epoch epochs before test eval (ADR-0005 / ADR-0006).",
+  "seed": 42,
+  "two_tower": {
+    "best_epoch": 5,
+    "best_hyperparams": {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.001,
+      "max_epochs": 6,
+      "max_history": 50,
+      "patience": 2,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    },
+    "best_val_score": 0.100781,
+    "early_stopping": "Train on fit-train; stop when validation NDCG@10 does not improve for `patience` epochs. Refit on full-train uses best_epoch as the fixed epoch count (no validation).",
+    "grid": [
+      {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.001,
+        "max_epochs": 6,
+        "max_history": 50,
+        "patience": 2,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.003,
+        "max_epochs": 6,
+        "max_history": 50,
+        "patience": 2,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      }
+    ],
+    "model": "two_tower",
+    "primary_metric": "ndcg@10",
+    "trials": [
+      {
+        "best_epoch": 5,
+        "epochs_trained": 6,
+        "hyperparams": {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.001,
+          "max_epochs": 6,
+          "max_history": 50,
+          "patience": 2,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        "val_ndcg@10": 0.100781,
+        "wall_time_sec": 3613.633
+      },
+      {
+        "best_epoch": 3,
+        "epochs_trained": 5,
+        "hyperparams": {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.003,
+          "max_epochs": 6,
+          "max_history": 50,
+          "patience": 2,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        "val_ndcg@10": 0.098709,
+        "wall_time_sec": 3441.511
+      }
+    ]
+  },
+  "val_fraction": 0.1
+}
