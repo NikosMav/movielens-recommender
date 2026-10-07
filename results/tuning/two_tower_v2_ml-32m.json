@@ -63,7 +63,25 @@
       },
       "val_ndcg@10": 0.078218,
       "wall_time_sec": 3062.695
+    },
+    {
+      "best_epoch": 3,
+      "epochs_trained": 3,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.001,
+        "loss": "sampled_softmax",
+        "max_epochs": 3,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 1,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.096709,
+      "wall_time_sec": 2100.978
     }
   ],
-  "tune_wall_sec": 3062.695
+  "tune_wall_sec": 5163.673
 }
