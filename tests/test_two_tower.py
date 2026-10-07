@@ -341,6 +341,83 @@ def test_reduced_ml32m_budget_skips_full_softmax():
     )
 
 
+def test_matched_budget_and_edge_extension_are_fixed_rules():
+    from movielens_recommender.two_tower.plan import (
+        edge_extension_decision,
+        matched_ml32m_budget,
+        matched_verdict,
+        ml1m_edge_budget,
+    )
+
+    budget = matched_ml32m_budget(
+        sampled_val_wall_sec=2100.978,
+        sampled_val_epochs=3,
+        sampled_test_wall_sec=2400.219,
+        sampled_test_epochs=3,
+        in_batch_epoch_sec=1312.0,
+        reference_epochs=5,
+        reference_val_ndcg10=0.100781,
+    )
+    trial = budget["trial"]
+    assert budget["cap_sec"] == 3 * 3600
+    assert budget["max_epochs"] == 6
+    assert budget["patience"] == 2
+    assert trial["embedding_dim"] == 64
+    assert trial["learning_rate"] == 0.001
+    assert trial["temperature"] == 0.1
+    assert trial["n_negatives"] == 256
+    assert trial["loss"] == "sampled_softmax"
+    assert budget["seeds"] == [42]
+    assert budget["validation_plus_test_within_cap"] is True
+    assert budget["all_stages_at_6_epochs_within_cap"] is False
+    assert matched_verdict(
+        beats_validation=False, best_epoch=4, max_epochs=6, test_status="not_run"
+    ) == "loses_at_matched_budget"
+    assert matched_verdict(
+        beats_validation=False, best_epoch=6, max_epochs=6, test_status="not_run"
+    ) == "truncated"
+    assert matched_verdict(
+        beats_validation=True, best_epoch=5, max_epochs=6, test_status="not_run"
+    ) == "inconclusive"
+
+    edges = ml1m_edge_budget(
+        {"embedding_dim": 64, "learning_rate": 0.003, "temperature": 0.2},
+        0.08556,
+    )
+    assert edges["chosen_after_test_results"] is True
+    assert edges["n_trials"] == 8
+    assert edges["max_epochs"] == 40
+    assert edges["patience"] == 3
+    assert {row["embedding_dim"] for row in edges["grid"]} == {64, 128}
+    assert {row["learning_rate"] for row in edges["grid"]} == {0.003, 0.01}
+    assert {row["temperature"] for row in edges["grid"]} == {0.2, 0.5}
+    assert {row["loss"] for row in edges["grid"]} == {"sampled_softmax"}
+    prior = edges["prior_hyperparams"]
+    held = edge_extension_decision(
+        [
+            {"hyperparams": prior, "val_ndcg@10": 0.09},
+            {
+                "hyperparams": {"embedding_dim": 128, "learning_rate": 0.01, "temperature": 0.5},
+                "val_ndcg@10": 0.09,
+            },
+        ],
+        prior,
+    )
+    assert held["winner_held"] is True
+    changed = edge_extension_decision(
+        [
+            {"hyperparams": prior, "val_ndcg@10": 0.09},
+            {
+                "hyperparams": {"embedding_dim": 128, "learning_rate": 0.01, "temperature": 0.5},
+                "val_ndcg@10": 0.091,
+            },
+        ],
+        prior,
+    )
+    assert changed["winner_held"] is False
+    assert changed["winner"]["hyperparams"]["embedding_dim"] == 128
+
+
 def test_epoch_checkpoint_resumes(tmp_path):
     train = _toy_ratings()
     movies = _toy_movies()

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (S3e). The ml-1m protocol and compute budget are fixed from `results/budget/two-tower-v2.json` before any test metric. That file was built from a timing probe (`results/budget/two-tower-v2-probe.json`) that records no ranking metric (`ranking_metrics_used` is false). The ml-32m grid in that file was abandoned for compute. The replacement is the amendment below and `results/budget/two-tower-v2-ml32m-reduced.json`, fixed before any ml-32m validation or test metric. The outcome section is filled only after the corresponding `results/two-tower-v2/` file exists.
+Accepted (S3e). The ml-1m protocol and compute budget are fixed from `results/budget/two-tower-v2.json` before any test metric. That file was built from a timing probe (`results/budget/two-tower-v2-probe.json`) that records no ranking metric (`ranking_metrics_used` is false). The ml-32m grid in that file was abandoned for compute. The replacement is the amendment below and `results/budget/two-tower-v2-ml32m-reduced.json`, fixed before any ml-32m validation or test metric. A later amendment, matched epoch budget and the ml-1m edge check, was added after those test files existed and before that round was scored. The outcome section is filled only after the corresponding `results/two-tower-v2/` file exists.
 
 ## Context
 
@@ -87,9 +87,28 @@ LambdaRank on ml-32m runs only if the selected config beats the published valida
 
 The app stays on the current model. The app rule needs a paired interval against a reference-tower ranker trained in this run, and this amendment does not train that ranker.
 
+## Amendment: matched epoch budget and ml-1m edge check
+
+This amendment was written after `results/two-tower-v2/ml-1m.json` and `results/two-tower-v2/ml-32m.json` existed, and before either check below was scored. The first ml-32m sampled-softmax trials all stopped at `max_epochs` 3 while still improving. The published reference had `max_epochs` 6, patience 2, and stopped at epoch 5. That comparison is not matched. The ml-1m sampled-softmax winner sat on three high edges, and its `best_epoch` equalled `max_epochs` 20.
+
+**ml-32m.** One retrain of the first-round validation winner: sampled softmax, dim 64, learning rate 0.001, temperature 0.1, 256 negatives. Epoch budget matches the published reference: `max_epochs` 6, patience 2, seed 42. Same split and the same 8,000-user sample. The file is `results/budget/two-tower-v2-ml32m-matched.json`. Cap 10800 s (3 h), from the start of this round.
+
+Rates used only to decide whether a later stage fits, taken from the finished 3-epoch run and the probe: sampled validation 700.326 s/epoch (2100.978 s over 3 epochs), sampled test training 800.073 s/epoch (2400.219 s over 3 epochs), in-batch probe 1312.0 s/epoch, item–item extrapolation 432.5 s. A 6-epoch validation is 4202.0 s. A 6-epoch test refit is 4800.4 s. Together those fit (`validation_plus_test_within_cap` is true). A 6-epoch ranker projection is 4634.5 s and the reference refit is 5 × 1312.0 = 6560.0 s. All four stages at 6 epochs do not fit.
+
+Order, fixed here:
+
+1. Validation always runs.
+2. Full-train test scoring runs only if validation NDCG@10 is strictly above 0.100781 and the time left covers `best_epoch` × 800.073 s.
+3. LambdaRank runs only if test was scored and the time left covers `best_epoch` × 700.326 s plus 432.5 s. Demographics `off`, K=200, seeds from `configs/ml-32m.yaml`.
+4. The in-batch reference is refit for seed 42 and the published 5 epochs only if the time left covers 6560.0 s. That refit is what makes a paired interval possible. Otherwise the comparison stays unpaired.
+
+If validation does not beat 0.100781 and `best_epoch` is below 6, the result is: sampled softmax does not beat the in-batch reference on ml-32M at matched epoch budget. If `best_epoch` is still 6, the run is truncated and is not called a negative result. If validation wins but the test is unscored, or the test is scored without a paired interval, the comparison is inconclusive. A paired interval that excludes 0 decides a loss or a win on test. This round does not switch the Streamlit app. The original three switch conditions still apply.
+
+**ml-1m.** Validation only, sampled softmax only, after the test file existed. The grid does not use the test metrics to choose its axes. It extends the high edges: dim `{64, 128}`, learning rate `{0.003, 0.01}`, temperature `{0.2, 0.5}`, `max_epochs` 40, patience 3 (the ml-1m factorial patience). Eight trials. The file is `results/budget/two-tower-v2-ml1m-edges.json`. The prior winner is dim 64, learning rate 0.003, temperature 0.2, validation NDCG@10 0.08556. It is one of the eight points and is trained again at the longer budget. The winner changes only when another point is strictly higher. A tie keeps the prior point. Test (seeds 42, 43, 44) and LambdaRank are re-scored only when the winner changes. Otherwise the edges were checked and the winner held.
+
 ## Outcome
 
-ml-1m was scored before the ml-32m amendment. Its grid was not changed after `results/two-tower-v2/ml-1m.json` existed. The ml-1m numbers are copied from `results/tuning/two_tower_v2_ml-1m.json` and `results/two-tower-v2/ml-1m.json`. The ml-32m numbers are copied from `results/tuning/two_tower_v2_ml-32m.json` and `results/two-tower-v2/ml-32m.json`, both written after the amendment above.
+ml-1m was scored before the ml-32m amendment. Its grid was not changed after `results/two-tower-v2/ml-1m.json` existed. The ml-1m numbers are copied from `results/tuning/two_tower_v2_ml-1m.json` and `results/two-tower-v2/ml-1m.json`. The ml-32m numbers are copied from `results/tuning/two_tower_v2_ml-32m.json` and `results/two-tower-v2/ml-32m.json`, both written after the reduced-budget amendment. The matched-budget round and the ml-1m edge check have no scores yet.
 
 **ml-1m validation.** 36 trials, `tune_wall_sec` 7315.623, under the 7704.0 s cap. Reference validation NDCG@10 is 0.082601.
 

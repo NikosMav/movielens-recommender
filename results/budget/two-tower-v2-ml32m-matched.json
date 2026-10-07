@@ -1,0 +1,40 @@
+{
+  "added_after": "first ml-32m test result in results/two-tower-v2/ml-32m.json",
+  "all_stages_at_6_epochs_within_cap": false,
+  "cap_covers": "validation, then test, ranker, and reference refit if they fit",
+  "cap_sec": 10800.0,
+  "dataset": "ml-32m",
+  "experiment": "s3e_matched_epoch_budget",
+  "in_batch_epoch_sec": 1312.0,
+  "item_item_extrapolation_sec": 432.5,
+  "max_epochs": 6,
+  "patience": 2,
+  "projected_ranker_sec_if_best_epoch_is_6": 4634.5,
+  "projected_reference_refit_sec": 6560.0,
+  "projected_test_sec_if_best_epoch_is_6": 4800.4,
+  "projected_validation_sec": 4202.0,
+  "ranking_metrics_used_to_choose_epoch_budget": false,
+  "reference_epochs": 5,
+  "reference_source": "results/ml-32m.json",
+  "reference_tuning_source": "results/tuning/two_tower_ml-32m.json",
+  "reference_val_ndcg@10": 0.100781,
+  "sampled_test_epoch_sec": 800.073,
+  "sampled_val_epoch_sec": 700.326,
+  "seeds": [
+    42
+  ],
+  "status": "matched_epoch_budget",
+  "trial": {
+    "batch_size": 1024,
+    "embedding_dim": 64,
+    "learning_rate": 0.001,
+    "loss": "sampled_softmax",
+    "max_epochs": 6,
+    "max_history": 50,
+    "n_negatives": 256,
+    "patience": 2,
+    "temperature": 0.1,
+    "weight_decay": 0.0001
+  },
+  "validation_plus_test_within_cap": true
+}

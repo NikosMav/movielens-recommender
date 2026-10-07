@@ -380,6 +380,156 @@ def reduced_ml32m_budget(
     }
 
 
+# Fairness round added after the first ml-32m test file existed.
+ML32M_MATCHED_CAP_SEC = 3 * 3600.0
+
+
+def matched_ml32m_trial() -> dict[str, Any]:
+    """The first-round validation winner, with the published reference epoch budget."""
+    return _base(LOSS_SAMPLED, 64, 0.001, 0.1, 6, 2)
+
+
+def matched_ml32m_budget(
+    *,
+    sampled_val_wall_sec: float,
+    sampled_val_epochs: int,
+    sampled_test_wall_sec: float,
+    sampled_test_epochs: int,
+    in_batch_epoch_sec: float,
+    reference_epochs: int,
+    reference_val_ndcg10: float,
+) -> dict[str, Any]:
+    """One ml-32m retrain at the reference epoch budget, inside a 3 hour cap.
+
+    Rates are timings from the finished 3-epoch run and the probe. This function
+    does not read a new ranking metric. Stages after validation start only when
+    the remaining cap covers that stage at the actual ``best_epoch``.
+    """
+    if sampled_val_epochs < 1 or sampled_test_epochs < 1:
+        raise ValueError("epoch counts must be positive")
+    trial = matched_ml32m_trial()
+    val_epoch = float(sampled_val_wall_sec) / int(sampled_val_epochs)
+    test_epoch = float(sampled_test_wall_sec) / int(sampled_test_epochs)
+    epochs = int(trial["max_epochs"])
+    tune = epochs * val_epoch
+    test = epochs * test_epoch
+    ranker = epochs * val_epoch + 432.5
+    reference = int(reference_epochs) * float(in_batch_epoch_sec)
+    return {
+        "experiment": "s3e_matched_epoch_budget",
+        "dataset": "ml-32m",
+        "status": "matched_epoch_budget",
+        "added_after": "first ml-32m test result in results/two-tower-v2/ml-32m.json",
+        "ranking_metrics_used_to_choose_epoch_budget": False,
+        "cap_sec": ML32M_MATCHED_CAP_SEC,
+        "cap_covers": "validation, then test, ranker, and reference refit if they fit",
+        "trial": trial,
+        "max_epochs": epochs,
+        "patience": int(trial["patience"]),
+        "seeds": [42],
+        "reference_val_ndcg@10": float(reference_val_ndcg10),
+        "reference_source": "results/ml-32m.json",
+        "reference_tuning_source": "results/tuning/two_tower_ml-32m.json",
+        "reference_epochs": int(reference_epochs),
+        "sampled_val_epoch_sec": round(val_epoch, 3),
+        "sampled_test_epoch_sec": round(test_epoch, 3),
+        "in_batch_epoch_sec": round(float(in_batch_epoch_sec), 1),
+        "item_item_extrapolation_sec": 432.5,
+        "projected_validation_sec": round(tune, 1),
+        "projected_test_sec_if_best_epoch_is_6": round(test, 1),
+        "projected_ranker_sec_if_best_epoch_is_6": round(ranker, 1),
+        "projected_reference_refit_sec": round(reference, 1),
+        "validation_plus_test_within_cap": bool(tune + test <= ML32M_MATCHED_CAP_SEC),
+        "all_stages_at_6_epochs_within_cap": bool(
+            tune + test + ranker + reference <= ML32M_MATCHED_CAP_SEC
+        ),
+    }
+
+
+def matched_verdict(
+    *,
+    beats_validation: bool,
+    best_epoch: int,
+    max_epochs: int,
+    test_status: str,
+    paired_mean: float | None = None,
+    paired_excludes_zero: bool | None = None,
+) -> str:
+    """Label for the matched-budget round. Fixed before that round is scored."""
+    truncated = int(best_epoch) >= int(max_epochs)
+    if not beats_validation:
+        if truncated:
+            return "truncated"
+        return "loses_at_matched_budget"
+    if test_status != "ran" or paired_mean is None or paired_excludes_zero is None:
+        return "inconclusive"
+    if paired_excludes_zero and float(paired_mean) < 0.0:
+        return "loses_at_matched_budget"
+    if paired_excludes_zero and float(paired_mean) > 0.0:
+        return "beats_reference"
+    return "inconclusive"
+
+
+def ml1m_edge_grid() -> list[dict[str, Any]]:
+    """Sampled softmax only, extending the three high edges. Patience matches ml-1m."""
+    grid = []
+    for dim, lr, temp in itertools.product((64, 128), (0.003, 0.01), (0.2, 0.5)):
+        grid.append(_base(LOSS_SAMPLED, dim, lr, temp, 40, 3))
+    return grid
+
+
+def _point_id(hp: dict[str, Any]) -> tuple[int, float, float]:
+    return (
+        int(hp["embedding_dim"]),
+        round(float(hp["learning_rate"]), 6),
+        round(float(hp["temperature"]), 6),
+    )
+
+
+def edge_extension_decision(
+    trials: list[dict[str, Any]], prior_hyperparams: dict[str, Any]
+) -> dict[str, Any]:
+    """The prior point holds on a tie. A strictly higher other point changes the winner."""
+    if not trials:
+        raise ValueError("edge extension has no trials")
+    prior_id = _point_id(prior_hyperparams)
+    prior_rows = [row for row in trials if _point_id(row["hyperparams"]) == prior_id]
+    if len(prior_rows) != 1:
+        raise ValueError("prior winner must appear once in the edge grid")
+    prior_row = prior_rows[0]
+    best_val = max(float(row["val_ndcg@10"]) for row in trials)
+    held = float(prior_row["val_ndcg@10"]) >= best_val
+    if held:
+        winner = prior_row
+    else:
+        winner = max(trials, key=lambda row: float(row["val_ndcg@10"]))
+    return {"winner_held": held, "winner": winner}
+
+
+def ml1m_edge_budget(prior_hyperparams: dict[str, Any], prior_val: float) -> dict[str, Any]:
+    """ml-1m high-edge check. The grid was fixed after the test file already existed."""
+    grid = ml1m_edge_grid()
+    return {
+        "experiment": "s3e_ml1m_edge_extension",
+        "dataset": "ml-1m",
+        "status": "edge_extension",
+        "added_after": "ml-1m test results in results/two-tower-v2/ml-1m.json",
+        "chosen_after_test_results": True,
+        "uses_test_metrics_to_pick_the_grid": False,
+        "grid": grid,
+        "n_trials": len(grid),
+        "max_epochs": 40,
+        "patience": 3,
+        "prior_hyperparams": dict(prior_hyperparams),
+        "prior_val_ndcg@10": float(prior_val),
+        "rescore_rule": (
+            "Re-score test and the ranker only when a point other than the prior "
+            "winner has a strictly higher validation NDCG@10. A tie keeps the prior point."
+        ),
+        "test_seeds_if_winner_changes": [42, 43, 44],
+    }
+
+
 def lock_plan(probe: dict[str, Any], reference_epochs: dict[str, int]) -> dict[str, Any]:
     """Choose grids and seed counts from probe extrapolations.
 

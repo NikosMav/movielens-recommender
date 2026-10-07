@@ -1541,6 +1541,153 @@ def _answer_ranker(payload: dict) -> str:
     )
 
 
+def _render_matched_budget(dataset: str) -> list[str]:
+    path = RESULTS_DIR / "two-tower-v2" / "ml-32m-matched.json"
+    if dataset != "ml-32m" or not path.is_file():
+        return []
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    validation = payload.get("validation") or {}
+    if not validation:
+        return []
+    verdict = str(payload.get("verdict") or "")
+    sentences = {
+        "loses_at_matched_budget": (
+            "sampled softmax does not beat the in-batch reference on ml-32M "
+            "at matched epoch budget."
+        ),
+        "truncated": (
+            "The matched-budget run is still truncated: best_epoch equals the "
+            "6-epoch cap, so this is not a negative result."
+        ),
+        "inconclusive": "The matched-budget comparison is inconclusive.",
+        "beats_reference": (
+            "Sampled softmax beats the in-batch reference on ml-32M at matched epoch budget."
+        ),
+    }
+    lines = [
+        "Matched epoch budget, added after the first ml-32M test result. "
+        + sentences.get(verdict, verdict),
+        "",
+        (
+            f"Validation NDCG@10 {_fmt(float(validation['val_ndcg@10']))} "
+            f"versus the published reference {_fmt(float(payload['reference_val_ndcg@10']))}. "
+            f"best_epoch {validation.get('best_epoch')}, "
+            f"epochs trained {validation.get('epochs_trained')}, "
+            f"truncated {validation.get('truncated')}."
+        ),
+    ]
+    test = payload.get("test") or {}
+    if test.get("status") == "ran":
+        metrics = test["model"]["metrics"]
+        ci = (metrics.get("confidence_intervals") or {}).get("ndcg@10") or {}
+        lines.append(
+            f"Test NDCG@10 {_fmt(float(metrics['ndcg@10']))} {_fmt_ci_cell(ci)}, "
+            f"head {_fmt(float(_segment_value_metrics(metrics, 'head')))}, "
+            f"tail {_fmt(float(_segment_value_metrics(metrics, 'tail')))}."
+        )
+    elif test.get("reason"):
+        lines.append(f"Test: {test['reason']}")
+    paired = (payload.get("paired_vs_reference") or {}).get("ndcg@10")
+    if paired:
+        lines.append(
+            _v2_pair_sentence("Paired NDCG@10, matched run minus the reference refit", paired)
+            + "."
+        )
+    elif payload.get("reference_refit"):
+        reason = payload["reference_refit"].get("reason") or "Paired interval was not computed."
+        lines.append(str(reason))
+    ranker = payload.get("ranker") or {}
+    if ranker.get("status") == "not_run":
+        lines.append(f"Ranker: {ranker.get('reason')}")
+    elif ranker.get("status") == "ran":
+        new = ranker.get("new") or {}
+        new_point = (new.get("metrics") or {}).get("ndcg@10")
+        if new_point is not None:
+            lines.append(f"LambdaRank NDCG@10 {_fmt(float(new_point))}.")
+        lift = (ranker.get("paired_vs_no_ranker") or {}).get("ndcg@10")
+        if lift:
+            lines.append(_v2_pair_sentence("Paired versus no_ranker", lift) + ".")
+        versus = (ranker.get("paired_vs_reference_ranker") or {}).get("ndcg@10")
+        if versus:
+            lines.append(
+                _v2_pair_sentence("Paired versus the reference-tower ranker", versus) + "."
+            )
+        elif ranker.get("paired_vs_reference_ranker") is None:
+            lines.append("A paired interval versus the existing ranker was not computed.")
+    compute = payload.get("compute") or {}
+    if compute.get("elapsed_sec") is not None:
+        lines.append(f"Matched-round wall clock {float(compute['elapsed_sec']):.3f}s.")
+    lines.append("")
+    return lines
+
+
+def _render_edge_extension(dataset: str) -> list[str]:
+    path = RESULTS_DIR / "two-tower-v2" / "ml-1m-edges.json"
+    if dataset != "ml-1m" or not path.is_file():
+        return []
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("status") != "complete":
+        return []
+    lines = [
+        "Edge extension, run after the ml-1m test results existed. "
+        "Sampled softmax only: dim {64, 128}, learning rate {0.003, 0.01}, "
+        "temperature {0.2, 0.5}, max_epochs 40.",
+        "",
+    ]
+    lines.append("| dim | learning rate | temperature | val NDCG@10 | best epoch | edges |")
+    lines.append("| --- | --- | --- | --- | --- | --- |")
+    for row in payload.get("trials") or []:
+        hp = row["hyperparams"]
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    str(hp["embedding_dim"]),
+                    str(hp["learning_rate"]),
+                    str(hp["temperature"]),
+                    _fmt(float(row["val_ndcg@10"])),
+                    str(row["best_epoch"]),
+                    _v2_edge_text(row),
+                ]
+            )
+            + " |"
+        )
+    lines.append("")
+    if payload.get("winner_held"):
+        lines.append("The edges were checked and the winner held.")
+    else:
+        selected = payload.get("selected") or {}
+        lines.append(
+            "The validation winner changed to "
+            f"dim {selected.get('hyperparams', {}).get('embedding_dim')}, "
+            f"learning rate {selected.get('hyperparams', {}).get('learning_rate')}, "
+            f"temperature {selected.get('hyperparams', {}).get('temperature')}, "
+            f"val NDCG@10 {_fmt(float(selected['val_ndcg@10']))}."
+        )
+        test = payload.get("test") or {}
+        if test.get("status") == "ran":
+            metrics = test["model"]["metrics"]
+            ci = (metrics.get("confidence_intervals") or {}).get("ndcg@10") or {}
+            lines.append(
+                f"Re-scored test NDCG@10 {_fmt(float(metrics['ndcg@10']))} {_fmt_ci_cell(ci)}."
+            )
+        ranker = payload.get("ranker") or {}
+        if ranker.get("status") == "ran":
+            new_point = ((ranker.get("new") or {}).get("metrics") or {}).get("ndcg@10")
+            if new_point is not None:
+                lines.append(f"LambdaRank NDCG@10 {_fmt(float(new_point))}.")
+            lift = (ranker.get("paired_vs_no_ranker") or {}).get("ndcg@10")
+            if lift:
+                lines.append(_v2_pair_sentence("Paired versus no_ranker", lift) + ".")
+            versus = (ranker.get("paired_vs_reference_ranker") or {}).get("ndcg@10")
+            if versus:
+                lines.append(
+                    _v2_pair_sentence("Paired versus the reference-tower ranker", versus) + "."
+                )
+    lines.append("")
+    return lines
+
+
 def render_two_tower_v2() -> str:
     """S3e panel. Empty when neither results file exists, so earlier panels stay put."""
     paths = [
@@ -1699,6 +1846,8 @@ def render_two_tower_v2() -> str:
                 + f", seeds {compute.get('seeds')}."
             )
             lines.append("")
+        lines.extend(_render_matched_budget(dataset))
+        lines.extend(_render_edge_extension(dataset))
     return "\n".join(lines)
 
 
