@@ -20,6 +20,8 @@ Loading and the per-user split took `load_sec` 44.116 and `split_sec` 19.86. Cle
 
 A dense users × items score matrix does not fit, so every model is scored on one seeded user sample. Training still uses every training interaction. Histories are not truncated. The sample is the same ids for validation metrics, ranker labels, and test metrics.
 
+The sample is partly test-informed. `scale.py` picks eligible users with `warm_relevant_user_ids(full, split.test, ...)`: at least one test rating ≥ 4 whose item is in the train catalog. Validation rows are then restricted to that sample, so tuning and ranker training see users chosen partly by their test ratings. 196,517 of 200,948 train users (97.8%) are eligible. That is the same eligibility rule the harness uses for test metrics. The expected effect is small. Drawing the sample without test ratings is the cleaner alternative. That alternative was not run; it is a known limitation.
+
 **Sample size 8000, seed 42.** ml-1m item–item evaluates `n_eval_users` 5958 (`results/ml-1m.json`). 8000 is that order of magnitude. Scoring all 196517 eligible users would make the ranker candidate matrices (users × K=200) too large to hold next to the training frames, and the models would no longer share one evaluation population if only the ranker were sampled. 8000 is the locked size.
 
 **Item–item** stays sparse top-k. `k_neighbors=0` would allocate a 66819² Gram. Three blocks of the real fitter, on fit-train, took 3.24 s (rows 0:251), 0.874 s (33409:33660), and 0.745 s (66568:66819). Mean block 1.62 s, 267 blocks, extrapolated full fit 432.5 s. Head item ids are slower than the tail, so a full fit can land off that mean. The grid is three configs, plus the YAML default and one full-train refit.
@@ -94,7 +96,7 @@ After `results/ml-32m.json` was written, the ranker recreate command in that fil
 
 ## Outcome
 
-The decisions above were not changed after the test file existed. Chosen configs that sit on a grid edge were left there: item–item `k_neighbors=50` (low edge of `{50, 100, 200}`), RP3beta `top_k=300` (high edge of `{100, 300}`), ALS `alpha=20` (low edge of `{40, 20}`), two-tower learning rate `0.001` (low edge of `{0.001, 0.003}`). EASE `l2=5000` is interior.
+The decisions above were not changed after the test file existed. Chosen configs that sit on a grid edge were left there: item–item `k_neighbors=50` (low edge of `{50, 100, 200}`) and `shrinkage=0` (natural bound), RP3beta `alpha=0.5` (low edge of `{0.5, 1.0}`), `beta=0.5` (high edge of `{0.0, 0.5}`), and `top_k=300` (high edge of `{100, 300}`), ALS `regularization=0.01` (low edge of `{0.1, 0.01}`), `factors=64` (high edge of `{32, 64}`), and `alpha=20` (low edge of `{40, 20}`), two-tower learning rate `0.001` (low edge of `{0.001, 0.003}`). EASE `l2=5000` is interior. They were left in place because of the locked compute budget: extending the grids would mean another multi-hour run after the test file existed. The full-softmax two-tower and the iALS re-tune are queued follow-ups that will revisit tuning.
 
 `results/ml-32m.json` `runtime_sec` is 6560.575. That is the process started with the saved tuning files. It does not include the earlier grid search. The two-tower full-train refit in that file is `train_wall_time_sec` 2637.302 (5 epochs, one seed). The ranker block `runtime_sec` is 2841.798, which includes its own fit-train two-tower refit.
 
@@ -112,7 +114,7 @@ Test NDCG@10 below is the README four-decimal rendering of `results/ml-32m.json`
 | als | 0.0800 |
 | most_popular | 0.0699 |
 
-ml-1m order was lambdarank, item_item_cosine, two_tower, ease, rp3beta, als_tuned, most_popular. On ml-32M it is two_tower, lambdarank, ease, item_item_cosine, rp3beta, als_tuned, most_popular. The ranking does not hold.
+ml-1m order was lambdarank, item_item_cosine, two_tower, ease, rp3beta, als_tuned, most_popular. On ml-32M the point-estimate order is two_tower, lambdarank, ease, item_item_cosine, rp3beta, als_tuned, most_popular (top two tied). The ranking does not hold.
 
 Gaps versus the pre-registered four-decimal differences:
 

@@ -1,6 +1,6 @@
 # movielens-recommender
 
-A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). S3c adds two more classic baselines, EASE^R and RP3beta (ADR-0008), tuned on the same validation split. The two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. The ranker gate against item–item cosine, and the EASE / RP3beta comparison, are in the results table. S4b (ADR-0009) tested user demographic features on ml-1m only. The pre-registered rule adopted them, so `configs/ml-1m.yaml` sets `models.ranker.demographics` to `both`. `configs/default.yaml` stays `off` because ml-latest-small has no `users.dat`. The headline LambdaRank row is still the S4 feature set in `results/ml-1m.json`. S5a is a Streamlit demo of that ml-1m ranker with plain-language reasons (ADR-0010). Batch recommendations, a FastAPI service, and a Dockerfile (S5b) are still planned. Operations (S6) are still planned.
+A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). S3c adds two more classic baselines, EASE^R and RP3beta (ADR-0008), tuned on the same validation split. On ml-1m, the two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. On ml-32M, two-tower and LambdaRank tie at the top and beat item–item. The ranker gate against item–item cosine, and the EASE / RP3beta comparison, are in the results table. S4b (ADR-0009) tested user demographic features on ml-1m only. The pre-registered rule adopted them, so `configs/ml-1m.yaml` sets `models.ranker.demographics` to `both`. `configs/default.yaml` stays `off` because ml-latest-small has no `users.dat`. The headline LambdaRank row is still the S4 feature set in `results/ml-1m.json`. S5a is a Streamlit demo of that ml-1m ranker with plain-language reasons (ADR-0010). Batch recommendations, a FastAPI service, and a Dockerfile (S5b) are still planned. Operations (S6) are still planned.
 
 The code is MIT, and the MovieLens data is not included: it is downloaded by the script and stays under the [GroupLens terms of use](https://grouplens.org/datasets/movielens/). Those terms apply to ml-32M as well as to ml-latest-small and ml-1m. S3d (ADR-0011) repeats the harness on MovieLens 32M.
 
@@ -361,7 +361,7 @@ Pinned version: `ml-32m@sha256:e4a68655d7386b8f95f2f2424b2ff975dfdd15ffd59e0d864
 
 Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4.0, seed=42, ks=[10, 20], retrieval_ks=[100, 200], bootstrap=1000 @ alpha=0.05. Primary metric: **ndcg@10**. Coverage@k is a point estimate only (no user-bootstrap CI; see ADR-0003). Names marked **(tuned)** used validation-selected hyperparameters (ADR-0005 / ADR-0006 / ADR-0007); others are S2 YAML defaults.
 
-Evaluation users: seeded sample of 8000 out of 196517 warm-relevant users (seed=42, requested=8000, user_ids_sha256=`6b0d5cf6ce14cf5815e71f620b1dd5f37f7e6f09ac13ae5f3d138563b035c980`). Training uses every training interaction. Sampled users keep full histories. Tuning selection and ranker labels use this same sample.
+Evaluation users: seeded sample of 8000 out of 196517 warm-relevant users (seed=42, requested=8000, user_ids_sha256=`6b0d5cf6ce14cf5815e71f620b1dd5f37f7e6f09ac13ae5f3d138563b035c980`). 196,517 of 200,948 train users (97.8%) are eligible, the same eligibility rule the harness uses for test metrics (at least one test rating >= 4 on an item in the train catalog). The sample is partly test-informed: those users are chosen using their test ratings, and validation rows are restricted to the sample, so tuning and ranker training see users chosen partly by their test ratings. The expected effect is small. Drawing the sample without test ratings is the cleaner alternative and is a known limitation. Training uses every training interaction. Sampled users keep full histories. Tuning selection and ranker labels use this same sample.
 
 EASE is restricted to the top 12000 items by train-interaction count (n_items_before=71364, n_items_fit=12000; ties: smaller item id). Items outside that head are not scored.
 
@@ -399,7 +399,11 @@ EASE is restricted to the top 12000 items by train-interaction count (n_items_be
 | most_popular | [0.0671, 0.0728] |
 | no_ranker | [0.1398, 0.1479] |
 | rp3beta (tuned) | [0.0957, 0.1028] |
-| two_tower (tuned) | mean±std over seeds 0.1436±0.0000; primary-seed CI [0.1398, 0.1479] |
+| two_tower (tuned) | 1 seed 0.1436; primary-seed CI [0.1398, 0.1479] |
+
+#### Does the ranking hold at scale?
+
+Two-tower 0.1436 [0.1398, 0.1479] and LambdaRank 3-seed mean 0.1423 (primary-seed CI [0.1391, 0.1472]) are statistically tied at the top. Both beat item–item cosine 0.1113 [0.1080, 0.1155] with separated intervals, so the neural approach overtakes item–item at this scale, reversing the ml-1m result. LambdaRank adds no lift over its two-tower candidate list (`no_ranker` is also 0.1436). The two-tower's lead is on head items (head NDCG@10 0.1460 versus item–item 0.1114); its tail NDCG@10 (0.0006) is below item–item's (0.0022).
 
 #### Retrieval recall (candidate generation)
 
@@ -420,7 +424,7 @@ Recall@100 / Recall@200 for models that report them, evaluated at the same cutof
 | most_popular | 0.2388 | 0.3462 |
 | no_ranker | 0.4742 | 0.6243 |
 | rp3beta (tuned) | 0.3629 | 0.4922 |
-| two_tower (tuned) | 0.4742 ±0.0000 | 0.6243 ±0.0000 |
+| two_tower (tuned) | 0.4742 (1 seed) | 0.6243 (1 seed) |
 
 #### Two-tower seeds and gate (ADR-0006)
 

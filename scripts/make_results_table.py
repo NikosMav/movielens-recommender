@@ -44,6 +44,60 @@ def _fmt_ci(cis: dict, key: str) -> str:
     return f"[{_fmt(bounds['low'])}, {_fmt(bounds['high'])}]"
 
 
+def _ci_pair(cis: dict, key: str) -> tuple[float, float] | None:
+    bounds = cis.get(key)
+    if not bounds:
+        return None
+    return float(bounds["low"]), float(bounds["high"])
+
+
+def _seed_count(summary: dict | None) -> int | None:
+    if not summary:
+        return None
+    values = summary.get("values")
+    if isinstance(values, list):
+        return len(values)
+    return None
+
+
+def _ndcg_seed_spread(summary: dict) -> str:
+    """One seed has no spread. Printing ±0.0000 would look like a measured std."""
+    mean = _fmt(float(summary["mean"]))
+    if _seed_count(summary) == 1:
+        return f"1 seed {mean}"
+    return f"mean±std over seeds {mean}±{_fmt(float(summary['std']))}"
+
+
+def _recall_seed_cell(point: float, summary: dict | None) -> str:
+    cell = _fmt(float(point))
+    if not summary:
+        return cell
+    if _seed_count(summary) == 1:
+        return f"{cell} (1 seed)"
+    if "std" in summary:
+        return f"{cell} ±{_fmt(float(summary['std']))}"
+    return cell
+
+
+def _segment_ndcg(model: dict, which: str) -> float | None:
+    block = (model.get("segments") or {}).get("item_head_tail") or {}
+    cell = block.get(which) or {}
+    value = cell.get("ndcg@10")
+    if value is None:
+        return None
+    return float(value)
+
+
+def _threshold_text(value: float) -> str:
+    if float(value).is_integer():
+        return str(int(value))
+    return str(value)
+
+
+def _bracket(pair: tuple[float, float]) -> str:
+    return f"[{_fmt(pair[0])}, {_fmt(pair[1])}]"
+
+
 def _model_label(name: str, tuned_flags: dict | None) -> str:
     is_tuned = bool(tuned_flags and tuned_flags.get(name)) or name.endswith("_tuned")
     if name.endswith("_tuned"):
@@ -228,6 +282,128 @@ def render_ranker(payload: dict) -> str:
     return "\n".join(lines)
 
 
+def _sample_paragraph(payload: dict, sample: dict, split: dict) -> str:
+    """Sample line. Counts come from the results JSON."""
+    text = (
+        "Evaluation users: seeded sample of "
+        f"{sample.get('n_sampled_users')} out of "
+        f"{sample.get('n_eligible_users')} warm-relevant users "
+        f"(seed={sample.get('seed')}, requested={sample.get('requested_users')}, "
+        f"user_ids_sha256=`{sample.get('user_ids_sha256')}`). "
+    )
+    n_eligible = sample.get("n_eligible_users")
+    n_train = split.get("n_train_users")
+    if n_eligible is not None and n_train:
+        pct = 100.0 * float(n_eligible) / float(n_train)
+        text += (
+            f"{int(n_eligible):,} of {int(n_train):,} train users ({pct:.1f}%) "
+            "are eligible, the same eligibility rule the harness uses for test "
+            "metrics"
+        )
+        threshold = payload.get("relevance_threshold")
+        if threshold is not None:
+            text += (
+                f" (at least one test rating >= {_threshold_text(float(threshold))} "
+                "on an item in the train catalog)"
+            )
+        text += ". "
+    text += (
+        "The sample is partly test-informed: those users are chosen using their "
+        "test ratings, and validation rows are restricted to the sample, so "
+        "tuning and ranker training see users chosen partly by their test "
+        "ratings. The expected effect is small. Drawing the sample without "
+        "test ratings is the cleaner alternative and is a known limitation. "
+        "Training uses every training interaction. Sampled users keep full "
+        "histories. Tuning selection and ranker labels use this same sample."
+    )
+    return text
+
+
+def render_scale_ranking(payload: dict) -> str:
+    """Answer whether the ml-1m order holds. Figures are read from this JSON."""
+    if payload.get("dataset") != "ml-32m":
+        return ""
+    metrics = payload.get("metrics") or {}
+    two_tower = metrics.get("two_tower")
+    lambdarank = metrics.get("lambdarank")
+    item_item = metrics.get("item_item_cosine")
+    no_ranker = metrics.get("no_ranker")
+    if not (two_tower and lambdarank and item_item and no_ranker):
+        return ""
+    tt_ci = _ci_pair(two_tower.get("confidence_intervals") or {}, "ndcg@10")
+    lr_ci = _ci_pair(lambdarank.get("confidence_intervals") or {}, "ndcg@10")
+    ii_ci = _ci_pair(item_item.get("confidence_intervals") or {}, "ndcg@10")
+    lr_seeds = (lambdarank.get("seed_summary") or {}).get("ndcg@10") or {}
+    if not (tt_ci and lr_ci and ii_ci and "mean" in lr_seeds):
+        return ""
+    n_seeds = _seed_count(lr_seeds)
+    seed_label = f"{n_seeds}-seed mean" if n_seeds else "mean"
+    tt_ndcg = float(two_tower["ndcg@10"])
+    ii_ndcg = float(item_item["ndcg@10"])
+    nr_ndcg = float(no_ranker["ndcg@10"])
+    lr_mean = float(lr_seeds["mean"])
+    tied = tt_ci[0] <= lr_ci[1] and lr_ci[0] <= tt_ci[1]
+    separated = tt_ci[0] > ii_ci[1] and lr_ci[0] > ii_ci[1]
+    tt_head = _segment_ndcg(two_tower, "head")
+    tt_tail = _segment_ndcg(two_tower, "tail")
+    ii_head = _segment_ndcg(item_item, "head")
+    ii_tail = _segment_ndcg(item_item, "tail")
+    relation = "are statistically tied at the top" if tied else "are the top two"
+    top = (
+        f"Two-tower {_fmt(tt_ndcg)} {_bracket(tt_ci)} and LambdaRank "
+        f"{seed_label} {_fmt(lr_mean)} (primary-seed CI {_bracket(lr_ci)}) "
+        f"{relation}"
+    )
+    if separated:
+        how = (
+            "with separated intervals, so the neural approach overtakes "
+            "item–item at this scale"
+        )
+    else:
+        how = "on the point estimates"
+    beat = f"Both beat item–item cosine {_fmt(ii_ndcg)} {_bracket(ii_ci)} {how}"
+    if _ml1m_two_tower_trails_item_item() and tt_ndcg > ii_ndcg:
+        beat += ", reversing the ml-1m result"
+    if _fmt(nr_ndcg) == _fmt(tt_ndcg):
+        no_lift = (
+            "LambdaRank adds no lift over its two-tower candidate list "
+            f"(`no_ranker` is also {_fmt(nr_ndcg)})"
+        )
+    else:
+        no_lift = (
+            "LambdaRank versus the two-tower candidate list (`no_ranker`) is "
+            f"{_fmt(lr_mean)} versus {_fmt(nr_ndcg)}"
+        )
+    head_tail = "The two-tower's lead is on head items"
+    have_segments = None not in (tt_head, ii_head, tt_tail, ii_tail)
+    if have_segments and tt_head > ii_head and tt_tail < ii_tail:
+        head_tail = (
+            "The two-tower's lead is on head items "
+            f"(head NDCG@10 {_fmt(tt_head)} versus item–item {_fmt(ii_head)}); "
+            f"its tail NDCG@10 ({_fmt(tt_tail)}) is below item–item's "
+            f"({_fmt(ii_tail)})"
+        )
+    lines = [
+        "#### Does the ranking hold at scale?",
+        "",
+        f"{top}. {beat}. {no_lift}. {head_tail}.",
+    ]
+    return "\n".join(lines)
+
+
+def _ml1m_two_tower_trails_item_item() -> bool:
+    path = RESULTS_DIR / "ml-1m.json"
+    if not path.is_file():
+        return False
+    prior = json.loads(path.read_text(encoding="utf-8"))
+    metrics = prior.get("metrics") or {}
+    two_tower = metrics.get("two_tower") or {}
+    item_item = metrics.get("item_item_cosine") or {}
+    if "ndcg@10" not in two_tower or "ndcg@10" not in item_item:
+        return False
+    return float(two_tower["ndcg@10"]) < float(item_item["ndcg@10"])
+
+
 def load_headline_results() -> list[tuple[str, dict]]:
     files = sorted(p for p in RESULTS_DIR.glob("*.json") if p.is_file())
     if not files:
@@ -270,15 +446,7 @@ def render_headline(filename: str, payload: dict) -> str:
     lines.append("")
     sample = payload.get("eval_user_sample") or {}
     if sample.get("enabled"):
-        lines.append(
-            "Evaluation users: seeded sample of "
-            f"{sample.get('n_sampled_users')} out of "
-            f"{sample.get('n_eligible_users')} warm-relevant users "
-            f"(seed={sample.get('seed')}, requested={sample.get('requested_users')}, "
-            f"user_ids_sha256=`{sample.get('user_ids_sha256')}`). "
-            "Training uses every training interaction. Sampled users keep full "
-            "histories. Tuning selection and ranker labels use this same sample."
-        )
+        lines.append(_sample_paragraph(payload, sample, split))
         lines.append("")
     ease_hp = (payload.get("hyperparameters") or {}).get("ease") or {}
     if ease_hp.get("max_items"):
@@ -310,13 +478,16 @@ def render_headline(filename: str, payload: dict) -> str:
         if metrics[model].get("seed_summary"):
             ss = metrics[model]["seed_summary"]["ndcg@10"]
             lines.append(
-                f"| {label} | mean±std over seeds "
-                f"{_fmt(ss['mean'])}±{_fmt(ss['std'])}; "
+                f"| {label} | {_ndcg_seed_spread(ss)}; "
                 f"primary-seed CI {_fmt_ci(cis, 'ndcg@10')} |"
             )
         else:
             lines.append(f"| {label} | {_fmt_ci(cis, 'ndcg@10')} |")
     lines.append("")
+    scale = render_scale_ranking(payload)
+    if scale:
+        lines.append(scale)
+        lines.append("")
 
     # Retrieval recall for models that report it.
     if any(all(c in metrics[m] for c in RETRIEVAL_COLS) for m in metrics):
@@ -338,16 +509,10 @@ def render_headline(filename: str, payload: dict) -> str:
             r100 = m["recall@100"]
             r200 = m["recall@200"]
             if m.get("seed_summary"):
-                s100 = m["seed_summary"].get("recall@100", {})
-                s200 = m["seed_summary"].get("recall@200", {})
-                cell100 = (
-                    f"{_fmt(float(r100))}"
-                    + (f" ±{_fmt(s100['std'])}" if s100 else "")
-                )
-                cell200 = (
-                    f"{_fmt(float(r200))}"
-                    + (f" ±{_fmt(s200['std'])}" if s200 else "")
-                )
+                s100 = m["seed_summary"].get("recall@100") or {}
+                s200 = m["seed_summary"].get("recall@200") or {}
+                cell100 = _recall_seed_cell(float(r100), s100)
+                cell200 = _recall_seed_cell(float(r200), s200)
             else:
                 cell100 = _fmt(float(r100))
                 cell200 = _fmt(float(r200))
