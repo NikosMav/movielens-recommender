@@ -1023,6 +1023,24 @@ def _cmd_demographics(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_cold_start(args: argparse.Namespace) -> int:
+    """S5c new-user evaluation. Refuses anything other than ml-1m."""
+    config = load_config(args.config)
+    if args.data_dir is not None:
+        config.data_dir = args.data_dir
+    if args.results_dir is not None:
+        config.results_dir = args.results_dir
+    if config.dataset != "ml-1m":
+        raise ValueError(
+            "cold-start is ml-1m only. Other datasets' results files must not change."
+        )
+    from movielens_recommender.cold_start import run_cold_start_experiment
+
+    out = run_cold_start_experiment(config, download=not args.no_download)
+    print(f"Wrote cold-start experiment to {out}")
+    return 0
+
+
 def _cmd_build_artifacts(args: argparse.Namespace) -> int:
     """Fit the serving snapshot. Does not evaluate and does not write results JSON."""
     config = load_config(args.config)
@@ -1133,6 +1151,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="Do not download; require ml-1m already on disk",
     )
     p_demo.set_defaults(func=_cmd_demographics)
+
+    p_cold = sub.add_parser(
+        "cold-start",
+        help=(
+            "S5c new-user cold start on ml-1m "
+            "(does not rewrite results/ml-1m.json)"
+        ),
+    )
+    p_cold.add_argument(
+        "--config",
+        default="configs/ml-1m.yaml",
+        help="Path to the ml-1m YAML config",
+    )
+    p_cold.add_argument("--data-dir", default=None, help="Override data_dir from config")
+    p_cold.add_argument("--results-dir", default=None, help="Override results_dir from config")
+    p_cold.add_argument(
+        "--no-download",
+        action="store_true",
+        help="Do not download; require ml-1m already on disk",
+    )
+    p_cold.set_defaults(func=_cmd_cold_start)
 
     p_art = sub.add_parser(
         "build-artifacts",

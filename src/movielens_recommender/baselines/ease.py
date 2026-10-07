@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
+
 import numpy as np
 import pandas as pd
-from scipy import linalg
+from scipy import linalg, sparse
 
 from movielens_recommender.baselines.common import (
     binary_user_item,
@@ -44,6 +46,7 @@ class EASERecommender:
         self.n_items_before_restriction = 0
         self.n_items_fit = 0
         self._item_ids: np.ndarray = np.array([], dtype=np.int64)
+        self._item_index: dict[int, int] = {}
         self._user_index: dict[int, int] = {}
         self._similarity: np.ndarray | None = None
         self._user_scores: np.ndarray | None = None
@@ -55,8 +58,9 @@ class EASERecommender:
         if self.max_items is not None and self.n_items_before_restriction > self.max_items:
             keep = _popular_item_ids(train, self.max_items)
             fit_frame = train.loc[train["item_id"].isin(pd.Index(keep))]
-        interactions, item_ids, user_index, _item_index = binary_user_item(fit_frame)
+        interactions, item_ids, user_index, item_index = binary_user_item(fit_frame)
         self._item_ids = item_ids
+        self._item_index = item_index
         self._user_index = user_index
         self.n_items_fit = int(len(item_ids))
 
@@ -95,6 +99,64 @@ class EASERecommender:
             raise RuntimeError("Call fit() before reading similarity.")
         return self._similarity
 
+    def topk_for_profiles(
+        self,
+        profiles: Mapping[int, Sequence[tuple[int, float]]],
+        n: int,
+        *,
+        mask_items: Mapping[int, Sequence[int]] | None = None,
+    ) -> dict[int, list[tuple[int, float]]]:
+        """Fold a new binary profile in through ``B`` and return top-n.
+
+        EASE is fit on a 0/1 matrix, so a rated catalog item contributes 1
+        regardless of the star value. Profile items are excluded. Extra
+        ``mask_items`` are excluded too. Ties use a stable mergesort.
+        """
+        if n <= 0 or self._similarity is None or not profiles:
+            return {}
+        uids = [int(uid) for uid in profiles]
+        rows: list[int] = []
+        cols: list[int] = []
+        data: list[float] = []
+        for row, uid in enumerate(uids):
+            seen_cols: set[int] = set()
+            for item_id, _rating in profiles[uid]:
+                col = self._item_index.get(int(item_id))
+                if col is None or col in seen_cols:
+                    continue
+                seen_cols.add(col)
+                rows.append(row)
+                cols.append(col)
+                data.append(1.0)
+        mat = sparse.csr_matrix(
+            (data, (rows, cols)),
+            shape=(len(uids), len(self._item_ids)),
+            dtype=np.float64,
+        )
+        scores = np.asarray(mat @ self._similarity, dtype=np.float64)
+        seen_rows, seen_cols_idx = mat.nonzero()
+        if len(seen_rows):
+            scores[seen_rows, seen_cols_idx] = -np.inf
+        if mask_items:
+            row_of = {uid: row for row, uid in enumerate(uids)}
+            for uid, items in mask_items.items():
+                row = row_of.get(int(uid))
+                if row is None:
+                    continue
+                for item_id in items:
+                    col = self._item_index.get(int(item_id))
+                    if col is not None:
+                        scores[row, col] = -np.inf
+        out: dict[int, list[tuple[int, float]]] = {}
+        for row, uid in enumerate(uids):
+            order = _ease_topk_indices(scores[row], n)
+            out[uid] = [
+                (int(self._item_ids[j]), float(scores[row, j]))
+                for j in order
+                if np.isfinite(scores[row, j])
+            ]
+        return out
+
     def recommend(self, user_id: int, n: int) -> list[int]:
         if n <= 0:
             return []
@@ -131,3 +193,18 @@ def _popular_item_ids(train: pd.DataFrame, max_items: int) -> np.ndarray:
         ["n", "item_id"], ascending=[False, True], kind="mergesort"
     )
     return counts["item_id"].to_numpy(dtype=np.int64)[:max_items]
+
+
+def _ease_topk_indices(scores: np.ndarray, n: int) -> np.ndarray:
+    """Indices of the top-n finite scores, ties broken by mergesort."""
+    finite = np.isfinite(scores)
+    if not finite.any():
+        return np.array([], dtype=np.int64)
+    idx = np.flatnonzero(finite)
+    sc = scores[idx]
+    if n >= len(idx):
+        order = np.argsort(-sc, kind="mergesort")
+        return idx[order]
+    part = np.argpartition(-sc, n - 1)[:n]
+    order = part[np.argsort(-sc[part], kind="mergesort")]
+    return idx[order]

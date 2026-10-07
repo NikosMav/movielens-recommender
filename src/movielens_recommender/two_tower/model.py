@@ -23,6 +23,7 @@ class TwoTowerModel(nn.Module):
         n_genres: int,
         embedding_dim: int = 64,
         temperature: float = 0.1,
+        history_only: bool = False,
     ) -> None:
         super().__init__()
         if embedding_dim < 1:
@@ -33,6 +34,9 @@ class TwoTowerModel(nn.Module):
         self.temperature = temperature
         self.n_users = n_users
         self.n_items = n_items
+        # When True the user tower is the pooled history only. The id
+        # embedding is still allocated so checkpoints keep one state-dict layout.
+        self.history_only = bool(history_only)
 
         self.user_emb = nn.Embedding(n_users, embedding_dim)
         self.item_emb = nn.Embedding(n_items, embedding_dim)
@@ -51,6 +55,7 @@ class TwoTowerModel(nn.Module):
         user_idx: torch.Tensor,
         history_idx: torch.Tensor,
         history_mask: torch.Tensor,
+        zero_user_id: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Encode users.
 
@@ -59,8 +64,24 @@ class TwoTowerModel(nn.Module):
         user_idx : (B,) long
         history_idx : (B, H) long — padded item indices
         history_mask : (B, H) bool/float — True/1 where history is valid
+        zero_user_id : (B,) optional — 1 where the id embedding is dropped
+
+        ``history_only`` ignores the id embedding entirely. ``zero_user_id``
+        is the user-id dropout mask (training) or an all-ones vector at
+        new-user inference. The default path, with both unset, is unchanged.
         """
-        u = self.user_emb(user_idx)
+        if self.history_only:
+            u = torch.zeros(
+                user_idx.shape[0],
+                self.embedding_dim,
+                device=user_idx.device,
+                dtype=self.user_emb.weight.dtype,
+            )
+        else:
+            u = self.user_emb(user_idx)
+            if zero_user_id is not None:
+                keep = (1.0 - zero_user_id.to(device=u.device, dtype=u.dtype)).unsqueeze(-1)
+                u = u * keep
         hist = self.item_emb(history_idx)  # (B, H, D)
         mask = history_mask.to(dtype=hist.dtype).unsqueeze(-1)  # (B, H, 1)
         summed = (hist * mask).sum(dim=1)

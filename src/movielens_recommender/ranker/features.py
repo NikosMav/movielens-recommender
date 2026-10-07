@@ -116,6 +116,25 @@ def feature_names(mode: str = "off") -> list[str]:
     return names
 
 
+def cold_start_feature_names(mode: str = "off") -> list[str]:
+    """S4 columns plus EASE score and rank, for the new-user ranker only.
+
+    ``off`` has no demographic columns. ``both`` appends the same raw and
+    group columns as :func:`feature_names`. Headline ``feature_names`` is
+    unchanged. EASE sits next to the other retriever scores.
+    """
+    mode = _check_mode(mode)
+    if mode not in {"off", "both"}:
+        raise ValueError("cold-start ranker mode must be 'off' or 'both'")
+    base = feature_names("off")
+    idx = base.index("two_tower_rank") + 1
+    names = base[:idx] + ["ease_score", "ease_rank"] + base[idx:]
+    if mode == "both":
+        names.extend(RAW_DEMOGRAPHIC_FEATURES)
+        names.extend(GROUP_AFFINITY_FEATURES)
+    return names
+
+
 def categorical_feature_names(mode: str = "off") -> list[str]:
     """Demographic columns LightGBM should split as categoricals."""
     mode = _check_mode(mode)
@@ -548,6 +567,8 @@ def build_feature_matrix(
     two_tower: Mapping[int, tuple[float, int]],
     *,
     user_stats: tuple[float, float, float, np.ndarray | None] | None = None,
+    ease: Mapping[int, tuple[float, int]] | None = None,
+    demographics_missing: bool = False,
 ) -> np.ndarray:
     """One row per candidate. Missing retriever score/rank is NaN.
 
@@ -574,12 +595,17 @@ def build_feature_matrix(
     genre0 = col[f"genre_{slug_genre(GENRES[0])}"]
     aff0 = col[f"affinity_{slug_genre(GENRES[0])}"]
     demo = None
-    if ctx.demo_mode in {"raw", "both"}:
+    # New users leave demographic columns as NaN. Unknown-code fill is the
+    # known-user path and stays the default.
+    if ctx.demo_mode in {"raw", "both"} and not demographics_missing:
         demo = ctx.demo_codes.get(uid, _UNKNOWN_DEMO_CODES)
     if demo is not None:
         for offset, name in enumerate(RAW_DEMOGRAPHIC_FEATURES):
             x[:, col[name]] = float(demo[offset])
-    group_codes = ctx.user_group_codes.get(uid) if ctx.demo_mode in {"affinity", "both"} else None
+    group_codes = None
+    if ctx.demo_mode in {"affinity", "both"} and not demographics_missing:
+        group_codes = ctx.user_group_codes.get(uid)
+    ease_map = ease or {}
 
     for row, item in enumerate(items):
         ii = item_item.get(item)
@@ -590,6 +616,11 @@ def build_feature_matrix(
         if tt is not None:
             x[row, col["two_tower_score"]] = float(tt[0])
             x[row, col["two_tower_rank"]] = float(tt[1])
+        if "ease_score" in col:
+            ez = ease_map.get(item)
+            if ez is not None:
+                x[row, col["ease_score"]] = float(ez[0])
+                x[row, col["ease_rank"]] = float(ez[1])
         x[row, col["in_both"]] = 1.0 if ii is not None and tt is not None else 0.0
 
         idx = ctx.item_index.get(item)

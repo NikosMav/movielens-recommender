@@ -1,6 +1,6 @@
 # movielens-recommender
 
-A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). S3c adds two more classic baselines, EASE^R and RP3beta (ADR-0008), tuned on the same validation split. On ml-1m, the two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. On ml-32M, two-tower and LambdaRank tie at the top and beat item–item. The ranker gate against item–item cosine, and the EASE / RP3beta comparison, are in the results table. S4b (ADR-0009) tested user demographic features on ml-1m only. The pre-registered rule adopted them, so `configs/ml-1m.yaml` sets `models.ranker.demographics` to `both`. `configs/default.yaml` stays `off` because ml-latest-small has no `users.dat`. The headline LambdaRank row is still the S4 feature set in `results/ml-1m.json`. S5a is a Streamlit demo of that ml-1m ranker with plain-language reasons (ADR-0010). Batch recommendations, a FastAPI service, and a Dockerfile (S5b) are still planned. Operations (S6) are still planned.
+A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). S3c adds two more classic baselines, EASE^R and RP3beta (ADR-0008), tuned on the same validation split. On ml-1m, the two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. On ml-32M, two-tower and LambdaRank tie at the top and beat item–item. The ranker gate against item–item cosine, and the EASE / RP3beta comparison, are in the results table. S4b (ADR-0009) tested user demographic features on ml-1m only. The pre-registered rule adopted them, so `configs/ml-1m.yaml` sets `models.ranker.demographics` to `both`. `configs/default.yaml` stays `off` because ml-latest-small has no `users.dat`. The headline LambdaRank row is still the S4 feature set in `results/ml-1m.json`. S5a is a Streamlit demo of that ml-1m ranker with plain-language reasons (ADR-0010). S5c adds a new-user profile: a person with no MovieLens id rates a few films and gets an explained top 10 (ADR-0012). The cold-start panel below says how good that is after 1, 3, 5, and 10 ratings, next to known users and popularity. Batch recommendations, a FastAPI service, and a Dockerfile (S5b) are still planned. Operations (S6) are still planned.
 
 The code is MIT, and the MovieLens data is not included: it is downloaded by the script and stays under the [GroupLens terms of use](https://grouplens.org/datasets/movielens/). Those terms apply to ml-32M as well as to ml-latest-small and ml-1m. S3d (ADR-0011) repeats the harness on MovieLens 32M.
 
@@ -25,6 +25,7 @@ The code was written by AI coding agents (Cursor) working from a staged plan wit
 | **S4b** | Done | S4b: user demographic features experiment (ml-1m) |
 | **S3d** | Done | S3d: scale-up to MovieLens 32M |
 | **S5a** | Done | Streamlit explainable UI |
+| **S5c** | Done | S5c: new-user profile (cold start) |
 | **S5b** | Planned | Batch recs, FastAPI, Dockerfile |
 | **S6** | Planned (not built yet) | Operations |
 
@@ -62,18 +63,21 @@ pip install -e ".[ui]"
 
 ## Try the demo
 
-The page recommends for an existing ml-1m user. It loads a local snapshot of the production pipeline: validation-chosen candidates re-ranked by LightGBM LambdaRank, including the demographic group-affinity features from ADR-0009. It does not train. A typed-in profile is not supported; see [ADR-0010](docs/adr/0010-streamlit-ui.md). Metrics stay in the results section below. Nothing under `artifacts/` is committed.
+The page recommends for an existing ml-1m user, and it has a New user mode. Existing users load a local snapshot of the production pipeline: validation-chosen candidates re-ranked by LightGBM LambdaRank, including the demographic group-affinity features from ADR-0009. A new user searches titles, rates at least three films (about five is a good start), and gets a top 10 with plain-language reasons. The page does not ask for gender, age, occupation, or ZIP, and it does not save the profile. See [ADR-0010](docs/adr/0010-streamlit-ui.md) and [ADR-0012](docs/adr/0012-new-user-cold-start.md). Metrics stay in the results section below. Nothing under `artifacts/` is committed.
 
 ```bash
 pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
 pip install -e ".[rank,deep,ui]"
 movielens-recommender build-artifacts --config configs/ml-1m.yaml
+movielens-recommender cold-start --config configs/ml-1m.yaml
 streamlit run app/streamlit_app.py
 ```
 
-`build-artifacts` downloads ml-1m if `data/` does not already have it, reads the tuned hyperparameters from `results/tuning/`, and writes `artifacts/ml-1m/`. The first Streamlit load reads that directory once.
+`build-artifacts` downloads ml-1m if `data/` does not already have it, reads the tuned hyperparameters from `results/tuning/`, and writes `artifacts/ml-1m/`. `cold-start` writes the new-user snapshot to `artifacts/ml-1m/cold_start/` and the measured table to `results/cold-start/ml-1m.json`. The first Streamlit load reads a snapshot once.
 
 ![ml-1m user 155: training history and an open explanation for Sleepless in Seattle](docs/demo/streamlit.png)
+
+![New user: about five ratings and an open explanation](docs/demo/streamlit-new-user.png)
 
 ## Download data
 

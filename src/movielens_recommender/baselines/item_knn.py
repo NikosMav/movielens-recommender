@@ -204,6 +204,10 @@ class ItemItemCosineRecommender:
         if sparse.issparse(product):
             product = product.toarray()
         scores = np.asarray(product, dtype=np.float64)
+        # Same rule as recommend(): items in the profile are not returned.
+        seen_rows, seen_cols = mat.nonzero()
+        if len(seen_rows):
+            scores[seen_rows, seen_cols] = -np.inf
         if mask_items:
             row_of = {uid: row for row, uid in enumerate(uids)}
             for uid, items in mask_items.items():
