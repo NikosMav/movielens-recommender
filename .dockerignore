@@ -1,0 +1,22 @@
+# Never send MovieLens data or rating-derived snapshots to the build context.
+data/
+artifacts/
+models/
+
+.git/
+.github/
+.venv/
+venv/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.idea/
+.vscode/
+
+app/
+docs/
+scripts/
+tests/
