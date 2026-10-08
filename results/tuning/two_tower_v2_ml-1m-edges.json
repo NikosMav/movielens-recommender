@@ -445,7 +445,54 @@
       },
       "val_ndcg@10": 0.08601,
       "wall_time_sec": 260.67
+    },
+    {
+      "best_epoch": 17,
+      "epochs_trained": 20,
+      "grid_edges": [
+        {
+          "edge": "high",
+          "grid_values": [
+            64.0,
+            128.0
+          ],
+          "parameter": "embedding_dim",
+          "value": 128.0
+        },
+        {
+          "edge": "high",
+          "grid_values": [
+            0.003,
+            0.01
+          ],
+          "parameter": "learning_rate",
+          "value": 0.01
+        },
+        {
+          "edge": "high",
+          "grid_values": [
+            0.2,
+            0.5
+          ],
+          "parameter": "temperature",
+          "value": 0.5
+        }
+      ],
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 128,
+        "learning_rate": 0.01,
+        "loss": "sampled_softmax",
+        "max_epochs": 40,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.5,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.070934,
+      "wall_time_sec": 486.267
     }
   ],
-  "tune_wall_sec": 1397.497
+  "tune_wall_sec": 1883.764
 }
