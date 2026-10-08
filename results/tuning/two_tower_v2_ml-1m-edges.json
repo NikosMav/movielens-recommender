@@ -1,0 +1,263 @@
+{
+  "added_after": "ml-1m test results in results/two-tower-v2/ml-1m.json",
+  "budget_source": "results/budget/two-tower-v2-ml1m-edges.json",
+  "chosen_after_test_results": true,
+  "dataset": "ml-1m",
+  "experiment": "s3e_ml1m_edge_extension",
+  "grid": [
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.003,
+      "loss": "sampled_softmax",
+      "max_epochs": 40,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.003,
+      "loss": "sampled_softmax",
+      "max_epochs": 40,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.5,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.01,
+      "loss": "sampled_softmax",
+      "max_epochs": 40,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.01,
+      "loss": "sampled_softmax",
+      "max_epochs": 40,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.5,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 128,
+      "learning_rate": 0.003,
+      "loss": "sampled_softmax",
+      "max_epochs": 40,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 128,
+      "learning_rate": 0.003,
+      "loss": "sampled_softmax",
+      "max_epochs": 40,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.5,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 128,
+      "learning_rate": 0.01,
+      "loss": "sampled_softmax",
+      "max_epochs": 40,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 128,
+      "learning_rate": 0.01,
+      "loss": "sampled_softmax",
+      "max_epochs": 40,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.5,
+      "weight_decay": 0.0001
+    }
+  ],
+  "prior_hyperparams": {
+    "batch_size": 1024,
+    "embedding_dim": 64,
+    "learning_rate": 0.003,
+    "loss": "sampled_softmax",
+    "max_epochs": 20,
+    "max_history": 50,
+    "n_negatives": 256,
+    "patience": 3,
+    "temperature": 0.2,
+    "weight_decay": 0.0001
+  },
+  "prior_val_ndcg@10": 0.08556,
+  "status": "running",
+  "trials": [
+    {
+      "best_epoch": 20,
+      "epochs_trained": 23,
+      "grid_edges": [
+        {
+          "edge": "low",
+          "grid_values": [
+            64.0,
+            128.0
+          ],
+          "parameter": "embedding_dim",
+          "value": 64.0
+        },
+        {
+          "edge": "low",
+          "grid_values": [
+            0.003,
+            0.01
+          ],
+          "parameter": "learning_rate",
+          "value": 0.003
+        },
+        {
+          "edge": "low",
+          "grid_values": [
+            0.2,
+            0.5
+          ],
+          "parameter": "temperature",
+          "value": 0.2
+        }
+      ],
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.003,
+        "loss": "sampled_softmax",
+        "max_epochs": 40,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.2,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.08556,
+      "wall_time_sec": 195.466
+    },
+    {
+      "best_epoch": 15,
+      "epochs_trained": 18,
+      "grid_edges": [
+        {
+          "edge": "low",
+          "grid_values": [
+            64.0,
+            128.0
+          ],
+          "parameter": "embedding_dim",
+          "value": 64.0
+        },
+        {
+          "edge": "low",
+          "grid_values": [
+            0.003,
+            0.01
+          ],
+          "parameter": "learning_rate",
+          "value": 0.003
+        },
+        {
+          "edge": "high",
+          "grid_values": [
+            0.2,
+            0.5
+          ],
+          "parameter": "temperature",
+          "value": 0.5
+        }
+      ],
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.003,
+        "loss": "sampled_softmax",
+        "max_epochs": 40,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.5,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.070415,
+      "wall_time_sec": 263.814
+    },
+    {
+      "best_epoch": 14,
+      "epochs_trained": 17,
+      "grid_edges": [
+        {
+          "edge": "low",
+          "grid_values": [
+            64.0,
+            128.0
+          ],
+          "parameter": "embedding_dim",
+          "value": 64.0
+        },
+        {
+          "edge": "high",
+          "grid_values": [
+            0.003,
+            0.01
+          ],
+          "parameter": "learning_rate",
+          "value": 0.01
+        },
+        {
+          "edge": "low",
+          "grid_values": [
+            0.2,
+            0.5
+          ],
+          "parameter": "temperature",
+          "value": 0.2
+        }
+      ],
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.01,
+        "loss": "sampled_softmax",
+        "max_epochs": 40,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.2,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.084248,
+      "wall_time_sec": 165.469
+    }
+  ],
+  "tune_wall_sec": 624.749
+}
