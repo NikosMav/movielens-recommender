@@ -1,0 +1,100 @@
+{
+  "added_after": "first ml-32m test result in results/two-tower-v2/ml-32m.json",
+  "budget_source": "results/budget/two-tower-v2-ml32m-matched.json",
+  "compute": {
+    "cap_sec": 10800.0,
+    "cpu_count": 4,
+    "elapsed_sec": 4284.071,
+    "ranker_wall_sec": null,
+    "reference_refit_wall_sec": null,
+    "seeds": [
+      42
+    ],
+    "test_train_sec": null,
+    "validation_wall_sec": 4177.048
+  },
+  "dataset": "ml-32m",
+  "eval_user_sample": {
+    "enabled": true,
+    "histories": "not_truncated",
+    "n_eligible_users": 196517,
+    "n_sampled_users": 8000,
+    "n_test_rows": 244960,
+    "n_val_rows": 95970,
+    "requested_users": 8000,
+    "seed": 42,
+    "selection": "Users with at least one warm relevant test item (rating >= 4.0, item in full train). The same ids are used for validation metrics, ranker labels, and test metrics.",
+    "train_matrix": "all_training_interactions",
+    "user_ids_sha256": "6b0d5cf6ce14cf5815e71f620b1dd5f37f7e6f09ac13ae5f3d138563b035c980"
+  },
+  "experiment": "s3e_matched_epoch_budget",
+  "hyperparams": {
+    "batch_size": 1024,
+    "embedding_dim": 64,
+    "learning_rate": 0.001,
+    "loss": "sampled_softmax",
+    "max_epochs": 6,
+    "max_history": 50,
+    "n_negatives": 256,
+    "patience": 2,
+    "temperature": 0.1,
+    "weight_decay": 0.0001
+  },
+  "paired_vs_reference": null,
+  "ranker": {
+    "reason": "Validation did not beat the published reference.",
+    "status": "not_run"
+  },
+  "reference_refit": {
+    "reason": "The matched run has no test score, so a paired interval was not computed.",
+    "status": "not_run"
+  },
+  "reference_val_ndcg@10": 0.100781,
+  "seed": 42,
+  "stage": "complete",
+  "test": {
+    "reason": "Validation did not beat the published reference.",
+    "status": "not_run"
+  },
+  "validation": {
+    "beats_reference_validation": false,
+    "best_epoch": 4,
+    "epochs_trained": 6,
+    "history": [
+      {
+        "epoch": 1,
+        "train_loss": 4.861646,
+        "val_ndcg@10": 0.086161
+      },
+      {
+        "epoch": 2,
+        "train_loss": 4.482873,
+        "val_ndcg@10": 0.090905
+      },
+      {
+        "epoch": 3,
+        "train_loss": 4.379732,
+        "val_ndcg@10": 0.096709
+      },
+      {
+        "epoch": 4,
+        "train_loss": 4.32418,
+        "val_ndcg@10": 0.098672
+      },
+      {
+        "epoch": 5,
+        "train_loss": 4.289453,
+        "val_ndcg@10": 0.097158
+      },
+      {
+        "epoch": 6,
+        "train_loss": 4.265218,
+        "val_ndcg@10": 0.097207
+      }
+    ],
+    "truncated": false,
+    "val_ndcg@10": 0.098672,
+    "wall_time_sec": 4177.048
+  },
+  "verdict": "loses_at_matched_budget"
+}
