@@ -59,6 +59,7 @@ Committed numbers live in `results/*.json`. Tuning grids and val scores live in 
 | **S3d** | Scale-up to MovieLens 32M (ADR-0011). Same protocol; budget limits are recorded before test metrics. |
 | **S3e** | Done. Full-softmax two-tower (ADR-0013). Loss is a config switch; the default stays the in-batch reference. |
 | **S5** | Serving (inference path, latency budget) |
+| **S5b** | Batch recommendations, FastAPI service, Docker image; latency budget fixed before measuring (ADR-0014) |
 | **S5c** | New-user profile (cold start): rate a few films with no MovieLens id (ADR-0012) |
 | **S6** | Operations (monitoring, refresh, drift) |
 

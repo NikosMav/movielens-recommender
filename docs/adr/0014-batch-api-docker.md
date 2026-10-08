@@ -70,4 +70,17 @@ The file records p50, p95, p99, and max for each, the host's CPU count and memor
 
 ## Outcome
 
-To be filled from `results/serving/ml-1m.json`.
+Numbers from `results/serving/ml-1m.json`, measured at commit `294ca3a` (the README had uncommitted edits, so the file records `-dirty`) on the snapshot built from `9e34701`: candidate set `two_tower`, K=200, 6,040 users. Host: Windows 11, 16 CPUs, 14,021 MiB. Python 3.12.1, torch 2.6.0+cpu, LightGBM 4.6.0, FastAPI 0.115.12.
+
+| Measure | n | p50 ms | p95 ms | p99 ms | max ms | Budget | Met |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Known user, top 10 with explanations | 500 | 33.1 | 62.8 | 85.5 | 123.2 | p95 ≤ 300 | yes |
+| Known user, top 10 without explanations | 500 | 19.5 | 22.1 | 26.3 | 51.4 | p95 ≤ 100 | yes |
+| New user, five ratings, top 10 | 200 | 136.7 | 151.1 | 174.3 | 287.2 | p95 ≤ 300 | yes |
+| Known user, with explanations, pre-S5b table scans | 500 | 80.0 | 187.7 | 292.3 | 404.3 | none | |
+
+Batch: top 10 for all 6,040 users, 60,400 rows, 69.5 s wall (86.9 users/s), against a 600 s budget. Met.
+
+Every budget is met with room to spare. The load-time lookups cut the explained known-user call from 80.0 ms to 33.1 ms at p50 (2.42x) and from 187.7 ms to 62.8 ms at p95, on the same 500 users. Explanations cost about 14 ms of the 33 ms at p50. The new-user path is the slowest, at about 137 ms, and these lookups do not touch it; it was not optimized in this stage.
+
+These are one machine's numbers, through the in-process test client. A container on a smaller host, or real network hops, will be slower.
