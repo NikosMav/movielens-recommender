@@ -346,6 +346,58 @@ def _trial_id(hp: dict[str, Any]) -> tuple[Any, ...]:
     )
 
 
+def _fill_edge_tower_pair() -> None:
+    """Paired CI of the re-scored tower against the saved reference refit.
+
+    Training already finished. This only scores the reference checkpoint and
+    pairs it with the primary-seed per-user scores already on disk.
+    """
+    if not EDGE_TUNING.is_file():
+        return
+    doc = _read(EDGE_TUNING)
+    if doc.get("status") != "complete" or doc.get("winner_held"):
+        return
+    if doc.get("paired_vs_reference"):
+        return
+    state_path = CHECKPOINT_DIR / "ml-1m-edges-state.json"
+    if not state_path.is_file():
+        return
+    state = _read(state_path)
+    config, movies, split = load_split("ml-1m")
+    primary = int(config.seed)
+    new_row = next(row for row in state["per_seed"] if int(row["seed"]) == primary)
+    published = _published_tuning("ml-1m")
+    ref_hp = dict(published["best_hyperparams"])
+    ref_hp["loss"] = "in_batch"
+    print("edge paired interval, scoring the saved reference tower", flush=True)
+    _rec, _metrics, ref_user, _wall = _fit_and_eval(
+        full_train=split.full_train,
+        movies=movies,
+        split=split,
+        config=config,
+        hyperparams=ref_hp,
+        n_epochs=int(published["best_epoch"]),
+        seed=primary,
+        epoch_checkpoint=CHECKPOINT_DIR / "ml-1m-edges" / "reference-seed42.pt",
+    )
+    del _rec
+    release_memory()
+    paired = _pair(
+        ref_user,
+        new_row["per_user"],
+        seed=config.seed,
+        n_bootstrap=config.eval.n_bootstrap,
+        alpha=config.eval.bootstrap_alpha,
+    )
+    doc["paired_vs_reference"] = paired
+    _write(EDGE_TUNING, doc)
+    if EDGE_OUT.is_file():
+        out = _read(EDGE_OUT)
+        out["paired_vs_reference"] = paired
+        _write(EDGE_OUT, out)
+    print(f"paired ndcg@10 {paired['ndcg@10']}", flush=True)
+
+
 def cmd_fairness_ml1m() -> None:
     import torch
 
@@ -355,6 +407,7 @@ def cmd_fairness_ml1m() -> None:
     plan = _plan(EDGE_PLAN, "edge_extension")
     grid = list(plan["grid"])
     if EDGE_TUNING.is_file() and _read(EDGE_TUNING).get("status") == "complete":
+        _fill_edge_tower_pair()
         print("edge extension already complete", flush=True)
         return
     doc = _read(EDGE_TUNING) if EDGE_TUNING.is_file() else {
@@ -551,6 +604,7 @@ def cmd_fairness_ml1m() -> None:
             for row in doc["trials"]
         ]
     })
+    _fill_edge_tower_pair()
     print(f"winner changed val {doc['selected']['val_ndcg@10']}", flush=True)
 
 

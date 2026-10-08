@@ -418,6 +418,25 @@ def test_matched_budget_and_edge_extension_are_fixed_rules():
     assert changed["winner"]["hyperparams"]["embedding_dim"] == 128
 
 
+def test_fairness_panel_states_the_matched_loss_and_keeps_the_app():
+    import sys
+
+    root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(root / "scripts"))
+    from make_results_table import _render_edge_extension, _render_matched_budget
+
+    matched = "\n".join(_render_matched_budget("ml-32m"))
+    assert (
+        "sampled softmax does not beat the in-batch reference on ml-32M "
+        "at matched epoch budget."
+    ) in matched
+    assert "The app stays. This change does not switch the Streamlit model." in matched
+    edges = "\n".join(_render_edge_extension("ml-1m"))
+    assert "run after the ml-1m test results existed" in edges
+    assert "both new losses beat the reference two-tower, and the ranker does not gain." in edges
+    assert "The app stays. This change does not switch the Streamlit model." in edges
+
+
 def test_epoch_checkpoint_resumes(tmp_path):
     train = _toy_ratings()
     movies = _toy_movies()

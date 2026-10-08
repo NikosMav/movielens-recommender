@@ -1824,7 +1824,6 @@
   "trials": [
     {
       "best_epoch": 20,
-      "epochs_trained": 23,
       "grid_edges": [
         {
           "edge": "low",
@@ -1866,12 +1865,10 @@
         "temperature": 0.2,
         "weight_decay": 0.0001
       },
-      "val_ndcg@10": 0.08556,
-      "wall_time_sec": 195.466
+      "val_ndcg@10": 0.08556
     },
     {
       "best_epoch": 15,
-      "epochs_trained": 18,
       "grid_edges": [
         {
           "edge": "low",
@@ -1913,12 +1910,10 @@
         "temperature": 0.5,
         "weight_decay": 0.0001
       },
-      "val_ndcg@10": 0.070415,
-      "wall_time_sec": 263.814
+      "val_ndcg@10": 0.070415
     },
     {
       "best_epoch": 14,
-      "epochs_trained": 17,
       "grid_edges": [
         {
           "edge": "low",
@@ -1960,12 +1955,10 @@
         "temperature": 0.2,
         "weight_decay": 0.0001
       },
-      "val_ndcg@10": 0.084248,
-      "wall_time_sec": 165.469
+      "val_ndcg@10": 0.084248
     },
     {
       "best_epoch": 15,
-      "epochs_trained": 18,
       "grid_edges": [
         {
           "edge": "low",
@@ -2007,12 +2000,10 @@
         "temperature": 0.5,
         "weight_decay": 0.0001
       },
-      "val_ndcg@10": 0.069401,
-      "wall_time_sec": 349.405
+      "val_ndcg@10": 0.069401
     },
     {
       "best_epoch": 6,
-      "epochs_trained": 9,
       "grid_edges": [
         {
           "edge": "high",
@@ -2054,12 +2045,10 @@
         "temperature": 0.2,
         "weight_decay": 0.0001
       },
-      "val_ndcg@10": 0.082919,
-      "wall_time_sec": 81.175
+      "val_ndcg@10": 0.082919
     },
     {
       "best_epoch": 6,
-      "epochs_trained": 9,
       "grid_edges": [
         {
           "edge": "high",
@@ -2101,12 +2090,10 @@
         "temperature": 0.5,
         "weight_decay": 0.0001
       },
-      "val_ndcg@10": 0.066883,
-      "wall_time_sec": 81.498
+      "val_ndcg@10": 0.066883
     },
     {
       "best_epoch": 17,
-      "epochs_trained": 20,
       "grid_edges": [
         {
           "edge": "high",
@@ -2148,12 +2135,10 @@
         "temperature": 0.2,
         "weight_decay": 0.0001
       },
-      "val_ndcg@10": 0.08601,
-      "wall_time_sec": 260.67
+      "val_ndcg@10": 0.08601
     },
     {
       "best_epoch": 17,
-      "epochs_trained": 20,
       "grid_edges": [
         {
           "edge": "high",
@@ -2195,8 +2180,7 @@
         "temperature": 0.5,
         "weight_decay": 0.0001
       },
-      "val_ndcg@10": 0.070934,
-      "wall_time_sec": 486.267
+      "val_ndcg@10": 0.070934
     }
   ],
   "tune_wall_sec": 1883.764,

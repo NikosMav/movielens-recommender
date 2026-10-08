@@ -108,7 +108,7 @@ If validation does not beat 0.100781 and `best_epoch` is below 6, the result is:
 
 ## Outcome
 
-ml-1m was scored before the ml-32m amendment. Its grid was not changed after `results/two-tower-v2/ml-1m.json` existed. The ml-1m numbers are copied from `results/tuning/two_tower_v2_ml-1m.json` and `results/two-tower-v2/ml-1m.json`. The ml-32m numbers are copied from `results/tuning/two_tower_v2_ml-32m.json` and `results/two-tower-v2/ml-32m.json`, both written after the reduced-budget amendment. The matched-budget round and the ml-1m edge check have no scores yet.
+ml-1m was scored before the ml-32m amendment. Its grid was not changed after `results/two-tower-v2/ml-1m.json` existed. The ml-1m numbers are copied from `results/tuning/two_tower_v2_ml-1m.json` and `results/two-tower-v2/ml-1m.json`. The ml-32m numbers are copied from `results/tuning/two_tower_v2_ml-32m.json` and `results/two-tower-v2/ml-32m.json`, both written after the reduced-budget amendment. The matched-budget round is `results/two-tower-v2/ml-32m-matched.json`. The ml-1m edge check is `results/two-tower-v2/ml-1m-edges.json`. Both were scored after the amendment above.
 
 **ml-1m validation.** 36 trials, `tune_wall_sec` 7315.623, under the 7704.0 s cap. Reference validation NDCG@10 is 0.082601.
 
@@ -181,3 +181,59 @@ Full softmax did not help on ml-32m because it was skipped for compute. One full
 Tune plus test training is 7176.076 + 2400.219 = 9576.295 s, inside 14400 s. The ranker added none.
 
 The app stays on the current model. The new tower did not beat the reference on validation, and the ranker was not run, so the other two switch conditions were not met.
+
+**ml-32m matched epoch budget.** One retrain of the first-round sampled-softmax winner: dim 64, learning rate 0.001, temperature 0.1, 256 negatives, seed 42, `max_epochs` 6, patience 2. Same split and the same 8,000-user sample (`user_ids_sha256` `6b0d5cf6ce14cf5815e71f620b1dd5f37f7e6f09ac13ae5f3d138563b035c980`). Numbers from `results/two-tower-v2/ml-32m-matched.json` and `results/tuning/two_tower_v2_ml-32m-matched.json`.
+
+Validation NDCG@10 by epoch: 0.086161, 0.090905, 0.096709, 0.098672, 0.097158, 0.097207. Epochs 1–3 match the first-round trial at the recorded values (epoch 3 is 0.096709). The best epoch is 4. Training continued through epoch 6 because patience is 2. `best_epoch` 4 is below 6, so the run is not truncated. Validation NDCG@10 is 0.098672, below the published reference 0.100781. `beats_reference_validation` is false. `validation_wall_sec` is 4177.048. Elapsed wall clock is 4284.071 s of the 10800 s cap, on 4 CPUs.
+
+sampled softmax does not beat the in-batch reference on ml-32M at matched epoch budget.
+
+That sentence is a validation comparison against the published 0.100781. Test was not re-scored. LambdaRank was not run. The in-batch reference was not refit, so the comparison stays unpaired. A paired interval was not computed. Verdict `loses_at_matched_budget`.
+
+This point was not a new search. Dim, learning rate, and temperature were held at the first-round winner. The epoch cap that stopped the first round is not what stopped this run.
+
+The app stays. This change does not switch the Streamlit model. The new tower did not beat the reference on validation, so the other two switch conditions were not met.
+
+**ml-1m edge extension.** This grid was chosen after `results/two-tower-v2/ml-1m.json` existed. It does not use test metrics to pick its axes. Sampled softmax only: dim `{64, 128}`, learning rate `{0.003, 0.01}`, temperature `{0.2, 0.5}`, `max_epochs` 40, patience 3. Eight trials. `tune_wall_sec` 1883.764. The prior point was trained again. A later point replaces it only when its validation NDCG@10 is strictly higher.
+
+| dim | learning rate | temperature | val NDCG@10 | best epoch | epochs trained | wall s |
+| --- | --- | --- | --- | --- | --- | --- |
+| 64 | 0.003 | 0.2 | 0.08556 | 20 | 23 | 195.466 |
+| 64 | 0.003 | 0.5 | 0.070415 | 15 | 18 | 263.814 |
+| 64 | 0.01 | 0.2 | 0.084248 | 14 | 17 | 165.469 |
+| 64 | 0.01 | 0.5 | 0.069401 | 15 | 18 | 349.405 |
+| 128 | 0.003 | 0.2 | 0.082919 | 6 | 9 | 81.175 |
+| 128 | 0.003 | 0.5 | 0.066883 | 6 | 9 | 81.498 |
+| 128 | 0.01 | 0.2 | 0.08601 | 17 | 20 | 260.67 |
+| 128 | 0.01 | 0.5 | 0.070934 | 17 | 20 | 486.267 |
+
+The re-run of dim 64, learning rate 0.003, temperature 0.2 reproduced 0.08556 at epoch 20 and stopped at epoch 23. Dim 128, learning rate 0.01, temperature 0.2 scored 0.08601 at epoch 17. That is strictly higher, so the winner changed. `best_epoch` 17 is below `max_epochs` 40, and training stopped at epoch 20. The new winner is the high edge of dim `{64, 128}` and of learning rate `{0.003, 0.01}`, and the low edge of temperature `{0.2, 0.5}`. Temperature 0.5 lost at every dim and learning rate in this grid. Dim 128 and learning rate 0.01 were not extended further.
+
+Test was re-scored because the winner changed. Seeds 42, 43, 44. NDCG@10 below is the 3-seed mean. The 95% interval is the primary seed (42), 1000 resamples, alpha 0.05. Train wall by seed: 176.991 s, 163.55 s, 195.41 s.
+
+| model | NDCG@10 mean | primary 95% CI | Recall@10 | Recall@100 | Recall@200 | Coverage@10 | head | tail |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| sampled_softmax, dim 128, lr 0.01, temperature 0.2 | 0.130866 | [0.125522, 0.134583] | 0.088634 | 0.430728 | 0.602566 | 0.300245 | 0.143847 | 0.08168 |
+
+Head NDCG@10 interval is [0.139211, 0.148855], 5796 users. Tail NDCG@10 interval is [0.077197, 0.086531], 4850 users. The primary-seed point inside the NDCG@10 interval is 0.130181.
+
+Paired, primary seed, this tower minus the reference refit (the saved in-batch checkpoint, published hyperparameters, 6 epochs, seed 42):
+
+| comparison | mean | low | high | excludes 0 | users |
+| --- | --- | --- | --- | --- | --- |
+| NDCG@10 | 0.011103 | 0.008232 | 0.014117 | yes | 5958 |
+| head | 0.007478 | 0.004668 | 0.01052 | yes | 5796 |
+| tail | -0.000858 | -0.004654 | 0.002778 | no | 4850 |
+
+The re-scored tower beats the reference refit on NDCG@10. The tail interval includes 0.
+
+**ml-1m edge ranker.** Demographics `both`, K=200. `runtime_sec` 343.103. NDCG@10 is the 3-seed mean. The interval is the primary seed.
+
+| ranker | NDCG@10 mean | primary 95% CI | primary `no_ranker` |
+| --- | --- | --- | --- |
+| reference tower, demographics both | 0.13341 | [0.128167, 0.136643] | 0.119078 |
+| new sampled-softmax tower | 0.127688 | [0.122043, 0.130358] | 0.130181 |
+
+Paired, primary seed, new ranker minus the reference-tower ranker: mean -0.006272, low -0.009728, high -0.002685, excludes 0, 5958 users. New ranker minus `no_ranker`: mean -0.004074, low -0.007344, high -0.000816, excludes 0, 5958 users. The ranker does not gain. It is below its candidate list, and it is below the reference-tower ranker.
+
+The first ml-1m test still stands: both new losses beat the reference two-tower, and the ranker does not gain. The app stays. The re-scored tower beats the reference on validation (0.08601 > 0.082601) and on the paired test interval above, but the ranker mean 0.127688 is below the reference-tower ranker 0.13341, and the paired interval's low end is -0.009728. This change does not switch the Streamlit model.

@@ -920,6 +920,28 @@ Does the ranker gain? No. The point estimate is above the candidate list and the
 
 Compute: tune 7315.623s, test training 706.290s, ranker 325.702s, seeds [42, 43, 44].
 
+Edge extension, run after the ml-1m test results existed. Sampled softmax only: dim {64, 128}, learning rate {0.003, 0.01}, temperature {0.2, 0.5}, max_epochs 40.
+
+| dim | learning rate | temperature | val NDCG@10 | best epoch | edges |
+| --- | --- | --- | --- | --- | --- |
+| 64 | 0.003 | 0.2 | 0.0856 | 20 | embedding_dim=64.0 (low of [64.0, 128.0]); learning_rate=0.003 (low of [0.003, 0.01]); temperature=0.2 (low of [0.2, 0.5]) |
+| 64 | 0.003 | 0.5 | 0.0704 | 15 | embedding_dim=64.0 (low of [64.0, 128.0]); learning_rate=0.003 (low of [0.003, 0.01]); temperature=0.5 (high of [0.2, 0.5]) |
+| 64 | 0.01 | 0.2 | 0.0842 | 14 | embedding_dim=64.0 (low of [64.0, 128.0]); learning_rate=0.01 (high of [0.003, 0.01]); temperature=0.2 (low of [0.2, 0.5]) |
+| 64 | 0.01 | 0.5 | 0.0694 | 15 | embedding_dim=64.0 (low of [64.0, 128.0]); learning_rate=0.01 (high of [0.003, 0.01]); temperature=0.5 (high of [0.2, 0.5]) |
+| 128 | 0.003 | 0.2 | 0.0829 | 6 | embedding_dim=128.0 (high of [64.0, 128.0]); learning_rate=0.003 (low of [0.003, 0.01]); temperature=0.2 (low of [0.2, 0.5]) |
+| 128 | 0.003 | 0.5 | 0.0669 | 6 | embedding_dim=128.0 (high of [64.0, 128.0]); learning_rate=0.003 (low of [0.003, 0.01]); temperature=0.5 (high of [0.2, 0.5]) |
+| 128 | 0.01 | 0.2 | 0.0860 | 17 | embedding_dim=128.0 (high of [64.0, 128.0]); learning_rate=0.01 (high of [0.003, 0.01]); temperature=0.2 (low of [0.2, 0.5]) |
+| 128 | 0.01 | 0.5 | 0.0709 | 17 | embedding_dim=128.0 (high of [64.0, 128.0]); learning_rate=0.01 (high of [0.003, 0.01]); temperature=0.5 (high of [0.2, 0.5]) |
+
+The validation winner changed to dim 128, learning rate 0.01, temperature 0.2, val NDCG@10 0.0860.
+Re-scored test NDCG@10 0.1309 [0.1255, 0.1346].
+LambdaRank NDCG@10 0.1277.
+Paired versus no_ranker -0.0041 [-0.0073, -0.0008] (excludes 0).
+Paired versus the reference-tower ranker -0.0063 [-0.0097, -0.0027] (excludes 0).
+Paired NDCG@10, re-scored tower minus the reference refit 0.0111 [0.0082, 0.0141] (excludes 0).
+The first ml-1m test still stands: both new losses beat the reference two-tower, and the ranker does not gain.
+The app stays. This change does not switch the Streamlit model.
+
 #### `ml-32m`
 
 Published reference two-tower (`results/ml-32m.json`): NDCG@10 0.1436 [0.1398, 0.1479], Recall@10 0.1138, Recall@100 0.4742, Recall@200 0.6243, Coverage@10 0.0411, head 0.1460, tail 0.0006. Validation NDCG@10 0.1008.
@@ -946,5 +968,14 @@ Does it fix the tail weakness? The point estimate is above the published two-tow
 Does the ranker gain? No. The new two-tower did not beat the reference on validation.
 
 Compute: tune 7176.076s, test training 2400.219s, ranker not run, seeds [42].
+
+Matched epoch budget, added after the first ml-32M test result. sampled softmax does not beat the in-batch reference on ml-32M at matched epoch budget.
+
+Validation NDCG@10 0.0987 versus the published reference 0.1008. best_epoch 4, epochs trained 6, truncated False.
+Test: Validation did not beat the published reference.
+The matched run has no test score, so a paired interval was not computed.
+Ranker: Validation did not beat the published reference.
+Matched-round wall clock 4284.071s.
+The app stays. This change does not switch the Streamlit model.
 
 <!-- END RESULTS TABLE -->

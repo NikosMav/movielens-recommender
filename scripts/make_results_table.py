@@ -1617,8 +1617,33 @@ def _render_matched_budget(dataset: str) -> list[str]:
     compute = payload.get("compute") or {}
     if compute.get("elapsed_sec") is not None:
         lines.append(f"Matched-round wall clock {float(compute['elapsed_sec']):.3f}s.")
+    if not validation.get("beats_reference_validation"):
+        lines.append("The app stays. This change does not switch the Streamlit model.")
     lines.append("")
     return lines
+
+
+def _edge_app_sentence(payload: dict) -> str:
+    """App switch needs a higher ranker mean and a paired interval above 0."""
+    ranker = payload.get("ranker") or {}
+    new_point = ((ranker.get("new") or {}).get("metrics") or {}).get("ndcg@10")
+    ref_point = ((ranker.get("reference") or {}).get("metrics") or {}).get("ndcg@10")
+    versus = (ranker.get("paired_vs_reference_ranker") or {}).get("ndcg@10") or {}
+    low = versus.get("low")
+    ranker_beats = (
+        new_point is not None
+        and ref_point is not None
+        and float(new_point) > float(ref_point)
+        and low is not None
+        and float(low) > 0
+    )
+    if ranker_beats:
+        return (
+            "The re-scored ranker is above the reference-tower ranker and the "
+            "paired interval's low end is above 0. This change does not switch "
+            "the Streamlit model."
+        )
+    return "The app stays. This change does not switch the Streamlit model."
 
 
 def _render_edge_extension(dataset: str) -> list[str]:
@@ -1684,6 +1709,19 @@ def _render_edge_extension(dataset: str) -> list[str]:
                 lines.append(
                     _v2_pair_sentence("Paired versus the reference-tower ranker", versus) + "."
                 )
+        tower = (payload.get("paired_vs_reference") or {}).get("ndcg@10")
+        if tower:
+            lines.append(
+                _v2_pair_sentence(
+                    "Paired NDCG@10, re-scored tower minus the reference refit", tower
+                )
+                + "."
+            )
+    lines.append(
+        "The first ml-1m test still stands: both new losses beat the reference "
+        "two-tower, and the ranker does not gain."
+    )
+    lines.append(_edge_app_sentence(payload))
     lines.append("")
     return lines
 
