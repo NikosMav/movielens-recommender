@@ -433,7 +433,13 @@ def test_fairness_panel_states_the_matched_loss_and_keeps_the_app():
     assert "The app stays. This change does not switch the Streamlit model." in matched
     edges = "\n".join(_render_edge_extension("ml-1m"))
     assert "run after the ml-1m test results existed" in edges
-    assert "both new losses beat the reference two-tower, and the ranker does not gain." in edges
+    assert "the ranker does not gain" not in edges
+    assert "versus the reference-tower ranker 0.1334" in edges
+    assert (
+        "The ranker on the re-scored tower is worse, not flat: it is below its own "
+        "candidate list and below the reference-tower ranker, and both paired "
+        "intervals exclude 0."
+    ) in edges
     assert "The app stays. This change does not switch the Streamlit model." in edges
 
 

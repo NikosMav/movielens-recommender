@@ -1646,6 +1646,33 @@ def _edge_app_sentence(payload: dict) -> str:
     return "The app stays. This change does not switch the Streamlit model."
 
 
+def _edge_ranker_sentence(ranker: dict) -> str:
+    """Say "worse" when a paired interval sits wholly below 0, not just "no gain"."""
+    if ranker.get("status") != "ran":
+        return "The ranker was not re-run."
+    lift = (ranker.get("paired_vs_no_ranker") or {}).get("ndcg@10") or {}
+    versus = (ranker.get("paired_vs_reference_ranker") or {}).get("ndcg@10") or {}
+    below_list = lift.get("high") is not None and float(lift["high"]) < 0
+    below_ref = versus.get("high") is not None and float(versus["high"]) < 0
+    if below_list and below_ref:
+        return (
+            "The ranker on the re-scored tower is worse, not flat: it is below its own "
+            "candidate list and below the reference-tower ranker, and both paired "
+            "intervals exclude 0."
+        )
+    if below_ref:
+        return (
+            "The ranker on the re-scored tower is below the reference-tower ranker, "
+            "and that paired interval excludes 0."
+        )
+    if below_list:
+        return (
+            "The ranker on the re-scored tower is below its own candidate list, "
+            "and that paired interval excludes 0."
+        )
+    return "The ranker on the re-scored tower does not gain."
+
+
 def _render_edge_extension(dataset: str) -> list[str]:
     path = RESULTS_DIR / "two-tower-v2" / "ml-1m-edges.json"
     if dataset != "ml-1m" or not path.is_file():
@@ -1699,7 +1726,13 @@ def _render_edge_extension(dataset: str) -> list[str]:
         ranker = payload.get("ranker") or {}
         if ranker.get("status") == "ran":
             new_point = ((ranker.get("new") or {}).get("metrics") or {}).get("ndcg@10")
-            if new_point is not None:
+            ref_point = ((ranker.get("reference") or {}).get("metrics") or {}).get("ndcg@10")
+            if new_point is not None and ref_point is not None:
+                lines.append(
+                    f"LambdaRank NDCG@10 {_fmt(float(new_point))} versus the "
+                    f"reference-tower ranker {_fmt(float(ref_point))}."
+                )
+            elif new_point is not None:
                 lines.append(f"LambdaRank NDCG@10 {_fmt(float(new_point))}.")
             lift = (ranker.get("paired_vs_no_ranker") or {}).get("ndcg@10")
             if lift:
@@ -1717,10 +1750,8 @@ def _render_edge_extension(dataset: str) -> list[str]:
                 )
                 + "."
             )
-    lines.append(
-        "The first ml-1m test still stands: both new losses beat the reference "
-        "two-tower, and the ranker does not gain."
-    )
+    lines.append("The first ml-1m test still stands: both new losses beat the reference two-tower.")
+    lines.append(_edge_ranker_sentence(payload.get("ranker") or {}))
     lines.append(_edge_app_sentence(payload))
     lines.append("")
     return lines
