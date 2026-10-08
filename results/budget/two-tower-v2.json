@@ -1,0 +1,677 @@
+{
+  "datasets": {
+    "ml-1m": {
+      "cap_within_limit": true,
+      "epoch_train_sec": {
+        "full_softmax": 9.1,
+        "in_batch": 6.7,
+        "sampled_softmax": 7.5
+      },
+      "fixed": {
+        "batch_size": 1024,
+        "max_history": 50,
+        "n_negatives": 256,
+        "temperature_is": "tuned hyperparameter, not a learned parameter",
+        "weight_decay": 0.0001
+      },
+      "grid": [
+        {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.0003,
+          "loss": "full_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.05,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.0003,
+          "loss": "full_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.0003,
+          "loss": "full_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.2,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.001,
+          "loss": "full_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.05,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.001,
+          "loss": "full_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.001,
+          "loss": "full_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.2,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.003,
+          "loss": "full_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.05,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.003,
+          "loss": "full_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.003,
+          "loss": "full_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.2,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.0003,
+          "loss": "full_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.05,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.0003,
+          "loss": "full_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.0003,
+          "loss": "full_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.2,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.001,
+          "loss": "full_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.05,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.001,
+          "loss": "full_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.001,
+          "loss": "full_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.2,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.003,
+          "loss": "full_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.05,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.003,
+          "loss": "full_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.003,
+          "loss": "full_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.2,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.0003,
+          "loss": "sampled_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 3,
+          "temperature": 0.05,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.0003,
+          "loss": "sampled_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 3,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.0003,
+          "loss": "sampled_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 3,
+          "temperature": 0.2,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.001,
+          "loss": "sampled_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 3,
+          "temperature": 0.05,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.001,
+          "loss": "sampled_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 3,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.001,
+          "loss": "sampled_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 3,
+          "temperature": 0.2,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.003,
+          "loss": "sampled_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 3,
+          "temperature": 0.05,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.003,
+          "loss": "sampled_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 3,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.003,
+          "loss": "sampled_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 3,
+          "temperature": 0.2,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.0003,
+          "loss": "sampled_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 3,
+          "temperature": 0.05,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.0003,
+          "loss": "sampled_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 3,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.0003,
+          "loss": "sampled_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 3,
+          "temperature": 0.2,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.001,
+          "loss": "sampled_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 3,
+          "temperature": 0.05,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.001,
+          "loss": "sampled_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 3,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.001,
+          "loss": "sampled_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 3,
+          "temperature": 0.2,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.003,
+          "loss": "sampled_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 3,
+          "temperature": 0.05,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.003,
+          "loss": "sampled_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 3,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.003,
+          "loss": "sampled_softmax",
+          "max_epochs": 20,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 3,
+          "temperature": 0.2,
+          "weight_decay": 0.0001
+        }
+      ],
+      "n_trials": 36,
+      "shrink_steps": [
+        "full factorial: 36 trials, cap 7704.0s"
+      ],
+      "test": {
+        "dataset": "ml-1m",
+        "reference_epochs": 6,
+        "seeds": [
+          42,
+          43,
+          44
+        ],
+        "test_both_cap_limit_sec": 21600.0,
+        "test_both_cap_sec": 1116.6,
+        "test_both_losses": true,
+        "test_epoch_cap": 20,
+        "three_seed_cap_limit_sec": 14400.0,
+        "three_seed_cap_sec": 666.6
+      },
+      "tune_cap_limit_sec": 21600.0,
+      "tune_cap_sec": 7704.0,
+      "val_score_sec_per_epoch": 2.4
+    },
+    "ml-32m": {
+      "cap_within_limit": true,
+      "epoch_train_sec": {
+        "full_softmax": 6852.6,
+        "in_batch": 1312.0,
+        "sampled_softmax": 1182.6
+      },
+      "fixed": {
+        "batch_size": 1024,
+        "max_history": 50,
+        "n_negatives": 256,
+        "temperature_is": "tuned hyperparameter, not a learned parameter",
+        "weight_decay": 0.0001
+      },
+      "grid": [
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.0003,
+          "loss": "full_softmax",
+          "max_epochs": 4,
+          "max_history": 50,
+          "patience": 2,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.001,
+          "loss": "full_softmax",
+          "max_epochs": 4,
+          "max_history": 50,
+          "patience": 2,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.0003,
+          "loss": "sampled_softmax",
+          "max_epochs": 3,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 1,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.001,
+          "loss": "sampled_softmax",
+          "max_epochs": 3,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 1,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.003,
+          "loss": "sampled_softmax",
+          "max_epochs": 3,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 1,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.001,
+          "loss": "sampled_softmax",
+          "max_epochs": 3,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 1,
+          "temperature": 0.05,
+          "weight_decay": 0.0001
+        },
+        {
+          "batch_size": 1024,
+          "embedding_dim": 32,
+          "learning_rate": 0.001,
+          "loss": "sampled_softmax",
+          "max_epochs": 3,
+          "max_history": 50,
+          "n_negatives": 256,
+          "patience": 1,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        }
+      ],
+      "n_trials": 7,
+      "shrink_steps": [
+        "full factorial: 36 trials, cap 869464.8s",
+        "one factor around dim 64 / lr 0.001 / temp 0.1: 12 trials, cap 289821.6s",
+        "full softmax reduced to 5, sampled softmax unchanged: cap 248659.8s",
+        "full softmax keeps three learning rates at temperature 0.1; sampled softmax drops temperature 0.2: cap 159194.4s",
+        "balanced: full softmax two learning rates, max_epochs 4; sampled softmax five points, max_epochs 4: cap 78688.4s",
+        "balanced: full softmax two learning rates, max_epochs 4; sampled softmax five points, max_epochs 3: cap 72736.9s"
+      ],
+      "test": {
+        "dataset": "ml-32m",
+        "reference_epochs": 5,
+        "seeds": [
+          42
+        ],
+        "test_both_cap_limit_sec": 21600.0,
+        "test_both_cap_sec": 54771.2,
+        "test_both_losses": false,
+        "test_epoch_cap": 6,
+        "three_seed_cap_limit_sec": 14400.0,
+        "three_seed_cap_sec": 143026.8
+      },
+      "tune_cap_limit_sec": 75600.0,
+      "tune_cap_sec": 72736.9,
+      "val_score_sec_per_epoch": 7.7
+    }
+  },
+  "experiment": "s3e_full_softmax_two_tower",
+  "host": {
+    "cpu_count": 4,
+    "mem_mib": {
+      "CommitLimit": 8007.0,
+      "MemAvailable": 7147.7,
+      "MemTotal": 16014.0,
+      "SwapTotal": 0.0
+    },
+    "rss_mib": 406.7
+  },
+  "probe_datasets": {
+    "ml-1m": {
+      "batches_per_epoch": 420,
+      "eval_user_sample": null,
+      "logit_mib_full_softmax_batch": 14.3,
+      "losses": {
+        "full_softmax": {
+          "batch_wall_sec": 0.431,
+          "batches_timed": 20,
+          "extrapolated_epoch_train_sec": 9.1,
+          "rss_mib": 532.2,
+          "sec_per_batch": 0.0216,
+          "warmup_batches": 5
+        },
+        "in_batch": {
+          "batch_wall_sec": 0.32,
+          "batches_timed": 20,
+          "extrapolated_epoch_train_sec": 6.7,
+          "rss_mib": 488.7,
+          "sec_per_batch": 0.016,
+          "warmup_batches": 5
+        },
+        "sampled_softmax": {
+          "batch_wall_sec": 0.358,
+          "batches_timed": 20,
+          "extrapolated_epoch_train_sec": 7.5,
+          "rss_mib": 490.1,
+          "sec_per_batch": 0.0179,
+          "warmup_batches": 5
+        }
+      },
+      "n_items": 3655,
+      "n_positives": 430387,
+      "val_score_sec_per_epoch": 2.4
+    },
+    "ml-32m": {
+      "batches_per_epoch": 11574,
+      "eval_user_sample": {
+        "enabled": true,
+        "histories": "not_truncated",
+        "n_eligible_users": 196517,
+        "n_sampled_users": 8000,
+        "n_test_rows": 244960,
+        "n_val_rows": 95970,
+        "requested_users": 8000,
+        "seed": 42,
+        "selection": "Users with at least one warm relevant test item (rating >= 4.0, item in full train). The same ids are used for validation metrics, ranker labels, and test metrics.",
+        "train_matrix": "all_training_interactions",
+        "user_ids_sha256": "6b0d5cf6ce14cf5815e71f620b1dd5f37f7e6f09ac13ae5f3d138563b035c980"
+      },
+      "logit_mib_full_softmax_batch": 261.0,
+      "losses": {
+        "full_softmax": {
+          "batch_wall_sec": 11.841,
+          "batches_timed": 20,
+          "extrapolated_epoch_train_sec": 6852.6,
+          "rss_mib": 3251.9,
+          "sec_per_batch": 0.5921,
+          "warmup_batches": 5
+        },
+        "in_batch": {
+          "batch_wall_sec": 2.267,
+          "batches_timed": 20,
+          "extrapolated_epoch_train_sec": 1312.0,
+          "rss_mib": 3226.1,
+          "sec_per_batch": 0.1134,
+          "warmup_batches": 5
+        },
+        "sampled_softmax": {
+          "batch_wall_sec": 2.044,
+          "batches_timed": 20,
+          "extrapolated_epoch_train_sec": 1182.6,
+          "rss_mib": 3257.3,
+          "sec_per_batch": 0.1022,
+          "warmup_batches": 5
+        }
+      },
+      "n_items": 66819,
+      "n_positives": 11852789,
+      "val_score_sec_per_epoch": 7.7
+    }
+  },
+  "probe_file": "results/budget/two-tower-v2-probe.json",
+  "ranking_metrics_used": false,
+  "status": "locked"
+}

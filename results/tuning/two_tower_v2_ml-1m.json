@@ -1,0 +1,1156 @@
+{
+  "beats_reference_validation": true,
+  "best_by_loss": {
+    "full_softmax": {
+      "best_epoch": 9,
+      "grid_edges": [
+        {
+          "edge": "high",
+          "grid_values": [
+            32.0,
+            64.0
+          ],
+          "parameter": "embedding_dim",
+          "value": 64.0
+        },
+        {
+          "edge": "high",
+          "grid_values": [
+            0.0003,
+            0.001,
+            0.003
+          ],
+          "parameter": "learning_rate",
+          "value": 0.003
+        },
+        {
+          "edge": "high",
+          "grid_values": [
+            0.05,
+            0.1,
+            0.2
+          ],
+          "parameter": "temperature",
+          "value": 0.2
+        }
+      ],
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.003,
+        "loss": "full_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.2,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.08548
+    },
+    "sampled_softmax": {
+      "best_epoch": 20,
+      "grid_edges": [
+        {
+          "edge": "high",
+          "grid_values": [
+            32.0,
+            64.0
+          ],
+          "parameter": "embedding_dim",
+          "value": 64.0
+        },
+        {
+          "edge": "high",
+          "grid_values": [
+            0.0003,
+            0.001,
+            0.003
+          ],
+          "parameter": "learning_rate",
+          "value": 0.003
+        },
+        {
+          "edge": "high",
+          "grid_values": [
+            0.05,
+            0.1,
+            0.2
+          ],
+          "parameter": "temperature",
+          "value": 0.2
+        }
+      ],
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.003,
+        "loss": "sampled_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.2,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.08556
+    }
+  },
+  "dataset": "ml-1m",
+  "dataset_sha256": "a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20",
+  "grid": [
+    {
+      "batch_size": 1024,
+      "embedding_dim": 32,
+      "learning_rate": 0.0003,
+      "loss": "full_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.05,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 32,
+      "learning_rate": 0.0003,
+      "loss": "full_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 32,
+      "learning_rate": 0.0003,
+      "loss": "full_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 32,
+      "learning_rate": 0.001,
+      "loss": "full_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.05,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 32,
+      "learning_rate": 0.001,
+      "loss": "full_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 32,
+      "learning_rate": 0.001,
+      "loss": "full_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 32,
+      "learning_rate": 0.003,
+      "loss": "full_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.05,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 32,
+      "learning_rate": 0.003,
+      "loss": "full_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 32,
+      "learning_rate": 0.003,
+      "loss": "full_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.0003,
+      "loss": "full_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.05,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.0003,
+      "loss": "full_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.0003,
+      "loss": "full_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.001,
+      "loss": "full_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.05,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.001,
+      "loss": "full_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.001,
+      "loss": "full_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.003,
+      "loss": "full_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.05,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.003,
+      "loss": "full_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.003,
+      "loss": "full_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 32,
+      "learning_rate": 0.0003,
+      "loss": "sampled_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.05,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 32,
+      "learning_rate": 0.0003,
+      "loss": "sampled_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 32,
+      "learning_rate": 0.0003,
+      "loss": "sampled_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 32,
+      "learning_rate": 0.001,
+      "loss": "sampled_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.05,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 32,
+      "learning_rate": 0.001,
+      "loss": "sampled_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 32,
+      "learning_rate": 0.001,
+      "loss": "sampled_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 32,
+      "learning_rate": 0.003,
+      "loss": "sampled_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.05,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 32,
+      "learning_rate": 0.003,
+      "loss": "sampled_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 32,
+      "learning_rate": 0.003,
+      "loss": "sampled_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.0003,
+      "loss": "sampled_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.05,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.0003,
+      "loss": "sampled_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.0003,
+      "loss": "sampled_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.001,
+      "loss": "sampled_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.05,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.001,
+      "loss": "sampled_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.001,
+      "loss": "sampled_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.003,
+      "loss": "sampled_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.05,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.003,
+      "loss": "sampled_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.003,
+      "loss": "sampled_softmax",
+      "max_epochs": 20,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    }
+  ],
+  "protocol": "Fit each trial on fit-train only. Select by validation NDCG@10. The test split is not read. ADR-0013.",
+  "reference_source": "results/tuning/two_tower_ml-1m.json",
+  "reference_val_ndcg@10": 0.082601,
+  "seed": 42,
+  "selected_loss": "sampled_softmax",
+  "selected_val_ndcg@10": 0.08556,
+  "status": "complete",
+  "trials": [
+    {
+      "best_epoch": 20,
+      "epochs_trained": 20,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.0003,
+        "loss": "full_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.05,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.076303,
+      "wall_time_sec": 288.063
+    },
+    {
+      "best_epoch": 19,
+      "epochs_trained": 20,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.0003,
+        "loss": "full_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.078071,
+      "wall_time_sec": 272.169
+    },
+    {
+      "best_epoch": 19,
+      "epochs_trained": 20,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.0003,
+        "loss": "full_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.2,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.081919,
+      "wall_time_sec": 262.581
+    },
+    {
+      "best_epoch": 12,
+      "epochs_trained": 15,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.001,
+        "loss": "full_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.05,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.081629,
+      "wall_time_sec": 192.076
+    },
+    {
+      "best_epoch": 12,
+      "epochs_trained": 15,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.001,
+        "loss": "full_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.081097,
+      "wall_time_sec": 197.121
+    },
+    {
+      "best_epoch": 10,
+      "epochs_trained": 13,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.001,
+        "loss": "full_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.2,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.084197,
+      "wall_time_sec": 159.754
+    },
+    {
+      "best_epoch": 6,
+      "epochs_trained": 9,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.003,
+        "loss": "full_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.05,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.080474,
+      "wall_time_sec": 117.192
+    },
+    {
+      "best_epoch": 8,
+      "epochs_trained": 11,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.003,
+        "loss": "full_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.08168,
+      "wall_time_sec": 145.326
+    },
+    {
+      "best_epoch": 10,
+      "epochs_trained": 13,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.003,
+        "loss": "full_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.2,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.084713,
+      "wall_time_sec": 163.669
+    },
+    {
+      "best_epoch": 16,
+      "epochs_trained": 19,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.0003,
+        "loss": "full_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.05,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.076296,
+      "wall_time_sec": 237.698
+    },
+    {
+      "best_epoch": 20,
+      "epochs_trained": 20,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.0003,
+        "loss": "full_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.082049,
+      "wall_time_sec": 199.374
+    },
+    {
+      "best_epoch": 20,
+      "epochs_trained": 20,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.0003,
+        "loss": "full_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.2,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.083895,
+      "wall_time_sec": 272.127
+    },
+    {
+      "best_epoch": 13,
+      "epochs_trained": 16,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.001,
+        "loss": "full_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.05,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.08048,
+      "wall_time_sec": 167.43
+    },
+    {
+      "best_epoch": 13,
+      "epochs_trained": 16,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.001,
+        "loss": "full_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.084313,
+      "wall_time_sec": 251.976
+    },
+    {
+      "best_epoch": 9,
+      "epochs_trained": 12,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.001,
+        "loss": "full_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.2,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.08498,
+      "wall_time_sec": 178.768
+    },
+    {
+      "best_epoch": 6,
+      "epochs_trained": 9,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.003,
+        "loss": "full_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.05,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.081824,
+      "wall_time_sec": 108.387
+    },
+    {
+      "best_epoch": 11,
+      "epochs_trained": 14,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.003,
+        "loss": "full_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.0852,
+      "wall_time_sec": 202.986
+    },
+    {
+      "best_epoch": 9,
+      "epochs_trained": 12,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.003,
+        "loss": "full_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "temperature": 0.2,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.08548,
+      "wall_time_sec": 179.762
+    },
+    {
+      "best_epoch": 20,
+      "epochs_trained": 20,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.0003,
+        "loss": "sampled_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.05,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.07676,
+      "wall_time_sec": 231.93
+    },
+    {
+      "best_epoch": 20,
+      "epochs_trained": 20,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.0003,
+        "loss": "sampled_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.079998,
+      "wall_time_sec": 269.393
+    },
+    {
+      "best_epoch": 20,
+      "epochs_trained": 20,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.0003,
+        "loss": "sampled_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.2,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.082037,
+      "wall_time_sec": 239.519
+    },
+    {
+      "best_epoch": 15,
+      "epochs_trained": 18,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.001,
+        "loss": "sampled_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.05,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.081366,
+      "wall_time_sec": 152.329
+    },
+    {
+      "best_epoch": 11,
+      "epochs_trained": 14,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.001,
+        "loss": "sampled_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.082831,
+      "wall_time_sec": 173.68
+    },
+    {
+      "best_epoch": 17,
+      "epochs_trained": 20,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.001,
+        "loss": "sampled_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.2,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.085192,
+      "wall_time_sec": 230.808
+    },
+    {
+      "best_epoch": 7,
+      "epochs_trained": 10,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.003,
+        "loss": "sampled_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.05,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.081507,
+      "wall_time_sec": 113.131
+    },
+    {
+      "best_epoch": 11,
+      "epochs_trained": 14,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.003,
+        "loss": "sampled_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.08328,
+      "wall_time_sec": 155.734
+    },
+    {
+      "best_epoch": 11,
+      "epochs_trained": 14,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 32,
+        "learning_rate": 0.003,
+        "loss": "sampled_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.2,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.083916,
+      "wall_time_sec": 163.364
+    },
+    {
+      "best_epoch": 16,
+      "epochs_trained": 19,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.0003,
+        "loss": "sampled_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.05,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.0775,
+      "wall_time_sec": 244.131
+    },
+    {
+      "best_epoch": 20,
+      "epochs_trained": 20,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.0003,
+        "loss": "sampled_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.083257,
+      "wall_time_sec": 258.722
+    },
+    {
+      "best_epoch": 18,
+      "epochs_trained": 20,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.0003,
+        "loss": "sampled_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.2,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.083094,
+      "wall_time_sec": 265.241
+    },
+    {
+      "best_epoch": 11,
+      "epochs_trained": 14,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.001,
+        "loss": "sampled_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.05,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.080106,
+      "wall_time_sec": 177.063
+    },
+    {
+      "best_epoch": 13,
+      "epochs_trained": 16,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.001,
+        "loss": "sampled_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.084122,
+      "wall_time_sec": 206.47
+    },
+    {
+      "best_epoch": 14,
+      "epochs_trained": 17,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.001,
+        "loss": "sampled_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.2,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.084695,
+      "wall_time_sec": 220.414
+    },
+    {
+      "best_epoch": 11,
+      "epochs_trained": 14,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.003,
+        "loss": "sampled_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.05,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.080449,
+      "wall_time_sec": 169.89
+    },
+    {
+      "best_epoch": 11,
+      "epochs_trained": 14,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.003,
+        "loss": "sampled_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.084025,
+      "wall_time_sec": 180.993
+    },
+    {
+      "best_epoch": 20,
+      "epochs_trained": 20,
+      "hyperparams": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.003,
+        "loss": "sampled_softmax",
+        "max_epochs": 20,
+        "max_history": 50,
+        "n_negatives": 256,
+        "patience": 3,
+        "temperature": 0.2,
+        "weight_decay": 0.0001
+      },
+      "val_ndcg@10": 0.08556,
+      "wall_time_sec": 266.352
+    }
+  ],
+  "tune_wall_sec": 7315.623
+}

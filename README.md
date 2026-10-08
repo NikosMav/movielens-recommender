@@ -1,6 +1,6 @@
 # movielens-recommender
 
-A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). S3c adds two more classic baselines, EASE^R and RP3beta (ADR-0008), tuned on the same validation split. On ml-1m, the two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. On ml-32M, two-tower and LambdaRank tie at the top and beat item–item. The ranker gate against item–item cosine, and the EASE / RP3beta comparison, are in the results table. S4b (ADR-0009) tested user demographic features on ml-1m only. The pre-registered rule adopted them, so `configs/ml-1m.yaml` sets `models.ranker.demographics` to `both`. `configs/default.yaml` stays `off` because ml-latest-small has no `users.dat`. The headline LambdaRank row is still the S4 feature set in `results/ml-1m.json`. S5a is a Streamlit demo of that ml-1m ranker with plain-language reasons (ADR-0010). S5c adds a new-user profile: a person with no MovieLens id rates a few films and gets an explained top 10 (ADR-0012). The cold-start panel below says how good that is after 1, 3, 5, and 10 ratings, next to known users and popularity. Batch recommendations, a FastAPI service, and a Dockerfile (S5b) are still planned. Operations (S6) are still planned.
+A small, standalone movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings. Stages 1–4 are done: data, a per-user time split, the evaluation harness, classic baselines, validation tuning, segment breakdowns, the global-time-cutoff check, a two-tower retrieval model, and a LightGBM LambdaRank re-ranker (ADR-0007). S3c adds two more classic baselines, EASE^R and RP3beta (ADR-0008), tuned on the same validation split. On ml-1m, the two-tower model is a negative result on the NDCG@10 gate against item–item kNN, while it leads that baseline on Recall@100/200, catalog coverage, and the tail. On ml-32M, two-tower and LambdaRank tie at the top and beat item–item. The ranker gate against item–item cosine, and the EASE / RP3beta comparison, are in the results table. S4b (ADR-0009) tested user demographic features on ml-1m only. The pre-registered rule adopted them, so `configs/ml-1m.yaml` sets `models.ranker.demographics` to `both`. `configs/default.yaml` stays `off` because ml-latest-small has no `users.dat`. The headline LambdaRank row is still the S4 feature set in `results/ml-1m.json`. S5a is a Streamlit demo of that ml-1m ranker with plain-language reasons (ADR-0010). S5c adds a new-user profile: a person with no MovieLens id rates a few films and gets an explained top 10 (ADR-0012). The cold-start panel below says how good that is after 1, 3, 5, and 10 ratings, next to known users and popularity. S3e (ADR-0013) trained the two-tower with two other losses, full softmax and sampled softmax. On ml-1m both beat the in-batch two-tower on test NDCG@10, but LambdaRank on the validation-chosen new tower is worse than LambdaRank on the current two-tower, and worse than the new tower's own list (both paired intervals exclude 0). On ml-32M, sampled softmax does not beat the in-batch two-tower on validation, even at the same epoch budget, and full softmax was skipped for compute. The app keeps the current model. Batch recommendations, a FastAPI service, and a Dockerfile (S5b) are still planned. Operations (S6) are still planned.
 
 The code is MIT, and the MovieLens data is not included: it is downloaded by the script and stays under the [GroupLens terms of use](https://grouplens.org/datasets/movielens/). Those terms apply to ml-32M as well as to ml-latest-small and ml-1m. S3d (ADR-0011) repeats the harness on MovieLens 32M.
 
@@ -24,6 +24,7 @@ The code was written by AI coding agents (Cursor) working from a staged plan wit
 | **S4** | Done | Learned ranker (LightGBM LambdaRank over a validation-chosen candidate set) |
 | **S4b** | Done | S4b: user demographic features experiment (ml-1m) |
 | **S3d** | Done | S3d: scale-up to MovieLens 32M |
+| **S3e** | Done | S3e: full-softmax two-tower |
 | **S5a** | Done | Streamlit explainable UI |
 | **S5c** | Done | S5c: new-user profile (cold start) |
 | **S5b** | Planned | Batch recs, FastAPI, Dockerfile |
@@ -881,5 +882,101 @@ Sensitivity N=10: `cold_start_ranker` does not beat most-popular. Difference -0.
 Warmed new-user top-10 latency (five popular titles rated 5): 0.0850s. Method `cold_start_ranker`.
 
 Cold-start experiment runtime: 501.8226s.
+
+### Full-softmax two-tower (S3e)
+
+From `results/two-tower-v2/`. The reference loss is the in-batch sampled softmax. Temperature, learning rate, and embedding dim were chosen on validation only. NDCG@10 in the table is the seed mean. The 95% CI column and the paired intervals are the primary seed, candidate minus reference.
+
+#### `ml-1m`
+
+Published reference two-tower (`results/ml-1m.json`): NDCG@10 0.1192 [0.1150, 0.1230], Recall@10 0.0901, Recall@100 0.4354, Recall@200 0.6037, Coverage@10 0.4723, head 0.1364, tail 0.0825. Validation NDCG@10 0.0826.
+
+| loss | val NDCG@10 | best epoch | grid edges |
+| --- | --- | --- | --- |
+| reference in_batch | 0.0826 | 6 | published config |
+| full_softmax | 0.0855 | 9 | embedding_dim=64.0 (high of [32.0, 64.0]); learning_rate=0.003 (high of [0.0003, 0.001, 0.003]); temperature=0.2 (high of [0.05, 0.1, 0.2]) |
+| sampled_softmax | 0.0856 | 20 | embedding_dim=64.0 (high of [32.0, 64.0]); learning_rate=0.003 (high of [0.0003, 0.001, 0.003]); temperature=0.2 (high of [0.05, 0.1, 0.2]); best_epoch equals max_epochs 20 |
+
+Validation winner: `sampled_softmax` (0.0856). Beats the reference on validation: True.
+
+| model | NDCG@10 | 95% CI | Recall@10 | Recall@100 | Recall@200 | Coverage@10 | head | tail |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| in_batch (3-seed mean) | 0.1192 | [0.1150, 0.1230] | 0.0901 | 0.4354 | 0.6037 | 0.4723 | 0.1364 | 0.0825 |
+| full_softmax (3-seed mean) | 0.1286 | [0.1247, 0.1340] | 0.0912 | 0.4383 | 0.6101 | 0.3310 | 0.1429 | 0.0867 |
+| sampled_softmax (3-seed mean) | 0.1305 | [0.1254, 0.1347] | 0.0891 | 0.4280 | 0.6004 | 0.3002 | 0.1432 | 0.0816 |
+
+Paired NDCG@10, full_softmax minus reference 0.0105 [0.0077, 0.0130] (excludes 0).
+Paired head NDCG@10, full_softmax 0.0065 [0.0039, 0.0092] (excludes 0).
+Paired tail NDCG@10, full_softmax 0.0042 [0.0008, 0.0074] (excludes 0).
+Paired NDCG@10, sampled_softmax minus reference 0.0110 [0.0081, 0.0138] (excludes 0).
+Paired head NDCG@10, sampled_softmax 0.0069 [0.0040, 0.0098] (excludes 0).
+Paired tail NDCG@10, sampled_softmax -0.0009 [-0.0048, 0.0023] (includes 0).
+
+Did full softmax help? Yes. Full softmax test NDCG@10 is 0.1286 against the reference rerun 0.1192. Paired difference 0.0105 [0.0077, 0.0130] (excludes 0). Validation was 0.0855 against reference 0.0826.
+
+Does it fix the tail weakness? There was no tail gap versus item-item to fix. `full_softmax` is higher than the reference. `full_softmax` tail NDCG@10 is 0.0867 (head 0.1429). Published reference tail is 0.0825; item-item tail is 0.0321. Paired tail difference versus the reference rerun 0.0042 [0.0008, 0.0074] (excludes 0).
+
+Does the ranker gain? No. The point estimate is above the candidate list and the paired interval includes 0. It does not beat the reference-tower ranker. New ranker NDCG@10 0.1301 versus `no_ranker` 0.1300. Paired versus no_ranker 0.0010 [-0.0025, 0.0044] (includes 0). Paired versus the reference-tower ranker -0.0013 [-0.0043, 0.0019] (includes 0). Published LambdaRank in `results/ml-1m.json` is 0.1273 (demographics off).
+
+Compute: tune 7315.623s, test training 706.290s, ranker 325.702s, seeds [42, 43, 44].
+
+Edge extension, run after the ml-1m test results existed. Sampled softmax only: dim {64, 128}, learning rate {0.003, 0.01}, temperature {0.2, 0.5}, max_epochs 40.
+
+| dim | learning rate | temperature | val NDCG@10 | best epoch | edges |
+| --- | --- | --- | --- | --- | --- |
+| 64 | 0.003 | 0.2 | 0.0856 | 20 | embedding_dim=64.0 (low of [64.0, 128.0]); learning_rate=0.003 (low of [0.003, 0.01]); temperature=0.2 (low of [0.2, 0.5]) |
+| 64 | 0.003 | 0.5 | 0.0704 | 15 | embedding_dim=64.0 (low of [64.0, 128.0]); learning_rate=0.003 (low of [0.003, 0.01]); temperature=0.5 (high of [0.2, 0.5]) |
+| 64 | 0.01 | 0.2 | 0.0842 | 14 | embedding_dim=64.0 (low of [64.0, 128.0]); learning_rate=0.01 (high of [0.003, 0.01]); temperature=0.2 (low of [0.2, 0.5]) |
+| 64 | 0.01 | 0.5 | 0.0694 | 15 | embedding_dim=64.0 (low of [64.0, 128.0]); learning_rate=0.01 (high of [0.003, 0.01]); temperature=0.5 (high of [0.2, 0.5]) |
+| 128 | 0.003 | 0.2 | 0.0829 | 6 | embedding_dim=128.0 (high of [64.0, 128.0]); learning_rate=0.003 (low of [0.003, 0.01]); temperature=0.2 (low of [0.2, 0.5]) |
+| 128 | 0.003 | 0.5 | 0.0669 | 6 | embedding_dim=128.0 (high of [64.0, 128.0]); learning_rate=0.003 (low of [0.003, 0.01]); temperature=0.5 (high of [0.2, 0.5]) |
+| 128 | 0.01 | 0.2 | 0.0860 | 17 | embedding_dim=128.0 (high of [64.0, 128.0]); learning_rate=0.01 (high of [0.003, 0.01]); temperature=0.2 (low of [0.2, 0.5]) |
+| 128 | 0.01 | 0.5 | 0.0709 | 17 | embedding_dim=128.0 (high of [64.0, 128.0]); learning_rate=0.01 (high of [0.003, 0.01]); temperature=0.5 (high of [0.2, 0.5]) |
+
+The validation winner changed to dim 128, learning rate 0.01, temperature 0.2, val NDCG@10 0.0860.
+Re-scored test NDCG@10 0.1309 [0.1255, 0.1346].
+LambdaRank NDCG@10 0.1277 versus the reference-tower ranker 0.1334.
+Paired versus no_ranker -0.0041 [-0.0073, -0.0008] (excludes 0).
+Paired versus the reference-tower ranker -0.0063 [-0.0097, -0.0027] (excludes 0).
+Paired NDCG@10, re-scored tower minus the reference refit 0.0111 [0.0082, 0.0141] (excludes 0).
+The first ml-1m test still stands: both new losses beat the reference two-tower.
+The ranker on the re-scored tower is worse, not flat: it is below its own candidate list and below the reference-tower ranker, and both paired intervals exclude 0.
+The app stays. This change does not switch the Streamlit model.
+
+#### `ml-32m`
+
+Published reference two-tower (`results/ml-32m.json`): NDCG@10 0.1436 [0.1398, 0.1479], Recall@10 0.1138, Recall@100 0.4742, Recall@200 0.6243, Coverage@10 0.0411, head 0.1460, tail 0.0006. Validation NDCG@10 0.1008.
+
+| loss | val NDCG@10 | best epoch | grid edges |
+| --- | --- | --- | --- |
+| reference in_batch | 0.1008 | 5 | published config |
+| sampled_softmax | 0.0967 | 3 | embedding_dim=64.0 (only_value of [64.0]); temperature=0.1 (low of [0.1, 0.2]); best_epoch equals max_epochs 3 |
+
+Validation winner: `sampled_softmax` (0.0967). Beats the reference on validation: False.
+
+| model | NDCG@10 | 95% CI | Recall@10 | Recall@100 | Recall@200 | Coverage@10 | head | tail |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| sampled_softmax (1 seed) | 0.1379 | [0.1343, 0.1424] | 0.1106 | 0.4653 | 0.6144 | 0.0373 | 0.1383 | 0.0035 |
+
+Paired interval versus the published two-tower was not computed. The published two-tower was not refit. The published results file has no per-user scores, so a paired interval versus that reference was not computed.
+Unpaired point difference, `sampled_softmax` minus the published two-tower: NDCG@10 -0.0057, head -0.0076, tail 0.0029.
+Paired interval versus the published LambdaRank was not computed. The published ranker was not refit and this run has no per-user scores for it.
+
+Did full softmax help? Skipped for compute. One full-softmax epoch is 6860.3s, which does not fit beside the sampled-softmax work inside the 14400.0s cap.
+
+Does it fix the tail weakness? The point estimate is above the published two-tower and above item-item. A paired interval was not computed. `sampled_softmax` tail NDCG@10 is 0.0035 (head 0.1383). Published reference tail is 0.0006; item-item tail is 0.0022.
+
+Does the ranker gain? No. The new two-tower did not beat the reference on validation.
+
+Compute: tune 7176.076s, test training 2400.219s, ranker not run, seeds [42].
+
+Matched epoch budget, added after the first ml-32M test result. sampled softmax does not beat the in-batch reference on ml-32M at matched epoch budget.
+
+Validation NDCG@10 0.0987 versus the published reference 0.1008. best_epoch 4, epochs trained 6, truncated False.
+Test: Validation did not beat the published reference.
+The matched run has no test score, so a paired interval was not computed.
+Ranker: Validation did not beat the published reference.
+Matched-round wall clock 4284.071s.
+The app stays. This change does not switch the Streamlit model.
 
 <!-- END RESULTS TABLE -->

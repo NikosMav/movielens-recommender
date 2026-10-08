@@ -1336,6 +1336,590 @@ def render_cold_start() -> str:
     return "\n".join(lines)
 
 
+def _v2_edge_text(block: dict) -> str:
+    text = _v2_edges(block.get("grid_edges") or [])
+    hp = block.get("hyperparams") or {}
+    if "max_epochs" in hp and int(block.get("best_epoch", -1)) == int(hp["max_epochs"]):
+        extra = f"best_epoch equals max_epochs {hp['max_epochs']}"
+        text = extra if text == "none" else f"{text}; {extra}"
+    return text
+
+
+def _v2_edges(edges: list[dict]) -> str:
+    if not edges:
+        return "none"
+    parts = []
+    for edge in edges:
+        parts.append(
+            f"{edge['parameter']}={edge['value']} ({edge['edge']} of {edge['grid_values']})"
+        )
+    return "; ".join(parts)
+
+
+def _v2_pair_sentence(label: str, paired: dict) -> str:
+    excludes = "excludes 0" if paired.get("excludes_zero") else "includes 0"
+    return (
+        f"{label} {_fmt(float(paired['mean']))} "
+        f"[{_fmt(float(paired['low']))}, {_fmt(float(paired['high']))}] ({excludes})"
+    )
+
+
+def _answer_full_softmax(payload: dict) -> str:
+    skipped = payload.get("full_softmax") or {}
+    if skipped.get("status") == "skipped":
+        one = skipped.get("full_softmax_one_epoch_sec")
+        cap = skipped.get("cap_sec")
+        return (
+            "Skipped for compute. "
+            f"One full-softmax epoch is {float(one):.1f}s, which does not fit "
+            f"beside the sampled-softmax work inside the {float(cap):.1f}s cap."
+        )
+    tuning = payload.get("tuning") or {}
+    best = (tuning.get("best_by_loss") or {}).get("full_softmax") or {}
+    ref_val = float(tuning.get("reference_val_ndcg@10"))
+    val = best.get("val_ndcg@10")
+    model = (payload.get("models") or {}).get("full_softmax")
+    if val is None:
+        return "Full softmax has no validation score in this file."
+    val_f = float(val)
+    if model is None:
+        relation = "above" if val_f > ref_val else "not above"
+        return (
+            f"No test score. Full softmax validation NDCG@10 was {_fmt(val_f)}, "
+            f"{relation} the reference {_fmt(ref_val)}. "
+            f"The validation winner was `{tuning.get('selected_loss')}`."
+        )
+    paired = (payload.get("paired_vs_reference") or {}).get("full_softmax", {}).get("ndcg@10") or {}
+    point = float(model["metrics"]["ndcg@10"])
+    ref_point = float(payload["models"]["in_batch"]["metrics"]["ndcg@10"])
+    if float(paired.get("mean", 0.0)) > 0.0 and paired.get("excludes_zero"):
+        verdict = "Yes"
+    elif float(paired.get("mean", 0.0)) > 0.0:
+        verdict = "No clear gain"
+    else:
+        verdict = "No"
+    return (
+        f"{verdict}. Full softmax test NDCG@10 is {_fmt(point)} against the "
+        f"reference rerun {_fmt(ref_point)}. "
+        + _v2_pair_sentence("Paired difference", paired)
+        + f". Validation was {_fmt(val_f)} against reference {_fmt(ref_val)}."
+    )
+
+
+def _answer_tail(payload: dict) -> str:
+    """Compare the scored new tower's tail with the reference and with item-item."""
+    published = payload.get("reference_published") or {}
+    item_tail = published.get("item_item_tail_ndcg@10")
+    ref_tail = published.get("tail_ndcg@10")
+    selected = str((payload.get("tuning") or {}).get("selected_loss"))
+    models = payload.get("models") or {}
+    name = "full_softmax" if "full_softmax" in models else selected
+    model = models.get(name)
+    if model is None or item_tail is None or ref_tail is None:
+        return "Tail NDCG@10 was not measured for a new loss."
+    tail = _segment_value_metrics(model["metrics"], "tail")
+    head = _segment_value_metrics(model["metrics"], "head")
+    paired = ((payload.get("paired_vs_reference") or {}).get(name) or {}).get("tail_ndcg@10") or {}
+    if tail is None or head is None:
+        return "Tail NDCG@10 is missing from this file."
+    if float(ref_tail) >= float(item_tail):
+        if float(tail) > float(ref_tail):
+            verdict = (
+                "There was no tail gap versus item-item to fix. "
+                f"`{name}` is higher than the reference"
+            )
+        else:
+            verdict = (
+                "No. There was no tail gap versus item-item, and "
+                f"`{name}` is not higher than the reference"
+            )
+    elif float(tail) >= float(item_tail) and float(tail) > float(ref_tail):
+        verdict = "Yes"
+    elif float(tail) > float(ref_tail):
+        verdict = "It beats the reference two-tower and is still below item-item"
+    else:
+        verdict = "No"
+    unpaired = (payload.get("reference_comparison") or {}).get("paired") is False
+    if unpaired and verdict == "Yes":
+        verdict = (
+            "The point estimate is above the published two-tower and above item-item. "
+            "A paired interval was not computed"
+        )
+    text = (
+        f"{verdict}. `{name}` tail NDCG@10 is {_fmt(float(tail))} "
+        f"(head {_fmt(float(head))}). Published reference tail is {_fmt(float(ref_tail))}; "
+        f"item-item tail is {_fmt(float(item_tail))}."
+    )
+    if paired:
+        text += (
+            " "
+            + _v2_pair_sentence("Paired tail difference versus the reference rerun", paired)
+            + "."
+        )
+    return text
+
+
+def _segment_value_metrics(metrics: dict, which: str) -> float | None:
+    cell = ((metrics.get("segments") or {}).get("item_head_tail") or {}).get(which) or {}
+    value = cell.get("ndcg@10")
+    if value is None:
+        return None
+    return float(value)
+
+
+def _answer_ranker(payload: dict) -> str:
+    tuning = payload.get("tuning") or {}
+    ranker = payload.get("ranker")
+    if not ranker:
+        return (
+            "No. The best new two-tower did not beat the reference on validation "
+            f"({_fmt(float(tuning.get('selected_val_ndcg@10')))} versus "
+            f"{_fmt(float(tuning.get('reference_val_ndcg@10')))}), so LambdaRank was not re-run."
+        )
+    if ranker.get("status") == "not_run":
+        reason = str(ranker.get("reason") or "LambdaRank was not re-run.")
+        extra = ""
+        if ranker.get("remaining_sec") is not None and ranker.get("projected_sec") is not None:
+            extra = (
+                f" Remaining {float(ranker['remaining_sec']):.1f}s, "
+                f"projected {float(ranker['projected_sec']):.1f}s."
+            )
+        return f"No. {reason}{extra}"
+    new = ranker["new"]
+    no_ranker = float(new["no_ranker_metrics"]["ndcg@10"])
+    new_point = float(new["metrics"]["ndcg@10"])
+    lift = ranker["paired_vs_no_ranker"]["ndcg@10"]
+    versus = (ranker.get("paired_vs_reference_ranker") or {}).get("ndcg@10")
+    published = payload["reference_published"]
+    beats_list = (
+        new_point > no_ranker and lift.get("excludes_zero") and float(lift["mean"]) > 0
+    )
+    beats_old = bool(
+        versus is not None and float(versus["mean"]) > 0 and versus.get("excludes_zero")
+    )
+    if beats_list and beats_old:
+        lead = "Yes."
+    else:
+        lead = "No."
+    if beats_list:
+        over_list = "It adds lift over its candidate list"
+    elif new_point > no_ranker:
+        over_list = (
+            "The point estimate is above the candidate list and the paired interval includes 0"
+        )
+    else:
+        over_list = "No lift over its candidate list"
+    if versus is None:
+        over_old = (
+            "A paired interval versus the existing ranker was not computed, "
+            "because the reference tower was not refit"
+        )
+        versus_sentence = ""
+    elif beats_old:
+        over_old = "It beats the reference-tower ranker"
+        versus_sentence = ". " + _v2_pair_sentence(
+            "Paired versus the reference-tower ranker", versus
+        )
+    elif float(versus["mean"]) > 0:
+        over_old = "The gain versus the reference-tower ranker includes 0"
+        versus_sentence = ". " + _v2_pair_sentence(
+            "Paired versus the reference-tower ranker", versus
+        )
+    else:
+        over_old = "It does not beat the reference-tower ranker"
+        versus_sentence = ". " + _v2_pair_sentence(
+            "Paired versus the reference-tower ranker", versus
+        )
+    return (
+        f"{lead} {over_list}. {over_old}. New ranker NDCG@10 {_fmt(new_point)} versus "
+        f"`no_ranker` {_fmt(no_ranker)}. "
+        + _v2_pair_sentence("Paired versus no_ranker", lift)
+        + versus_sentence
+        + f". Published LambdaRank in `{published.get('lambdarank_source')}` is "
+        f"{_fmt(float(published['lambdarank_ndcg@10']))} "
+        f"(demographics {published.get('lambdarank_demographics')})."
+    )
+
+
+def _render_matched_budget(dataset: str) -> list[str]:
+    path = RESULTS_DIR / "two-tower-v2" / "ml-32m-matched.json"
+    if dataset != "ml-32m" or not path.is_file():
+        return []
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    validation = payload.get("validation") or {}
+    if not validation:
+        return []
+    verdict = str(payload.get("verdict") or "")
+    sentences = {
+        "loses_at_matched_budget": (
+            "sampled softmax does not beat the in-batch reference on ml-32M "
+            "at matched epoch budget."
+        ),
+        "truncated": (
+            "The matched-budget run is still truncated: best_epoch equals the "
+            "6-epoch cap, so this is not a negative result."
+        ),
+        "inconclusive": "The matched-budget comparison is inconclusive.",
+        "beats_reference": (
+            "Sampled softmax beats the in-batch reference on ml-32M at matched epoch budget."
+        ),
+    }
+    lines = [
+        "Matched epoch budget, added after the first ml-32M test result. "
+        + sentences.get(verdict, verdict),
+        "",
+        (
+            f"Validation NDCG@10 {_fmt(float(validation['val_ndcg@10']))} "
+            f"versus the published reference {_fmt(float(payload['reference_val_ndcg@10']))}. "
+            f"best_epoch {validation.get('best_epoch')}, "
+            f"epochs trained {validation.get('epochs_trained')}, "
+            f"truncated {validation.get('truncated')}."
+        ),
+    ]
+    test = payload.get("test") or {}
+    if test.get("status") == "ran":
+        metrics = test["model"]["metrics"]
+        ci = (metrics.get("confidence_intervals") or {}).get("ndcg@10") or {}
+        lines.append(
+            f"Test NDCG@10 {_fmt(float(metrics['ndcg@10']))} {_fmt_ci_cell(ci)}, "
+            f"head {_fmt(float(_segment_value_metrics(metrics, 'head')))}, "
+            f"tail {_fmt(float(_segment_value_metrics(metrics, 'tail')))}."
+        )
+    elif test.get("reason"):
+        lines.append(f"Test: {test['reason']}")
+    paired = (payload.get("paired_vs_reference") or {}).get("ndcg@10")
+    if paired:
+        lines.append(
+            _v2_pair_sentence("Paired NDCG@10, matched run minus the reference refit", paired)
+            + "."
+        )
+    elif payload.get("reference_refit"):
+        reason = payload["reference_refit"].get("reason") or "Paired interval was not computed."
+        lines.append(str(reason))
+    ranker = payload.get("ranker") or {}
+    if ranker.get("status") == "not_run":
+        lines.append(f"Ranker: {ranker.get('reason')}")
+    elif ranker.get("status") == "ran":
+        new = ranker.get("new") or {}
+        new_point = (new.get("metrics") or {}).get("ndcg@10")
+        if new_point is not None:
+            lines.append(f"LambdaRank NDCG@10 {_fmt(float(new_point))}.")
+        lift = (ranker.get("paired_vs_no_ranker") or {}).get("ndcg@10")
+        if lift:
+            lines.append(_v2_pair_sentence("Paired versus no_ranker", lift) + ".")
+        versus = (ranker.get("paired_vs_reference_ranker") or {}).get("ndcg@10")
+        if versus:
+            lines.append(
+                _v2_pair_sentence("Paired versus the reference-tower ranker", versus) + "."
+            )
+        elif ranker.get("paired_vs_reference_ranker") is None:
+            lines.append("A paired interval versus the existing ranker was not computed.")
+    compute = payload.get("compute") or {}
+    if compute.get("elapsed_sec") is not None:
+        lines.append(f"Matched-round wall clock {float(compute['elapsed_sec']):.3f}s.")
+    if not validation.get("beats_reference_validation"):
+        lines.append("The app stays. This change does not switch the Streamlit model.")
+    lines.append("")
+    return lines
+
+
+def _edge_app_sentence(payload: dict) -> str:
+    """App switch needs a higher ranker mean and a paired interval above 0."""
+    ranker = payload.get("ranker") or {}
+    new_point = ((ranker.get("new") or {}).get("metrics") or {}).get("ndcg@10")
+    ref_point = ((ranker.get("reference") or {}).get("metrics") or {}).get("ndcg@10")
+    versus = (ranker.get("paired_vs_reference_ranker") or {}).get("ndcg@10") or {}
+    low = versus.get("low")
+    ranker_beats = (
+        new_point is not None
+        and ref_point is not None
+        and float(new_point) > float(ref_point)
+        and low is not None
+        and float(low) > 0
+    )
+    if ranker_beats:
+        return (
+            "The re-scored ranker is above the reference-tower ranker and the "
+            "paired interval's low end is above 0. This change does not switch "
+            "the Streamlit model."
+        )
+    return "The app stays. This change does not switch the Streamlit model."
+
+
+def _edge_ranker_sentence(ranker: dict) -> str:
+    """Say "worse" when a paired interval sits wholly below 0, not just "no gain"."""
+    if ranker.get("status") != "ran":
+        return "The ranker was not re-run."
+    lift = (ranker.get("paired_vs_no_ranker") or {}).get("ndcg@10") or {}
+    versus = (ranker.get("paired_vs_reference_ranker") or {}).get("ndcg@10") or {}
+    below_list = lift.get("high") is not None and float(lift["high"]) < 0
+    below_ref = versus.get("high") is not None and float(versus["high"]) < 0
+    if below_list and below_ref:
+        return (
+            "The ranker on the re-scored tower is worse, not flat: it is below its own "
+            "candidate list and below the reference-tower ranker, and both paired "
+            "intervals exclude 0."
+        )
+    if below_ref:
+        return (
+            "The ranker on the re-scored tower is below the reference-tower ranker, "
+            "and that paired interval excludes 0."
+        )
+    if below_list:
+        return (
+            "The ranker on the re-scored tower is below its own candidate list, "
+            "and that paired interval excludes 0."
+        )
+    return "The ranker on the re-scored tower does not gain."
+
+
+def _render_edge_extension(dataset: str) -> list[str]:
+    path = RESULTS_DIR / "two-tower-v2" / "ml-1m-edges.json"
+    if dataset != "ml-1m" or not path.is_file():
+        return []
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("status") != "complete":
+        return []
+    lines = [
+        "Edge extension, run after the ml-1m test results existed. "
+        "Sampled softmax only: dim {64, 128}, learning rate {0.003, 0.01}, "
+        "temperature {0.2, 0.5}, max_epochs 40.",
+        "",
+    ]
+    lines.append("| dim | learning rate | temperature | val NDCG@10 | best epoch | edges |")
+    lines.append("| --- | --- | --- | --- | --- | --- |")
+    for row in payload.get("trials") or []:
+        hp = row["hyperparams"]
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    str(hp["embedding_dim"]),
+                    str(hp["learning_rate"]),
+                    str(hp["temperature"]),
+                    _fmt(float(row["val_ndcg@10"])),
+                    str(row["best_epoch"]),
+                    _v2_edge_text(row),
+                ]
+            )
+            + " |"
+        )
+    lines.append("")
+    if payload.get("winner_held"):
+        lines.append("The edges were checked and the winner held.")
+    else:
+        selected = payload.get("selected") or {}
+        lines.append(
+            "The validation winner changed to "
+            f"dim {selected.get('hyperparams', {}).get('embedding_dim')}, "
+            f"learning rate {selected.get('hyperparams', {}).get('learning_rate')}, "
+            f"temperature {selected.get('hyperparams', {}).get('temperature')}, "
+            f"val NDCG@10 {_fmt(float(selected['val_ndcg@10']))}."
+        )
+        test = payload.get("test") or {}
+        if test.get("status") == "ran":
+            metrics = test["model"]["metrics"]
+            ci = (metrics.get("confidence_intervals") or {}).get("ndcg@10") or {}
+            lines.append(
+                f"Re-scored test NDCG@10 {_fmt(float(metrics['ndcg@10']))} {_fmt_ci_cell(ci)}."
+            )
+        ranker = payload.get("ranker") or {}
+        if ranker.get("status") == "ran":
+            new_point = ((ranker.get("new") or {}).get("metrics") or {}).get("ndcg@10")
+            ref_point = ((ranker.get("reference") or {}).get("metrics") or {}).get("ndcg@10")
+            if new_point is not None and ref_point is not None:
+                lines.append(
+                    f"LambdaRank NDCG@10 {_fmt(float(new_point))} versus the "
+                    f"reference-tower ranker {_fmt(float(ref_point))}."
+                )
+            elif new_point is not None:
+                lines.append(f"LambdaRank NDCG@10 {_fmt(float(new_point))}.")
+            lift = (ranker.get("paired_vs_no_ranker") or {}).get("ndcg@10")
+            if lift:
+                lines.append(_v2_pair_sentence("Paired versus no_ranker", lift) + ".")
+            versus = (ranker.get("paired_vs_reference_ranker") or {}).get("ndcg@10")
+            if versus:
+                lines.append(
+                    _v2_pair_sentence("Paired versus the reference-tower ranker", versus) + "."
+                )
+        tower = (payload.get("paired_vs_reference") or {}).get("ndcg@10")
+        if tower:
+            lines.append(
+                _v2_pair_sentence(
+                    "Paired NDCG@10, re-scored tower minus the reference refit", tower
+                )
+                + "."
+            )
+    lines.append("The first ml-1m test still stands: both new losses beat the reference two-tower.")
+    lines.append(_edge_ranker_sentence(payload.get("ranker") or {}))
+    lines.append(_edge_app_sentence(payload))
+    lines.append("")
+    return lines
+
+
+def render_two_tower_v2() -> str:
+    """S3e panel. Empty when neither results file exists, so earlier panels stay put."""
+    paths = [
+        RESULTS_DIR / "two-tower-v2" / "ml-1m.json",
+        RESULTS_DIR / "two-tower-v2" / "ml-32m.json",
+    ]
+    present = [path for path in paths if path.is_file()]
+    if not present:
+        return ""
+    lines: list[str] = []
+    lines.append("### Full-softmax two-tower (S3e)")
+    lines.append("")
+    lines.append(
+        "From `results/two-tower-v2/`. The reference loss is the in-batch "
+        "sampled softmax. Temperature, learning rate, and embedding dim were "
+        "chosen on validation only. NDCG@10 in the table is the seed mean. "
+        "The 95% CI column and the paired intervals are the primary seed, "
+        "candidate minus reference."
+    )
+    lines.append("")
+    for path in present:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        dataset = payload["dataset"]
+        lines.append(f"#### `{dataset}`")
+        lines.append("")
+        published = payload["reference_published"]
+        lines.append(
+            f"Published reference two-tower (`{published['source']}`): "
+            f"NDCG@10 {_fmt(float(published['ndcg@10']))} "
+            f"{_fmt_ci_cell(published.get('ndcg@10_ci'))}, "
+            f"Recall@10 {_fmt(float(published['recall@10']))}, "
+            f"Recall@100 {_fmt(float(published['recall@100']))}, "
+            f"Recall@200 {_fmt(float(published['recall@200']))}, "
+            f"Coverage@10 {_fmt(float(published['coverage@10']))}, "
+            f"head {_fmt(float(published['head_ndcg@10']))}, "
+            f"tail {_fmt(float(published['tail_ndcg@10']))}. "
+            f"Validation NDCG@10 {_fmt(float(published['val_ndcg@10']))}."
+        )
+        lines.append("")
+        tuning = payload["tuning"]
+        lines.append("| loss | val NDCG@10 | best epoch | grid edges |")
+        lines.append("| --- | --- | --- | --- |")
+        lines.append(
+            "| reference in_batch | "
+            f"{_fmt(float(tuning['reference_val_ndcg@10']))} | "
+            f"{published['best_epoch']} | published config |"
+        )
+        for name, block in sorted((tuning.get("best_by_loss") or {}).items()):
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        name,
+                        _fmt(float(block["val_ndcg@10"])),
+                        str(block["best_epoch"]),
+                        _v2_edge_text(block),
+                    ]
+                )
+                + " |"
+            )
+        lines.append("")
+        lines.append(
+            f"Validation winner: `{tuning['selected_loss']}` "
+            f"({_fmt(float(tuning['selected_val_ndcg@10']))}). "
+            f"Beats the reference on validation: {tuning['beats_reference_validation']}."
+        )
+        lines.append("")
+        lines.append(
+            "| model | NDCG@10 | 95% CI | Recall@10 | Recall@100 | Recall@200 | "
+            "Coverage@10 | head | tail |"
+        )
+        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+        for name in ("in_batch", "full_softmax", "sampled_softmax"):
+            model = (payload.get("models") or {}).get(name)
+            if not model:
+                continue
+            metrics = model["metrics"]
+            ci = (metrics.get("confidence_intervals") or {}).get("ndcg@10") or {}
+            n_seeds = len(model.get("per_seed") or [])
+            label = name if n_seeds != 1 else f"{name} (1 seed)"
+            if n_seeds > 1:
+                label = f"{name} ({n_seeds}-seed mean)"
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        label,
+                        _fmt(float(metrics["ndcg@10"])),
+                        _fmt_ci_cell(ci),
+                        _fmt(float(metrics["recall@10"])),
+                        _fmt(float(metrics["recall@100"])),
+                        _fmt(float(metrics["recall@200"])),
+                        _fmt(float(metrics["coverage@10"])),
+                        _fmt(float(_segment_value_metrics(metrics, "head"))),
+                        _fmt(float(_segment_value_metrics(metrics, "tail"))),
+                    ]
+                )
+                + " |"
+            )
+        lines.append("")
+        for name, paired in sorted((payload.get("paired_vs_reference") or {}).items()):
+            lines.append(
+                _v2_pair_sentence(f"Paired NDCG@10, {name} minus reference", paired["ndcg@10"])
+                + "."
+            )
+            if paired.get("head_ndcg@10"):
+                lines.append(
+                    _v2_pair_sentence(f"Paired head NDCG@10, {name}", paired["head_ndcg@10"]) + "."
+                )
+            if paired.get("tail_ndcg@10"):
+                lines.append(
+                    _v2_pair_sentence(f"Paired tail NDCG@10, {name}", paired["tail_ndcg@10"]) + "."
+                )
+        comparison = payload.get("reference_comparison") or {}
+        if comparison.get("paired") is False:
+            lines.append(
+                "Paired interval versus the published two-tower was not computed. "
+                + str(comparison.get("reason") or "")
+            )
+            delta = comparison.get("candidate_minus_published_ndcg@10")
+            if delta is not None:
+                lines.append(
+                    "Unpaired point difference, "
+                    f"`{comparison.get('candidate_loss')}` minus the published two-tower: "
+                    f"NDCG@10 {_fmt(float(delta))}, "
+                    "head "
+                    f"{_fmt(float(comparison['candidate_minus_published_head_ndcg@10']))}, "
+                    "tail "
+                    f"{_fmt(float(comparison['candidate_minus_published_tail_ndcg@10']))}."
+                )
+            lines.append(
+                "Paired interval versus the published LambdaRank was not computed. "
+                + str(comparison.get("paired_vs_published_ranker_reason") or "")
+            )
+        lines.append("")
+        lines.append(f"Did full softmax help? {_answer_full_softmax(payload)}")
+        lines.append("")
+        lines.append(f"Does it fix the tail weakness? {_answer_tail(payload)}")
+        lines.append("")
+        lines.append(f"Does the ranker gain? {_answer_ranker(payload)}")
+        lines.append("")
+        compute = payload.get("compute") or {}
+        if compute:
+            def _sec(value: float) -> str:
+                return f"{float(value):.3f}"
+
+            lines.append(
+                f"Compute: tune {_sec(compute['tune_wall_sec'])}s, "
+                f"test training {_sec(compute['test_train_sec'])}s, "
+                f"ranker "
+                + (
+                    f"{_sec(compute['ranker_wall_sec'])}s"
+                    if compute.get("ranker_wall_sec") is not None
+                    else "not run"
+                )
+                + f", seeds {compute.get('seeds')}."
+            )
+            lines.append("")
+        lines.extend(_render_matched_budget(dataset))
+        lines.extend(_render_edge_extension(dataset))
+    return "\n".join(lines)
+
+
 def build_section(results: list[tuple[str, dict]]) -> str:
     parts = [BEGIN, ""]
     for filename, payload in results:
@@ -1349,6 +1933,9 @@ def build_section(results: list[tuple[str, dict]]) -> str:
     cold = render_cold_start()
     if cold:
         parts.append(cold)
+    v2 = render_two_tower_v2()
+    if v2:
+        parts.append(v2)
     parts.append(END)
     return "\n".join(parts) + "\n"
 

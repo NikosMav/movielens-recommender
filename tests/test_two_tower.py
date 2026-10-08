@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
 
 torch = pytest.importorskip("torch")
 
+from movielens_recommender.config import TWO_TOWER_LOSS_NAMES, load_config  # noqa: E402
 from movielens_recommender.movies import GENRES, parse_year_from_title  # noqa: E402
 from movielens_recommender.split import SplitConfig, time_based_split  # noqa: E402
 from movielens_recommender.two_tower.features import (  # noqa: E402
@@ -16,7 +19,11 @@ from movielens_recommender.two_tower.features import (  # noqa: E402
 )
 from movielens_recommender.two_tower.model import TwoTowerModel  # noqa: E402
 from movielens_recommender.two_tower.train import (  # noqa: E402
+    TWO_TOWER_LOSSES,
     fit_two_tower_recommender,
+    full_softmax_loss,
+    resolve_two_tower_loss,
+    sampled_softmax_logq_loss,
     sampled_softmax_loss,
     tune_two_tower,
 )
@@ -97,6 +104,395 @@ def test_sampled_softmax_loss_shapes():
     loss = sampled_softmax_loss(logits, log_q)
     assert loss.ndim == 0
     assert torch.isfinite(loss)
+
+
+def _toy_hyperparams(**overrides):
+    hp = {
+        "embedding_dim": 16,
+        "learning_rate": 1e-2,
+        "temperature": 0.1,
+        "batch_size": 32,
+        "weight_decay": 0.0,
+        "max_epochs": 1,
+        "patience": 5,
+        "max_history": 10,
+    }
+    hp.update(overrides)
+    return hp
+
+
+def test_loss_names_match_config_and_default_is_in_batch():
+    assert tuple(TWO_TOWER_LOSS_NAMES) == TWO_TOWER_LOSSES
+    assert resolve_two_tower_loss(None) == "in_batch"
+    assert resolve_two_tower_loss({}) == "in_batch"
+    assert resolve_two_tower_loss({"loss": "in_batch"}) == "in_batch"
+    root = Path(__file__).resolve().parents[1]
+    for name in ("default.yaml", "ml-1m.yaml", "ml-32m.yaml"):
+        cfg = load_config(root / "configs" / name)
+        assert cfg.models.two_tower.loss == "in_batch"
+        assert cfg.models.two_tower.n_negatives == 256
+
+
+def test_loader_rejects_unknown_loss(tmp_path):
+    path = tmp_path / "bad.yaml"
+    path.write_text("models:\n  two_tower:\n    loss: bpr\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="two-tower loss"):
+        load_config(path)
+
+
+def test_default_loss_matches_explicit_in_batch():
+    train = _toy_ratings()
+    movies = _toy_movies()
+    omitted = _toy_hyperparams()
+    explicit = _toy_hyperparams(loss="in_batch")
+    rec_a, _, _ = fit_two_tower_recommender(
+        train,
+        dataset="synthetic",
+        movies=movies,
+        hyperparams=omitted,
+        seed=0,
+        relevance_threshold=4.0,
+        n_epochs=1,
+    )
+    rec_b, _, _ = fit_two_tower_recommender(
+        train,
+        dataset="synthetic",
+        movies=movies,
+        hyperparams=explicit,
+        seed=0,
+        relevance_threshold=4.0,
+        n_epochs=1,
+    )
+    assert rec_a.recommend(1, 5) == rec_b.recommend(1, 5)
+
+
+def test_unknown_loss_raises_during_fit():
+    with pytest.raises(ValueError, match="two-tower loss"):
+        fit_two_tower_recommender(
+            _toy_ratings(),
+            dataset="synthetic",
+            movies=_toy_movies(),
+            hyperparams=_toy_hyperparams(loss="bpr"),
+            seed=0,
+            relevance_threshold=4.0,
+            n_epochs=1,
+        )
+
+
+def test_full_softmax_matches_logsumexp():
+    logits = torch.tensor([[1.0, 2.0, 0.5], [0.0, -1.0, 3.0]])
+    targets = torch.tensor([1, 2])
+    got = full_softmax_loss(logits, targets)
+    manual = torch.stack(
+        [-(row[t] - torch.logsumexp(row, dim=0)) for row, t in zip(logits, targets, strict=True)]
+    ).mean()
+    assert torch.allclose(got, manual)
+
+
+def test_logq_uniform_is_constant_shift():
+    pos = torch.tensor([1.0, 0.2])
+    neg = torch.tensor([[0.3, -0.4], [0.5, 0.1]])
+    log_q = torch.log(torch.tensor(0.25))
+    corrected = sampled_softmax_logq_loss(
+        pos,
+        neg,
+        log_q.expand(2),
+        log_q.expand(2),
+    )
+    plain = sampled_softmax_logq_loss(pos, neg, torch.zeros(2), torch.zeros(2))
+    assert torch.allclose(corrected, plain, atol=1e-6)
+
+
+def test_logq_downweights_popular_classes():
+    """A more popular class has a smaller corrected logit, at equal scores."""
+    pos = torch.zeros(1)
+    neg = torch.zeros(1, 2)
+    popular_negative = sampled_softmax_logq_loss(
+        pos,
+        neg,
+        torch.tensor([torch.log(torch.tensor(0.1))]),
+        torch.tensor([torch.log(torch.tensor(0.8)), torch.log(torch.tensor(0.05))]),
+    )
+    rare_negative = sampled_softmax_logq_loss(
+        pos,
+        neg,
+        torch.tensor([torch.log(torch.tensor(0.1))]),
+        torch.tensor([torch.log(torch.tensor(0.01)), torch.log(torch.tensor(0.05))]),
+    )
+    assert popular_negative < rare_negative
+
+    popular_positive = sampled_softmax_logq_loss(
+        pos,
+        neg,
+        torch.tensor([torch.log(torch.tensor(0.8))]),
+        torch.log(torch.tensor([0.05, 0.05])),
+    )
+    rare_positive = sampled_softmax_logq_loss(
+        pos,
+        neg,
+        torch.tensor([torch.log(torch.tensor(0.01))]),
+        torch.log(torch.tensor([0.05, 0.05])),
+    )
+    assert popular_positive > rare_positive
+
+
+def test_logq_masks_negative_that_copies_the_positive():
+    loss = sampled_softmax_logq_loss(
+        torch.tensor([1.0]),
+        torch.tensor([[5.0]]),
+        torch.tensor([0.0]),
+        torch.tensor([0.0]),
+        positive_index=torch.tensor([3]),
+        negative_index=torch.tensor([3]),
+    )
+    assert torch.allclose(loss, torch.zeros(()))
+
+
+def test_lock_plan_uses_timings_not_metrics():
+    from movielens_recommender.two_tower.plan import lock_plan
+
+    def block(epoch: dict[str, float]) -> dict:
+        return {
+            "losses": {
+                name: {"extrapolated_epoch_train_sec": epoch[name]}
+                for name in ("in_batch", "full_softmax", "sampled_softmax")
+            },
+            "val_score_sec_per_epoch": 10.0,
+        }
+
+    cheap = lock_plan(
+        {
+            "datasets": {
+                "ml-1m": block({"in_batch": 10.0, "full_softmax": 15.0, "sampled_softmax": 12.0})
+            }
+        },
+        {"ml-1m": 6},
+    )
+    ml1m = cheap["datasets"]["ml-1m"]
+    assert cheap["ranking_metrics_used"] is False
+    assert ml1m["n_trials"] == 2 * 2 * 3 * 3
+    assert ml1m["test"]["seeds"] == [42, 43, 44]
+    assert ml1m["test"]["test_both_losses"] is True
+    assert ml1m["cap_within_limit"] is True
+
+    slow = lock_plan(
+        {
+            "datasets": {
+                "ml-32m": block(
+                    {"in_batch": 500.0, "full_softmax": 4000.0, "sampled_softmax": 600.0}
+                )
+            }
+        },
+        {"ml-32m": 5},
+    )
+    ml32 = slow["datasets"]["ml-32m"]
+    assert ml32["n_trials"] < 24
+    assert ml32["test"]["seeds"] == [42]
+    assert ml32["test"]["test_both_losses"] is False
+    assert any(row["loss"] == "full_softmax" for row in ml32["grid"])
+    assert any(row["learning_rate"] == 0.0003 for row in ml32["grid"])
+
+    measured = lock_plan(
+        {
+            "datasets": {
+                "ml-32m": block(
+                    {"in_batch": 1312.0, "full_softmax": 6852.6, "sampled_softmax": 1182.6}
+                )
+            }
+        },
+        {"ml-32m": 5},
+    )
+    chosen = measured["datasets"]["ml-32m"]
+    assert chosen["cap_within_limit"] is True
+    assert chosen["test"]["seeds"] == [42]
+    assert chosen["test"]["test_both_losses"] is False
+    full = [row for row in chosen["grid"] if row["loss"] == "full_softmax"]
+    sampled = [row for row in chosen["grid"] if row["loss"] == "sampled_softmax"]
+    assert {row["learning_rate"] for row in full} == {0.0003, 0.001}
+    assert {row["max_epochs"] for row in full} == {4}
+    assert {row["temperature"] for row in sampled} == {0.05, 0.1}
+    assert {row["embedding_dim"] for row in sampled} == {32, 64}
+    assert {row["max_epochs"] for row in sampled} == {3}
+
+
+def test_reduced_ml32m_budget_skips_full_softmax():
+    from movielens_recommender.two_tower.plan import reduced_ml32m_budget
+
+    budget = reduced_ml32m_budget(
+        {"in_batch": 1312.0, "full_softmax": 6852.6, "sampled_softmax": 1182.6},
+        7.7,
+    )
+    assert budget["ranking_metrics_used"] is False
+    assert budget["full_softmax_included"] is False
+    assert budget["within_cap"] is True
+    assert budget["n_trials"] == 3
+    assert budget["max_epochs"] == 3
+    assert budget["seeds"] == [42]
+    assert budget["n_seeds"] == 1
+    assert budget["refit_reference"] is False
+    assert budget["cap_sec"] == 4 * 3600
+    assert {row["loss"] for row in budget["grid"]} == {"sampled_softmax"}
+    assert {row["learning_rate"] for row in budget["grid"]} == {0.0003, 0.001, 0.003}
+    assert {row["temperature"] for row in budget["grid"]} == {0.1, 0.2}
+    assert {row["embedding_dim"] for row in budget["grid"]} == {64}
+    assert budget["projected_total_sec"] <= budget["cap_sec"]
+    assert (
+        budget["projected_total_with_one_full_softmax_epoch_sec"] > budget["cap_sec"]
+    )
+
+
+def test_matched_budget_and_edge_extension_are_fixed_rules():
+    from movielens_recommender.two_tower.plan import (
+        edge_extension_decision,
+        matched_ml32m_budget,
+        matched_verdict,
+        ml1m_edge_budget,
+    )
+
+    budget = matched_ml32m_budget(
+        sampled_val_wall_sec=2100.978,
+        sampled_val_epochs=3,
+        sampled_test_wall_sec=2400.219,
+        sampled_test_epochs=3,
+        in_batch_epoch_sec=1312.0,
+        reference_epochs=5,
+        reference_val_ndcg10=0.100781,
+    )
+    trial = budget["trial"]
+    assert budget["cap_sec"] == 3 * 3600
+    assert budget["max_epochs"] == 6
+    assert budget["patience"] == 2
+    assert trial["embedding_dim"] == 64
+    assert trial["learning_rate"] == 0.001
+    assert trial["temperature"] == 0.1
+    assert trial["n_negatives"] == 256
+    assert trial["loss"] == "sampled_softmax"
+    assert budget["seeds"] == [42]
+    assert budget["validation_plus_test_within_cap"] is True
+    assert budget["all_stages_at_6_epochs_within_cap"] is False
+    assert matched_verdict(
+        beats_validation=False, best_epoch=4, max_epochs=6, test_status="not_run"
+    ) == "loses_at_matched_budget"
+    assert matched_verdict(
+        beats_validation=False, best_epoch=6, max_epochs=6, test_status="not_run"
+    ) == "truncated"
+    assert matched_verdict(
+        beats_validation=True, best_epoch=5, max_epochs=6, test_status="not_run"
+    ) == "inconclusive"
+
+    edges = ml1m_edge_budget(
+        {"embedding_dim": 64, "learning_rate": 0.003, "temperature": 0.2},
+        0.08556,
+    )
+    assert edges["chosen_after_test_results"] is True
+    assert edges["n_trials"] == 8
+    assert edges["max_epochs"] == 40
+    assert edges["patience"] == 3
+    assert {row["embedding_dim"] for row in edges["grid"]} == {64, 128}
+    assert {row["learning_rate"] for row in edges["grid"]} == {0.003, 0.01}
+    assert {row["temperature"] for row in edges["grid"]} == {0.2, 0.5}
+    assert {row["loss"] for row in edges["grid"]} == {"sampled_softmax"}
+    prior = edges["prior_hyperparams"]
+    held = edge_extension_decision(
+        [
+            {"hyperparams": prior, "val_ndcg@10": 0.09},
+            {
+                "hyperparams": {"embedding_dim": 128, "learning_rate": 0.01, "temperature": 0.5},
+                "val_ndcg@10": 0.09,
+            },
+        ],
+        prior,
+    )
+    assert held["winner_held"] is True
+    changed = edge_extension_decision(
+        [
+            {"hyperparams": prior, "val_ndcg@10": 0.09},
+            {
+                "hyperparams": {"embedding_dim": 128, "learning_rate": 0.01, "temperature": 0.5},
+                "val_ndcg@10": 0.091,
+            },
+        ],
+        prior,
+    )
+    assert changed["winner_held"] is False
+    assert changed["winner"]["hyperparams"]["embedding_dim"] == 128
+
+
+def test_fairness_panel_states_the_matched_loss_and_keeps_the_app():
+    import sys
+
+    root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(root / "scripts"))
+    from make_results_table import _render_edge_extension, _render_matched_budget
+
+    matched = "\n".join(_render_matched_budget("ml-32m"))
+    assert (
+        "sampled softmax does not beat the in-batch reference on ml-32M "
+        "at matched epoch budget."
+    ) in matched
+    assert "The app stays. This change does not switch the Streamlit model." in matched
+    edges = "\n".join(_render_edge_extension("ml-1m"))
+    assert "run after the ml-1m test results existed" in edges
+    assert "the ranker does not gain" not in edges
+    assert "versus the reference-tower ranker 0.1334" in edges
+    assert (
+        "The ranker on the re-scored tower is worse, not flat: it is below its own "
+        "candidate list and below the reference-tower ranker, and both paired "
+        "intervals exclude 0."
+    ) in edges
+    assert "The app stays. This change does not switch the Streamlit model." in edges
+
+
+def test_epoch_checkpoint_resumes(tmp_path):
+    train = _toy_ratings()
+    movies = _toy_movies()
+    ckpt = tmp_path / "trial.pt"
+    _, _, first = fit_two_tower_recommender(
+        train,
+        dataset="synthetic",
+        movies=movies,
+        hyperparams=_toy_hyperparams(),
+        seed=0,
+        relevance_threshold=4.0,
+        n_epochs=1,
+        epoch_checkpoint=ckpt,
+    )
+    assert first.epochs_trained == 1
+    assert ckpt.is_file()
+    # A crash after epoch 1 of a longer run leaves finished false.
+    saved = torch.load(ckpt, map_location="cpu", weights_only=False)
+    saved["finished"] = False
+    torch.save(saved, ckpt)
+    _, _, second = fit_two_tower_recommender(
+        train,
+        dataset="synthetic",
+        movies=movies,
+        hyperparams=_toy_hyperparams(),
+        seed=0,
+        relevance_threshold=4.0,
+        n_epochs=2,
+        epoch_checkpoint=ckpt,
+    )
+    assert second.epochs_trained == 2
+    assert second.wall_time_sec >= first.wall_time_sec
+
+
+def test_full_and_sampled_softmax_train_on_toy_data():
+    train = _toy_ratings()
+    movies = _toy_movies()
+    for loss_name in ("full_softmax", "sampled_softmax"):
+        rec, _, result = fit_two_tower_recommender(
+            train,
+            dataset="synthetic",
+            movies=movies,
+            hyperparams=_toy_hyperparams(loss=loss_name, n_negatives=4),
+            seed=0,
+            relevance_threshold=4.0,
+            n_epochs=1,
+        )
+        assert result.epochs_trained == 1
+        recs = rec.recommend(1, 3)
+        assert 1 <= len(recs) <= 3
 
 
 def test_model_encode_and_recommend_deterministic():

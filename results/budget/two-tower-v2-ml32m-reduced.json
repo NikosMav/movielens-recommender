@@ -1,0 +1,73 @@
+{
+  "abandoned_budget": "results/budget/two-tower-v2.json",
+  "abandoned_reason": "The first ml-32m grid was abandoned for compute before any ml-32m validation or test metric.",
+  "cap_covers": "tuning plus test training",
+  "cap_sec": 14400.0,
+  "dataset": "ml-32m",
+  "epoch_train_sec": {
+    "full_softmax": 6852.6,
+    "in_batch": 1312.0,
+    "sampled_softmax": 1182.6
+  },
+  "experiment": "s3e_full_softmax_two_tower",
+  "full_softmax_included": false,
+  "full_softmax_one_epoch_sec": 6860.3,
+  "full_softmax_skip_reason": "Skipped for compute. One full-softmax epoch does not fit beside the sampled-softmax trials inside the reduced cap.",
+  "grid": [
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.003,
+      "loss": "sampled_softmax",
+      "max_epochs": 3,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 1,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.001,
+      "loss": "sampled_softmax",
+      "max_epochs": 3,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 1,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.0003,
+      "loss": "sampled_softmax",
+      "max_epochs": 3,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 1,
+      "temperature": 0.1,
+      "weight_decay": 0.0001
+    }
+  ],
+  "item_item_extrapolation_sec": 432.5,
+  "max_epochs": 3,
+  "n_seeds": 1,
+  "n_trials": 3,
+  "patience": 1,
+  "projected_test_train_sec": 3547.8,
+  "projected_total_sec": 14260.5,
+  "projected_total_with_one_full_softmax_epoch_sec": 21120.8,
+  "projected_tune_sec": 10712.7,
+  "ranking_metrics_used": false,
+  "reference_source": "results/ml-32m.json",
+  "reference_tuning_source": "results/tuning/two_tower_ml-32m.json",
+  "refit_reference": false,
+  "seeds": [
+    42
+  ],
+  "status": "reduced",
+  "val_score_sec_per_epoch": 7.7,
+  "within_cap": true
+}

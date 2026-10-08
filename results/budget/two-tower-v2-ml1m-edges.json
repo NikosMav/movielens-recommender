@@ -1,0 +1,128 @@
+{
+  "added_after": "ml-1m test results in results/two-tower-v2/ml-1m.json",
+  "chosen_after_test_results": true,
+  "dataset": "ml-1m",
+  "experiment": "s3e_ml1m_edge_extension",
+  "grid": [
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.003,
+      "loss": "sampled_softmax",
+      "max_epochs": 40,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.003,
+      "loss": "sampled_softmax",
+      "max_epochs": 40,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.5,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.01,
+      "loss": "sampled_softmax",
+      "max_epochs": 40,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 64,
+      "learning_rate": 0.01,
+      "loss": "sampled_softmax",
+      "max_epochs": 40,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.5,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 128,
+      "learning_rate": 0.003,
+      "loss": "sampled_softmax",
+      "max_epochs": 40,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 128,
+      "learning_rate": 0.003,
+      "loss": "sampled_softmax",
+      "max_epochs": 40,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.5,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 128,
+      "learning_rate": 0.01,
+      "loss": "sampled_softmax",
+      "max_epochs": 40,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.2,
+      "weight_decay": 0.0001
+    },
+    {
+      "batch_size": 1024,
+      "embedding_dim": 128,
+      "learning_rate": 0.01,
+      "loss": "sampled_softmax",
+      "max_epochs": 40,
+      "max_history": 50,
+      "n_negatives": 256,
+      "patience": 3,
+      "temperature": 0.5,
+      "weight_decay": 0.0001
+    }
+  ],
+  "max_epochs": 40,
+  "n_trials": 8,
+  "patience": 3,
+  "prior_hyperparams": {
+    "batch_size": 1024,
+    "embedding_dim": 64,
+    "learning_rate": 0.003,
+    "loss": "sampled_softmax",
+    "max_epochs": 20,
+    "max_history": 50,
+    "n_negatives": 256,
+    "patience": 3,
+    "temperature": 0.2,
+    "weight_decay": 0.0001
+  },
+  "prior_val_ndcg@10": 0.08556,
+  "rescore_rule": "Re-score test and the ranker only when a point other than the prior winner has a strictly higher validation NDCG@10. A tie keeps the prior point.",
+  "status": "edge_extension",
+  "test_seeds_if_winner_changes": [
+    42,
+    43,
+    44
+  ],
+  "uses_test_metrics_to_pick_the_grid": false
+}

@@ -1,0 +1,116 @@
+{
+  "datasets": {
+    "ml-1m": {
+      "batch_size": 1024,
+      "batches_per_epoch": 420,
+      "dataset": "ml-1m",
+      "dataset_sha256": "a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20",
+      "drop_last": true,
+      "eval_user_sample": null,
+      "feature_build_sec": 0.374,
+      "logit_mib_full_softmax_batch": 14.3,
+      "losses": {
+        "full_softmax": {
+          "batch_wall_sec": 0.431,
+          "batches_timed": 20,
+          "extrapolated_epoch_train_sec": 9.1,
+          "rss_mib": 532.2,
+          "sec_per_batch": 0.0216,
+          "warmup_batches": 5
+        },
+        "in_batch": {
+          "batch_wall_sec": 0.32,
+          "batches_timed": 20,
+          "extrapolated_epoch_train_sec": 6.7,
+          "rss_mib": 488.7,
+          "sec_per_batch": 0.016,
+          "warmup_batches": 5
+        },
+        "sampled_softmax": {
+          "batch_wall_sec": 0.358,
+          "batches_timed": 20,
+          "extrapolated_epoch_train_sec": 7.5,
+          "rss_mib": 490.1,
+          "sec_per_batch": 0.0179,
+          "warmup_batches": 5
+        }
+      },
+      "n_items": 3655,
+      "n_positives": 430387,
+      "n_users": 6040,
+      "n_val_users": 6040,
+      "recommend_users_timed": 100,
+      "recommend_wall_sec": 0.039,
+      "rss_mib": 447.6,
+      "val_score_sec_per_epoch": 2.4
+    },
+    "ml-32m": {
+      "batch_size": 1024,
+      "batches_per_epoch": 11574,
+      "dataset": "ml-32m",
+      "dataset_sha256": "e4a68655d7386b8f95f2f2424b2ff975dfdd15ffd59e0d864a14dca43e99d6ee",
+      "drop_last": true,
+      "eval_user_sample": {
+        "enabled": true,
+        "histories": "not_truncated",
+        "n_eligible_users": 196517,
+        "n_sampled_users": 8000,
+        "n_test_rows": 244960,
+        "n_val_rows": 95970,
+        "requested_users": 8000,
+        "seed": 42,
+        "selection": "Users with at least one warm relevant test item (rating >= 4.0, item in full train). The same ids are used for validation metrics, ranker labels, and test metrics.",
+        "train_matrix": "all_training_interactions",
+        "user_ids_sha256": "6b0d5cf6ce14cf5815e71f620b1dd5f37f7e6f09ac13ae5f3d138563b035c980"
+      },
+      "feature_build_sec": 22.658,
+      "logit_mib_full_softmax_batch": 261.0,
+      "losses": {
+        "full_softmax": {
+          "batch_wall_sec": 11.841,
+          "batches_timed": 20,
+          "extrapolated_epoch_train_sec": 6852.6,
+          "rss_mib": 3251.9,
+          "sec_per_batch": 0.5921,
+          "warmup_batches": 5
+        },
+        "in_batch": {
+          "batch_wall_sec": 2.267,
+          "batches_timed": 20,
+          "extrapolated_epoch_train_sec": 1312.0,
+          "rss_mib": 3226.1,
+          "sec_per_batch": 0.1134,
+          "warmup_batches": 5
+        },
+        "sampled_softmax": {
+          "batch_wall_sec": 2.044,
+          "batches_timed": 20,
+          "extrapolated_epoch_train_sec": 1182.6,
+          "rss_mib": 3257.3,
+          "sec_per_batch": 0.1022,
+          "warmup_batches": 5
+        }
+      },
+      "n_items": 66819,
+      "n_positives": 11852789,
+      "n_users": 200948,
+      "n_val_users": 8000,
+      "recommend_users_timed": 100,
+      "recommend_wall_sec": 0.097,
+      "rss_mib": 3060.2,
+      "val_score_sec_per_epoch": 7.7
+    }
+  },
+  "experiment": "s3e_full_softmax_two_tower",
+  "host": {
+    "cpu_count": 4,
+    "mem_mib": {
+      "CommitLimit": 8007.0,
+      "MemAvailable": 7147.7,
+      "MemTotal": 16014.0,
+      "SwapTotal": 0.0
+    },
+    "rss_mib": 406.7
+  },
+  "ranking_metrics": null
+}
