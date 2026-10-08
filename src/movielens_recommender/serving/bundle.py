@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +42,45 @@ _GROUP_KEYS = ("age", "gender", "occupation")
 
 
 @dataclass
+class _Lookups:
+    """Built once per bundle so a request never scans the full tables (ADR-0014)."""
+
+    known_users: frozenset[int]
+    sorted_users: list[int]
+    history_rows: dict[int, np.ndarray]
+    movie_rows: dict[int, int]
+
+
+def _lookups(bundle: ServingBundle) -> _Lookups:
+    if bundle._index is None:
+        frame = bundle.histories
+        order = np.lexsort(
+            (
+                frame["item_id"].to_numpy(),
+                frame["timestamp"].to_numpy(),
+                frame["user_id"].to_numpy(),
+            )
+        )
+        users = frame["user_id"].to_numpy()[order]
+        history_rows: dict[int, np.ndarray] = {}
+        if len(users):
+            starts = np.flatnonzero(np.r_[True, users[1:] != users[:-1]])
+            ends = np.r_[starts[1:], len(users)]
+            for start, end in zip(starts.tolist(), ends.tolist(), strict=True):
+                history_rows[int(users[start])] = order[start:end]
+        movie_rows: dict[int, int] = {}
+        for position, item in enumerate(bundle.movies["item_id"].tolist()):
+            movie_rows.setdefault(int(item), position)
+        bundle._index = _Lookups(
+            known_users=frozenset(history_rows),
+            sorted_users=sorted(history_rows),
+            history_rows=history_rows,
+            movie_rows=movie_rows,
+        )
+    return bundle._index
+
+
+@dataclass
 class ServingBundle:
     """Retrievers, refit ranker, feature context, and the histories they used."""
 
@@ -52,6 +91,7 @@ class ServingBundle:
     two_tower: TwoTowerRecommender
     booster: Any
     context: FeatureContext
+    _index: _Lookups | None = field(default=None, init=False, repr=False, compare=False)
 
     @property
     def candidate_set(self) -> str:
@@ -141,16 +181,15 @@ def load_bundle(directory: Path | str) -> ServingBundle:
 
 def movie_row(bundle: ServingBundle, item_id: int) -> dict[str, Any]:
     """Title, year, and genres for one item. Missing metadata gets a plain fallback."""
-    frame = bundle.movies
-    hit = frame.loc[frame["item_id"] == int(item_id)]
-    if hit.empty:
+    position = _lookups(bundle).movie_rows.get(int(item_id))
+    if position is None:
         return {
             "item_id": int(item_id),
             "title": f"Item {int(item_id)}",
             "year": None,
             "genres": "",
         }
-    row = hit.iloc[0]
+    row = bundle.movies.iloc[position]
     year = row["year"]
     year_out: int | None
     if pd.isna(year):
@@ -167,11 +206,10 @@ def movie_row(bundle: ServingBundle, item_id: int) -> dict[str, Any]:
 
 def user_history_items(bundle: ServingBundle, user_id: int) -> list[HistoryItem]:
     """Training-profile rows for ``user_id``, oldest first."""
-    frame = bundle.histories
-    rows = frame.loc[frame["user_id"] == int(user_id)]
-    if rows.empty:
+    positions = _lookups(bundle).history_rows.get(int(user_id))
+    if positions is None:
         return []
-    ordered = rows.sort_values(["timestamp", "item_id"], kind="mergesort")
+    ordered = bundle.histories.iloc[positions]
     items: list[HistoryItem] = []
     for record in ordered.itertuples(index=False):
         meta = movie_row(bundle, int(record.item_id))
@@ -251,7 +289,44 @@ def user_summaries(bundle: ServingBundle, n_genres: int = 3) -> dict[int, dict[s
 
 
 def known_user_ids(bundle: ServingBundle) -> list[int]:
-    return sorted(int(uid) for uid in bundle.histories["user_id"].unique())
+    return list(_lookups(bundle).sorted_users)
+
+
+def _score_candidates(
+    bundle: ServingBundle, user_id: int, n: int
+) -> tuple[list[int], np.ndarray, np.ndarray, dict, dict, tuple[list, list]]:
+    """Retrieve, build features, and score. Shared by ranking and explaining."""
+    uid = int(user_id)
+    if uid not in _lookups(bundle).known_users:
+        raise KeyError(f"user {uid} is not in the serving snapshot")
+    k = bundle.candidate_k
+    ii_rows = bundle.item_item.topk_for_user(uid, k)
+    tt_rows = bundle.two_tower.topk_for_user(uid, k)
+    left_ids = [item for item, _score in ii_rows]
+    right_ids = [item for item, _score in tt_rows]
+    candidates = candidate_ids_for_user(bundle.candidate_set, left_ids, right_ids, k)
+    ii_map = score_rank_maps({uid: ii_rows}).get(uid, {})
+    tt_map = score_rank_maps({uid: tt_rows}).get(uid, {})
+    if len(candidates) == 0:
+        empty = np.zeros(0, dtype=np.float64)
+        no_rows = np.zeros((0, len(bundle.context.names)))
+        return [], empty, no_rows, ii_map, tt_map, (ii_rows, tt_rows)
+    matrix = build_feature_matrix(bundle.context, uid, candidates, ii_map, tt_map)
+    scores = np.asarray(bundle.booster.predict(matrix), dtype=np.float64)
+    order = np.argsort(-scores, kind="mergesort")
+    top_idx = [int(i) for i in order[:n]]
+    top_items = [int(candidates[i]) for i in top_idx]
+    return top_items, scores[top_idx], matrix[top_idx], ii_map, tt_map, (ii_rows, tt_rows)
+
+
+def rank_for_user(bundle: ServingBundle, user_id: int, *, n: int = 10) -> list[tuple[int, float]]:
+    """Production top-n as ``(item_id, ranker score)``, best first, with no explanations.
+
+    Same items and order as ``recommend_for_user(...)["production"]``. An unknown
+    user id raises ``KeyError``.
+    """
+    items, scores, _matrix, _ii_map, _tt_map, _rows = _score_candidates(bundle, user_id, n)
+    return [(item, float(score)) for item, score in zip(items, scores, strict=True)]
 
 
 def recommend_for_user(
@@ -266,25 +341,12 @@ def recommend_for_user(
     raises ``KeyError``; the two-tower has no embedding for them.
     """
     uid = int(user_id)
-    if uid not in set(known_user_ids(bundle)):
-        raise KeyError(f"user {uid} is not in the serving snapshot")
-    k = bundle.candidate_k
-    ii_rows = bundle.item_item.topk_for_user(uid, k)
-    tt_rows = bundle.two_tower.topk_for_user(uid, k)
-    left_ids = [item for item, _score in ii_rows]
-    right_ids = [item for item, _score in tt_rows]
-    candidates = candidate_ids_for_user(bundle.candidate_set, left_ids, right_ids, k)
-    ii_map = score_rank_maps({uid: ii_rows}).get(uid, {})
-    tt_map = score_rank_maps({uid: tt_rows}).get(uid, {})
-    matrix = build_feature_matrix(bundle.context, uid, candidates, ii_map, tt_map)
-    if len(candidates) == 0:
+    top_items, top_scores, top_matrix, ii_map, tt_map, (ii_rows, tt_rows) = _score_candidates(
+        bundle, uid, n
+    )
+    if not top_items:
         production: list[dict[str, Any]] = []
     else:
-        scores = np.asarray(bundle.booster.predict(matrix), dtype=np.float64)
-        order = np.argsort(-scores, kind="mergesort")
-        top_idx = [int(i) for i in order[:n]]
-        top_items = [candidates[i] for i in top_idx]
-        top_matrix = matrix[top_idx]
         provenance = []
         for item in top_items:
             provenance.append(
@@ -314,6 +376,8 @@ def recommend_for_user(
                 raw_score=float(row["raw_score"]),
             )
             production.append(_card(bundle, item_id, explanation))
+        for card, score in zip(production, top_scores.tolist(), strict=True):
+            card["score"] = float(score)
     return {
         "user_id": uid,
         "candidate_set": bundle.candidate_set,

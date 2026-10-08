@@ -2,7 +2,7 @@
 
 A movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings, with an evaluation protocol strict enough that negative results are reported as such.
 
-It covers the path from data to a demo: download and cleaning, a per-user time split, an evaluation harness with bootstrap confidence intervals, classic baselines, a two-tower retrieval model, a LightGBM LambdaRank re-ranker, and a Streamlit app that explains each recommendation in plain language and also serves people with no MovieLens history. The same harness runs on ml-latest-small, ml-1m, and MovieLens 32M.
+It covers the path from data to a demo: download and cleaning, a per-user time split, an evaluation harness with bootstrap confidence intervals, classic baselines, a two-tower retrieval model, a LightGBM LambdaRank re-ranker, a Streamlit app that explains each recommendation in plain language and also serves people with no MovieLens history, and an HTTP API with batch scoring and a Docker image. The same harness runs on ml-latest-small, ml-1m, and MovieLens 32M.
 
 ![ml-1m user 155: training history and an open explanation for Sleepless in Seattle](docs/demo/streamlit.png)
 
@@ -10,6 +10,7 @@ It covers the path from data to a demo: download and cleaning, a per-user time s
 
 - [Findings so far](#findings-so-far)
 - [Quickstart](#quickstart)
+- [Serve over HTTP, batch, and Docker](#serve-over-http-batch-and-docker)
 - [Project layout](#project-layout)
 - [Roadmap](#roadmap)
 - [Data](#data)
@@ -31,17 +32,18 @@ Every number behind these sentences is in [Results](#results), generated from `r
 - **Demographics (ml-1m).** User age, gender, and occupation features passed their pre-registered rule, so `configs/ml-1m.yaml` turns them on for the ranker (ADR-0009). The headline LambdaRank row in `results/ml-1m.json` is still the S4 feature set.
 - **New users.** Someone with no MovieLens id rates a few films and gets an explained top 10. The cold-start panel reports quality after 1, 3, 5, and 10 ratings, next to known users and popularity (ADR-0012).
 - **Other two-tower losses (S3e).** On ml-1m, full softmax and sampled softmax both beat the in-batch two-tower on test NDCG@10. LambdaRank on the validation-chosen new tower is worse than LambdaRank on the current two-tower, and worse than the new tower's own list (both paired intervals exclude 0). On ml-32M, sampled softmax does not beat the in-batch two-tower on validation, even at the same epoch budget, and full softmax was skipped for compute. The app keeps the current model (ADR-0013).
+- **Serving (S5b).** The same snapshots run behind a FastAPI service, a batch scorer, and a Docker image. Every latency and batch budget fixed in advance was met on the measuring host, and indexing the snapshot tables at load time more than halved the explained known-user latency (ADR-0014).
 
 ## Quickstart
 
-Requires Python 3.10+. The core install covers data, baselines, and evaluation. The extras add the two-tower model (`deep`, CPU PyTorch), the ranker (`rank`, LightGBM 4.6.0), and the demo (`ui`, Streamlit 1.65.0).
+Requires Python 3.10+. The core install covers data, baselines, and evaluation. The extras add the two-tower model (`deep`, CPU PyTorch), the ranker (`rank`, LightGBM 4.6.0), the demo (`ui`, Streamlit 1.65.0), and the HTTP API (`api`, FastAPI 0.115.12).
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
-pip install -e ".[dev,deep,rank,ui]"
+pip install -e ".[dev,deep,rank,ui,api]"
 ```
 
 ### Run the demo
@@ -61,6 +63,49 @@ The page has two modes:
 
 ![New user: about five ratings and an open explanation](docs/demo/streamlit-new-user.png)
 
+## Serve over HTTP, batch, and Docker
+
+S5b puts the same two snapshots behind an HTTP API, scores every user to a file, and packages the API as a Docker image (ADR-0014). Build the snapshots first, as in [Run the demo](#run-the-demo).
+
+```bash
+uvicorn --factory movielens_recommender.serving.api:create_app_from_env --port 8000
+```
+
+| Method | Path | What it does |
+| --- | --- | --- |
+| GET | `/health` | `ok`, or 503 with the build command when no snapshot is mounted |
+| GET | `/v1/snapshot` | Dataset checksum, git SHA, and creation time of the loaded snapshot |
+| GET | `/v1/users/{user_id}/recommendations?n=10&explain=true` | Production top n for a known ml-1m user, with plain-language reasons |
+| POST | `/v1/recommendations/new-user` | Top n for `{"ratings": [{"item_id": 2571, "rating": 5}], "n": 10}` |
+| GET | `/v1/movies/search?q=matrix` | Find item ids by title |
+
+Interactive docs are at `/docs`. The API takes ratings only: demographic fields are rejected. It has no authentication, so keep it local.
+
+```bash
+curl "http://127.0.0.1:8000/v1/users/155/recommendations?n=5"
+```
+
+Batch scoring writes the top 10 for every snapshot user to `artifacts/ml-1m/batch/recommendations.csv.gz`, with a manifest that records the snapshot it came from. The file is rating-derived data and stays gitignored.
+
+```bash
+movielens-recommender batch-recommend --artifacts artifacts/ml-1m
+```
+
+The Docker image holds the code, configs, and committed results, but no MovieLens data and no snapshot. Mount the snapshots read-only:
+
+```bash
+docker build -t movielens-recommender .
+docker run --rm -p 8000:8000 -v "$PWD/artifacts:/app/artifacts:ro" movielens-recommender
+```
+
+The same image can build the snapshots, with `data/` and `artifacts/` mounted writable:
+
+```bash
+docker run --rm -v "$PWD/data:/app/data" -v "$PWD/artifacts:/app/artifacts" movielens-recommender movielens-recommender build-artifacts --config configs/ml-1m.yaml
+```
+
+Measured latency and batch time are in the [serving panel](#serving-latency-and-batch-ml-1m-s5b) of the results.
+
 ## Project layout
 
 | Path | What is there |
@@ -69,7 +114,8 @@ The page has two modes:
 | `src/movielens_recommender/baselines/` | Most popular, item–item cosine, ALS, EASE^R, RP3beta |
 | `src/movielens_recommender/two_tower/` | Two-tower model, features, training losses, and the S3e budget planner |
 | `src/movielens_recommender/ranker/` | Candidate sets, ranker features, LambdaRank training, SHAP explanations, demographics |
-| `src/movielens_recommender/serving/` | Serving snapshots (build, save, load), new-user serving, plain-language reasons |
+| `src/movielens_recommender/serving/` | Serving snapshots (build, save, load), new-user serving, plain-language reasons, batch scoring, the HTTP API |
+| `Dockerfile` | API image; holds no MovieLens data or snapshot |
 | `app/streamlit_app.py` | The demo page |
 | `configs/` | Run configs: `default.yaml` (ml-latest-small), `ml-1m.yaml`, `ml-32m.yaml` |
 | `scripts/` | Results-table generator, EDA, and one-off experiment runners |
@@ -96,7 +142,7 @@ Each modeling stage must beat the previous best on **NDCG@10** on the same harne
 | S4b | Done | User demographic features (ml-1m) | [0009](docs/adr/0009-user-demographics.md) |
 | S5a | Done | Streamlit explainable UI | [0010](docs/adr/0010-streamlit-ui.md) |
 | S5c | Done | New-user profile (cold start) | [0012](docs/adr/0012-new-user-cold-start.md) |
-| S5b | Planned | Batch recommendations, FastAPI service, Dockerfile | |
+| S5b | Done | Batch recommendations, FastAPI service, Dockerfile | [0014](docs/adr/0014-batch-api-docker.md) |
 | S6 | Planned | Operations: monitoring, refresh, drift | |
 
 ## Data
@@ -201,7 +247,7 @@ pytest -q
 ruff check src tests scripts app
 ```
 
-GitHub Actions runs ruff and pytest on Python 3.10 and 3.12 with the CPU PyTorch wheel. Tests use synthetic data only; `MOVIELENS_ALLOW_DOWNLOAD=0` blocks downloads in CI.
+GitHub Actions runs ruff and pytest on Python 3.10 and 3.12 with the CPU PyTorch wheel. Tests use synthetic data only; `MOVIELENS_ALLOW_DOWNLOAD=0` blocks downloads in CI. A second job builds the Docker image and checks that a container with no snapshot answers `/health` with 503.
 
 ## How this was built
 
@@ -992,5 +1038,19 @@ The matched run has no test score, so a paired interval was not computed.
 Ranker: Validation did not beat the published reference.
 Matched-round wall clock 4284.071s.
 The app stays. This change does not switch the Streamlit model.
+
+### Serving latency and batch (`ml-1m`, S5b)
+
+From `results/serving/ml-1m.json`, written by `scripts/measure_serving.py`. Budgets were fixed in ADR-0014 before measuring. Requests go through the FastAPI test client in one process (each request is sent once untimed, then once timed). Host: 16 CPUs, Windows-11-10.0.26300-SP0.
+
+| request | n | p50 ms | p95 ms | p99 ms | max ms | p95 budget | within |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Known user, top 10 with explanations | 500 | 33.1 | 62.8 | 85.5 | 123.2 | 300 | yes |
+| Known user, top 10 without explanations | 500 | 19.5 | 22.1 | 26.3 | 51.4 | 100 | yes |
+| New user, five ratings, top 10 | 200 | 136.7 | 151.1 | 174.3 | 287.2 | 300 | yes |
+| Known user, explained, pre-S5b lookups | 500 | 80.0 | 187.7 | 292.3 | 404.3 |  |  |
+
+The load-time lookups make the explained known-user call 2.42x faster at p50 than the pre-S5b table scans, on the same users.
+Batch: top 10 for 6040 users (60400 rows) in 69.5s, 86.9 users/s, budget 600s, within budget: yes.
 
 <!-- END RESULTS TABLE -->

@@ -24,7 +24,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
-          pip install -e ".[dev,deep,rank,ui]"
+          pip install -e ".[dev,deep,rank,ui,api]"
 
       - name: Ruff lint
         run: ruff check src tests scripts app
@@ -34,3 +34,29 @@ jobs:
         env:
           # Guardrail: tests must use synthetic data only.
           MOVIELENS_ALLOW_DOWNLOAD: "0"
+
+  docker:
+    # Builds the API image and checks it starts with no snapshot mounted.
+    # No MovieLens data is downloaded or baked in (ADR-0014).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t movielens-recommender:ci .
+
+      - name: Health answers 503 with the build command
+        run: |
+          docker run -d --name api -p 8000:8000 movielens-recommender:ci
+          for i in $(seq 1 30); do
+            code=$(curl -s -o body.json -w '%{http_code}' http://127.0.0.1:8000/health || true)
+            [ "$code" != "000" ] && break
+            sleep 2
+          done
+          cat body.json; echo
+          test "$code" = "503"
+          grep -q "build-artifacts" body.json
+
+      - name: Container logs
+        if: always()
+        run: docker logs api || true

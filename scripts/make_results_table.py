@@ -1920,6 +1920,63 @@ def render_two_tower_v2() -> str:
     return "\n".join(lines)
 
 
+def render_serving() -> str:
+    """S5b panel (ADR-0014). Empty when results/serving/ml-1m.json is absent."""
+    path = RESULTS_DIR / "serving" / "ml-1m.json"
+    if not path.is_file():
+        return ""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    latency = payload["latency"]
+    batch = payload["batch"]
+    host = payload.get("host") or {}
+    protocol = payload.get("protocol") or {}
+    labels = [
+        ("known_user_explained", "Known user, top 10 with explanations"),
+        ("known_user_ranked", "Known user, top 10 without explanations"),
+        ("new_user_five_ratings", "New user, five ratings, top 10"),
+        ("known_user_explained_indexes_off", "Known user, explained, pre-S5b lookups"),
+    ]
+    lines = [
+        "### Serving latency and batch (`ml-1m`, S5b)",
+        "",
+        "From `results/serving/ml-1m.json`, written by `scripts/measure_serving.py`. "
+        "Budgets were fixed in ADR-0014 before measuring. "
+        f"Requests go through the FastAPI test client in one process "
+        f"({protocol.get('warmup', 'warmed once')}). "
+        f"Host: {host.get('cpu_count')} CPUs, {host.get('platform')}.",
+        "",
+        "| request | n | p50 ms | p95 ms | p99 ms | max ms | p95 budget | within |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for key, label in labels:
+        row = latency.get(key)
+        if not row:
+            continue
+        budget = row.get("budget_p95_ms")
+        within = row.get("within_budget")
+        lines.append(
+            f"| {label} | {row['n']} | {row['p50_ms']:.1f} | {row['p95_ms']:.1f} | "
+            f"{row['p99_ms']:.1f} | {row['max_ms']:.1f} | "
+            f"{'' if budget is None else f'{budget:.0f}'} | "
+            f"{'' if within is None else ('yes' if within else 'no')} |"
+        )
+    lines.append("")
+    speedup = payload.get("index_speedup_p50")
+    if speedup is not None:
+        lines.append(
+            f"The load-time lookups make the explained known-user call {speedup:.2f}x faster "
+            "at p50 than the pre-S5b table scans, on the same users."
+        )
+    lines.append(
+        f"Batch: top {batch['n']} for {batch['n_users']} users ({batch['n_rows']} rows) in "
+        f"{batch['wall_sec']:.1f}s, {batch['users_per_sec']:.1f} users/s, "
+        f"budget {batch['budget_sec']:.0f}s, within budget: "
+        f"{'yes' if batch['within_budget'] else 'no'}."
+    )
+    lines.append("")
+    return "\n".join(lines)
+
+
 def build_section(results: list[tuple[str, dict]]) -> str:
     parts = [BEGIN, ""]
     for filename, payload in results:
@@ -1936,6 +1993,9 @@ def build_section(results: list[tuple[str, dict]]) -> str:
     v2 = render_two_tower_v2()
     if v2:
         parts.append(v2)
+    serving = render_serving()
+    if serving:
+        parts.append(serving)
     parts.append(END)
     return "\n".join(parts) + "\n"
 

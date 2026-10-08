@@ -1059,6 +1059,23 @@ def _cmd_build_artifacts(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_batch_recommend(args: argparse.Namespace) -> int:
+    """Score every user in a serving snapshot (ADR-0014). No training, no results JSON."""
+    from movielens_recommender.serving.batch import batch_recommend
+
+    artifacts = Path(args.artifacts)
+    out_dir = Path(args.out_dir) if args.out_dir else artifacts / "batch"
+    users = None
+    if args.users:
+        users = [int(part) for part in args.users.split(",") if part.strip()]
+    manifest = batch_recommend(artifacts, out_dir, n=args.n, user_ids=users)
+    print(
+        f"Wrote top {manifest['n']} for {manifest['n_users']} users "
+        f"({manifest['n_rows']} rows) to {out_dir} in {manifest['wall_sec']:.1f}s"
+    )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="movielens-recommender",
@@ -1202,6 +1219,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Do not download; require data already on disk",
     )
     p_art.set_defaults(func=_cmd_build_artifacts)
+
+    p_batch = sub.add_parser(
+        "batch-recommend",
+        help="Write the production top-n for every user in a serving snapshot",
+    )
+    p_batch.add_argument(
+        "--artifacts",
+        default="artifacts/ml-1m",
+        help="Serving snapshot from build-artifacts (default: artifacts/ml-1m)",
+    )
+    p_batch.add_argument(
+        "--out-dir",
+        default=None,
+        help="Output directory (default: <artifacts>/batch; keep it gitignored)",
+    )
+    p_batch.add_argument("--n", type=int, default=10, help="List length per user (default: 10)")
+    p_batch.add_argument(
+        "--users",
+        default=None,
+        help="Comma-separated user ids (default: every user in the snapshot)",
+    )
+    p_batch.set_defaults(func=_cmd_batch_recommend)
 
     return parser
 

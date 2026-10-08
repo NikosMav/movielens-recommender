@@ -1,0 +1,90 @@
+{
+  "dataset": "ml-1m",
+  "created_at": "2026-10-08T19:59:53Z",
+  "git_sha": "294ca3aa6efdd54b232a95b518439d491c38aea3-dirty",
+  "adr": "docs/adr/0014-batch-api-docker.md",
+  "snapshot": {
+    "dataset_sha256": "a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20",
+    "git_sha": "9e34701670396e4b650869b7c1460a49ecae6a1c",
+    "created_at": "2026-10-08T19:35:43Z",
+    "candidate_set": "two_tower",
+    "candidate_k": 200,
+    "n_known_users": 6040
+  },
+  "protocol": {
+    "client": "fastapi.testclient.TestClient, one process, no network",
+    "warmup": "each request is sent once untimed, then once timed",
+    "n": 10,
+    "seed": 42,
+    "known_user_sample": 500,
+    "new_user_profiles": 200,
+    "new_user_pool": "500 most-rated training items",
+    "new_user_ratings": "5 distinct items, ratings from {3, 4, 5}"
+  },
+  "latency": {
+    "known_user_explained": {
+      "n": 500,
+      "mean_ms": 37.813,
+      "p50_ms": 33.132,
+      "p95_ms": 62.831,
+      "p99_ms": 85.491,
+      "max_ms": 123.249,
+      "budget_p95_ms": 300.0,
+      "within_budget": true
+    },
+    "known_user_ranked": {
+      "n": 500,
+      "mean_ms": 19.901,
+      "p50_ms": 19.521,
+      "p95_ms": 22.107,
+      "p99_ms": 26.328,
+      "max_ms": 51.438,
+      "budget_p95_ms": 100.0,
+      "within_budget": true
+    },
+    "new_user_five_ratings": {
+      "n": 200,
+      "mean_ms": 137.733,
+      "p50_ms": 136.66,
+      "p95_ms": 151.093,
+      "p99_ms": 174.261,
+      "max_ms": 287.241,
+      "budget_p95_ms": 300.0,
+      "within_budget": true
+    },
+    "known_user_explained_indexes_off": {
+      "n": 500,
+      "mean_ms": 97.221,
+      "p50_ms": 80.02,
+      "p95_ms": 187.663,
+      "p99_ms": 292.321,
+      "max_ms": 404.301
+    }
+  },
+  "index_speedup_p50": 2.42,
+  "batch": {
+    "n": 10,
+    "n_users": 6040,
+    "n_rows": 60400,
+    "wall_sec": 69.469,
+    "users_per_sec": 86.946,
+    "budget_sec": 600.0,
+    "within_budget": true
+  },
+  "host": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "machine": "AMD64",
+    "cpu_count": 16,
+    "memory_total_mib": 14020.9
+  },
+  "versions": {
+    "python": "3.12.1",
+    "numpy": "2.2.6",
+    "pandas": "2.2.3",
+    "torch": "2.6.0+cpu",
+    "lightgbm": "4.6.0",
+    "fastapi": "0.115.12",
+    "starlette": "0.46.2",
+    "pydantic": "2.14.0"
+  }
+}
