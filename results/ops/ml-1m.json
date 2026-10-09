@@ -1,0 +1,1786 @@
+{
+  "dataset": "ml-1m",
+  "dataset_version": "ml-1m@sha256:a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20",
+  "dataset_sha256": "a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20",
+  "adr": "docs/adr/0016-drift-refresh-monitoring.md",
+  "protocol": {
+    "first_model_trained_before": "2000-08-01",
+    "metric": "ndcg@10",
+    "relevance_threshold": 4.0,
+    "min_history": 5,
+    "drift_sample_size": 2000,
+    "new_item_min_count": 5,
+    "taus": [
+      0.1,
+      0.2,
+      0.3,
+      0.4,
+      0.5,
+      0.6
+    ],
+    "n_tuning_periods": 3,
+    "tolerance": 0.005,
+    "n_bootstrap": 1000,
+    "seed": 42
+  },
+  "periods": [
+    {
+      "name": "2000-08",
+      "start": "2000-08-01",
+      "end": "2000-09-01",
+      "n_ratings": 182109,
+      "n_eval_users": 187,
+      "target_unseen_by_frozen": 0.012433,
+      "drift_vs_frozen": {
+        "item_divergence": 0.368899,
+        "new_item_share": 0.005878,
+        "new_user_share": 0.930724
+      }
+    },
+    {
+      "name": "2000-09",
+      "start": "2000-09-01",
+      "end": "2000-10-01",
+      "n_ratings": 52421,
+      "n_eval_users": 241,
+      "target_unseen_by_frozen": 0.02801,
+      "drift_vs_frozen": {
+        "item_divergence": 0.398095,
+        "new_item_share": 0.015458,
+        "new_user_share": 0.952402
+      }
+    },
+    {
+      "name": "2000-10",
+      "start": "2000-10-01",
+      "end": "2000-11-01",
+      "n_ratings": 42294,
+      "n_eval_users": 238,
+      "target_unseen_by_frozen": 0.047509,
+      "drift_vs_frozen": {
+        "item_divergence": 0.391188,
+        "new_item_share": 0.026631,
+        "new_user_share": 0.824002
+      }
+    },
+    {
+      "name": "2000-11",
+      "start": "2000-11-01",
+      "end": "2000-12-01",
+      "n_ratings": 290793,
+      "n_eval_users": 227,
+      "target_unseen_by_frozen": 0.03907,
+      "drift_vs_frozen": {
+        "item_divergence": 0.39349,
+        "new_item_share": 0.03173,
+        "new_user_share": 0.799475
+      }
+    },
+    {
+      "name": "2000-12",
+      "start": "2000-12-01",
+      "end": "2001-01-01",
+      "n_ratings": 113487,
+      "n_eval_users": 534,
+      "target_unseen_by_frozen": 0.017951,
+      "drift_vs_frozen": {
+        "item_divergence": 0.385309,
+        "new_item_share": 0.032858,
+        "new_user_share": 0.979934
+      }
+    },
+    {
+      "name": "2001-Q1",
+      "start": "2001-01-01",
+      "end": "2001-04-01",
+      "n_ratings": 32223,
+      "n_eval_users": 741,
+      "target_unseen_by_frozen": 0.028656,
+      "drift_vs_frozen": {
+        "item_divergence": 0.392972,
+        "new_item_share": 0.027748,
+        "new_user_share": 0.749742
+      }
+    },
+    {
+      "name": "2001-Q2",
+      "start": "2001-04-01",
+      "end": "2001-07-01",
+      "n_ratings": 15091,
+      "n_eval_users": 496,
+      "target_unseen_by_frozen": 0.069448,
+      "drift_vs_frozen": {
+        "item_divergence": 0.424441,
+        "new_item_share": 0.050057,
+        "new_user_share": 0.003196
+      }
+    },
+    {
+      "name": "2001-Q3",
+      "start": "2001-07-01",
+      "end": "2001-10-01",
+      "n_ratings": 12296,
+      "n_eval_users": 427,
+      "target_unseen_by_frozen": 0.049463,
+      "drift_vs_frozen": {
+        "item_divergence": 0.450618,
+        "new_item_share": 0.089789,
+        "new_user_share": 0.002518
+      }
+    },
+    {
+      "name": "2001-Q4",
+      "start": "2001-10-01",
+      "end": "2002-01-01",
+      "n_ratings": 8448,
+      "n_eval_users": 341,
+      "target_unseen_by_frozen": 0.039773,
+      "drift_vs_frozen": {
+        "item_divergence": 0.4341,
+        "new_item_share": 0.064493,
+        "new_user_share": 0.0
+      }
+    },
+    {
+      "name": "2002-Q1",
+      "start": "2002-01-01",
+      "end": "2002-04-01",
+      "n_ratings": 8166,
+      "n_eval_users": 337,
+      "target_unseen_by_frozen": 0.045311,
+      "drift_vs_frozen": {
+        "item_divergence": 0.444338,
+        "new_item_share": 0.0625,
+        "new_user_share": 0.014678
+      }
+    },
+    {
+      "name": "2002-Q2",
+      "start": "2002-04-01",
+      "end": "2002-07-01",
+      "n_ratings": 6385,
+      "n_eval_users": 249,
+      "target_unseen_by_frozen": 0.039543,
+      "drift_vs_frozen": {
+        "item_divergence": 0.42792,
+        "new_item_share": 0.06723,
+        "new_user_share": 0.013593
+      }
+    },
+    {
+      "name": "2002-Q3",
+      "start": "2002-07-01",
+      "end": "2002-10-01",
+      "n_ratings": 5309,
+      "n_eval_users": 233,
+      "target_unseen_by_frozen": 0.042237,
+      "drift_vs_frozen": {
+        "item_divergence": 0.419209,
+        "new_item_share": 0.059045,
+        "new_user_share": 0.0
+      }
+    },
+    {
+      "name": "2002-Q4",
+      "start": "2002-10-01",
+      "end": "2003-01-01",
+      "n_ratings": 4186,
+      "n_eval_users": 213,
+      "target_unseen_by_frozen": 0.033998,
+      "drift_vs_frozen": {
+        "item_divergence": 0.438276,
+        "new_item_share": 0.066679,
+        "new_user_share": 0.0
+      }
+    },
+    {
+      "name": "2003-Q1",
+      "start": "2003-01-01",
+      "end": "2003-04-01",
+      "n_ratings": 3348,
+      "n_eval_users": 153,
+      "target_unseen_by_frozen": 0.033981,
+      "drift_vs_frozen": {
+        "item_divergence": 0.421899,
+        "new_item_share": 0.051123,
+        "new_user_share": 0.032489
+      }
+    }
+  ],
+  "divergence_floor": 0.369316,
+  "tau_selection": {
+    "chosen_on": "item_item",
+    "n_tuning_periods": 3,
+    "tuning_periods": [
+      "2000-08",
+      "2000-09",
+      "2000-10"
+    ],
+    "periodic_tuning_mean": 0.107426,
+    "grid": {
+      "0.1": {
+        "mean_ndcg": 0.107426,
+        "retrains": 2
+      },
+      "0.2": {
+        "mean_ndcg": 0.107426,
+        "retrains": 2
+      },
+      "0.3": {
+        "mean_ndcg": 0.107426,
+        "retrains": 2
+      },
+      "0.4": {
+        "mean_ndcg": 0.109351,
+        "retrains": 0
+      },
+      "0.5": {
+        "mean_ndcg": 0.109351,
+        "retrains": 0
+      },
+      "0.6": {
+        "mean_ndcg": 0.109351,
+        "retrains": 0
+      }
+    },
+    "tau": 0.6,
+    "qualifying": [
+      0.1,
+      0.2,
+      0.3,
+      0.4,
+      0.5,
+      0.6
+    ],
+    "tolerance": 0.005
+  },
+  "models": {
+    "most_popular": {
+      "params": {},
+      "policies": {
+        "frozen": {
+          "per_period": [
+            {
+              "period": "2000-08",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.115529,
+              "low": 0.090639,
+              "high": 0.139682,
+              "n_users": 187
+            },
+            {
+              "period": "2000-09",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.106218,
+              "low": 0.084369,
+              "high": 0.130585,
+              "n_users": 241
+            },
+            {
+              "period": "2000-10",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.090465,
+              "low": 0.06843,
+              "high": 0.112642,
+              "n_users": 238
+            },
+            {
+              "period": "2000-11",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.071919,
+              "low": 0.052908,
+              "high": 0.090879,
+              "n_users": 227
+            },
+            {
+              "period": "2000-12",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.12645,
+              "low": 0.107848,
+              "high": 0.144629,
+              "n_users": 534
+            },
+            {
+              "period": "2001-Q1",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.115564,
+              "low": 0.101544,
+              "high": 0.131128,
+              "n_users": 741
+            },
+            {
+              "period": "2001-Q2",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.079164,
+              "low": 0.06619,
+              "high": 0.091747,
+              "n_users": 496
+            },
+            {
+              "period": "2001-Q3",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.095268,
+              "low": 0.079812,
+              "high": 0.112096,
+              "n_users": 427
+            },
+            {
+              "period": "2001-Q4",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.090715,
+              "low": 0.07448,
+              "high": 0.106686,
+              "n_users": 341
+            },
+            {
+              "period": "2002-Q1",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.086349,
+              "low": 0.068806,
+              "high": 0.103241,
+              "n_users": 337
+            },
+            {
+              "period": "2002-Q2",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.095691,
+              "low": 0.075993,
+              "high": 0.115884,
+              "n_users": 249
+            },
+            {
+              "period": "2002-Q3",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.074535,
+              "low": 0.055587,
+              "high": 0.092951,
+              "n_users": 233
+            },
+            {
+              "period": "2002-Q4",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.08392,
+              "low": 0.060608,
+              "high": 0.10852,
+              "n_users": 213
+            },
+            {
+              "period": "2003-Q1",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.066296,
+              "low": 0.043458,
+              "high": 0.090975,
+              "n_users": 153
+            }
+          ],
+          "tuning_mean": 0.104071,
+          "test_mean": 0.089625,
+          "retrains": 0,
+          "retrain_periods": []
+        },
+        "periodic": {
+          "per_period": [
+            {
+              "period": "2000-08",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.115529,
+              "low": 0.090639,
+              "high": 0.139682,
+              "n_users": 187
+            },
+            {
+              "period": "2000-09",
+              "trained_before": "2000-09-01",
+              "ndcg@10": 0.106708,
+              "low": 0.085127,
+              "high": 0.131631,
+              "n_users": 241
+            },
+            {
+              "period": "2000-10",
+              "trained_before": "2000-10-01",
+              "ndcg@10": 0.094863,
+              "low": 0.073162,
+              "high": 0.117271,
+              "n_users": 238
+            },
+            {
+              "period": "2000-11",
+              "trained_before": "2000-11-01",
+              "ndcg@10": 0.074224,
+              "low": 0.054617,
+              "high": 0.094311,
+              "n_users": 227
+            },
+            {
+              "period": "2000-12",
+              "trained_before": "2000-12-01",
+              "ndcg@10": 0.127927,
+              "low": 0.110313,
+              "high": 0.145096,
+              "n_users": 534
+            },
+            {
+              "period": "2001-Q1",
+              "trained_before": "2001-01-01",
+              "ndcg@10": 0.11647,
+              "low": 0.101436,
+              "high": 0.131844,
+              "n_users": 741
+            },
+            {
+              "period": "2001-Q2",
+              "trained_before": "2001-04-01",
+              "ndcg@10": 0.080911,
+              "low": 0.067555,
+              "high": 0.094228,
+              "n_users": 496
+            },
+            {
+              "period": "2001-Q3",
+              "trained_before": "2001-07-01",
+              "ndcg@10": 0.094418,
+              "low": 0.078622,
+              "high": 0.110942,
+              "n_users": 427
+            },
+            {
+              "period": "2001-Q4",
+              "trained_before": "2001-10-01",
+              "ndcg@10": 0.086621,
+              "low": 0.071146,
+              "high": 0.10221,
+              "n_users": 341
+            },
+            {
+              "period": "2002-Q1",
+              "trained_before": "2002-01-01",
+              "ndcg@10": 0.085159,
+              "low": 0.067582,
+              "high": 0.102549,
+              "n_users": 337
+            },
+            {
+              "period": "2002-Q2",
+              "trained_before": "2002-04-01",
+              "ndcg@10": 0.088414,
+              "low": 0.06999,
+              "high": 0.107909,
+              "n_users": 249
+            },
+            {
+              "period": "2002-Q3",
+              "trained_before": "2002-07-01",
+              "ndcg@10": 0.078517,
+              "low": 0.058584,
+              "high": 0.099808,
+              "n_users": 233
+            },
+            {
+              "period": "2002-Q4",
+              "trained_before": "2002-10-01",
+              "ndcg@10": 0.081627,
+              "low": 0.058777,
+              "high": 0.103953,
+              "n_users": 213
+            },
+            {
+              "period": "2003-Q1",
+              "trained_before": "2003-01-01",
+              "ndcg@10": 0.065301,
+              "low": 0.042311,
+              "high": 0.089723,
+              "n_users": 153
+            }
+          ],
+          "tuning_mean": 0.1057,
+          "test_mean": 0.089054,
+          "retrains": 13,
+          "retrain_periods": [
+            "2000-09",
+            "2000-10",
+            "2000-11",
+            "2000-12",
+            "2001-Q1",
+            "2001-Q2",
+            "2001-Q3",
+            "2001-Q4",
+            "2002-Q1",
+            "2002-Q2",
+            "2002-Q3",
+            "2002-Q4",
+            "2003-Q1"
+          ]
+        },
+        "drift": {
+          "per_period": [
+            {
+              "period": "2000-08",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.115529,
+              "low": 0.090639,
+              "high": 0.139682,
+              "n_users": 187
+            },
+            {
+              "period": "2000-09",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.106218,
+              "low": 0.084369,
+              "high": 0.130585,
+              "n_users": 241
+            },
+            {
+              "period": "2000-10",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.090465,
+              "low": 0.06843,
+              "high": 0.112642,
+              "n_users": 238
+            },
+            {
+              "period": "2000-11",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.071919,
+              "low": 0.052908,
+              "high": 0.090879,
+              "n_users": 227
+            },
+            {
+              "period": "2000-12",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.12645,
+              "low": 0.107848,
+              "high": 0.144629,
+              "n_users": 534
+            },
+            {
+              "period": "2001-Q1",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.115564,
+              "low": 0.101544,
+              "high": 0.131128,
+              "n_users": 741
+            },
+            {
+              "period": "2001-Q2",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.079164,
+              "low": 0.06619,
+              "high": 0.091747,
+              "n_users": 496
+            },
+            {
+              "period": "2001-Q3",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.095268,
+              "low": 0.079812,
+              "high": 0.112096,
+              "n_users": 427
+            },
+            {
+              "period": "2001-Q4",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.090715,
+              "low": 0.07448,
+              "high": 0.106686,
+              "n_users": 341
+            },
+            {
+              "period": "2002-Q1",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.086349,
+              "low": 0.068806,
+              "high": 0.103241,
+              "n_users": 337
+            },
+            {
+              "period": "2002-Q2",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.095691,
+              "low": 0.075993,
+              "high": 0.115884,
+              "n_users": 249
+            },
+            {
+              "period": "2002-Q3",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.074535,
+              "low": 0.055587,
+              "high": 0.092951,
+              "n_users": 233
+            },
+            {
+              "period": "2002-Q4",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.08392,
+              "low": 0.060608,
+              "high": 0.10852,
+              "n_users": 213
+            },
+            {
+              "period": "2003-Q1",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.066296,
+              "low": 0.043458,
+              "high": 0.090975,
+              "n_users": 153
+            }
+          ],
+          "tuning_mean": 0.104071,
+          "test_mean": 0.089625,
+          "retrains": 0,
+          "retrain_periods": [],
+          "tau": 0.6
+        }
+      },
+      "paired_periodic_minus_frozen": [
+        {
+          "period": "2000-08",
+          "mean": 0.0,
+          "low": 0.0,
+          "high": 0.0,
+          "n_users": 187,
+          "excludes_zero": false
+        },
+        {
+          "period": "2000-09",
+          "mean": 0.00049,
+          "low": -0.002989,
+          "high": 0.004383,
+          "n_users": 241,
+          "excludes_zero": false
+        },
+        {
+          "period": "2000-10",
+          "mean": 0.004398,
+          "low": 0.000424,
+          "high": 0.00856,
+          "n_users": 238,
+          "excludes_zero": true
+        },
+        {
+          "period": "2000-11",
+          "mean": 0.002305,
+          "low": -0.001858,
+          "high": 0.006861,
+          "n_users": 227,
+          "excludes_zero": false
+        },
+        {
+          "period": "2000-12",
+          "mean": 0.001477,
+          "low": -0.003213,
+          "high": 0.006008,
+          "n_users": 534,
+          "excludes_zero": false
+        },
+        {
+          "period": "2001-Q1",
+          "mean": 0.000906,
+          "low": -0.002376,
+          "high": 0.004296,
+          "n_users": 741,
+          "excludes_zero": false
+        },
+        {
+          "period": "2001-Q2",
+          "mean": 0.001747,
+          "low": -0.002362,
+          "high": 0.005982,
+          "n_users": 496,
+          "excludes_zero": false
+        },
+        {
+          "period": "2001-Q3",
+          "mean": -0.00085,
+          "low": -0.005949,
+          "high": 0.003833,
+          "n_users": 427,
+          "excludes_zero": false
+        },
+        {
+          "period": "2001-Q4",
+          "mean": -0.004094,
+          "low": -0.009116,
+          "high": 0.001185,
+          "n_users": 341,
+          "excludes_zero": false
+        },
+        {
+          "period": "2002-Q1",
+          "mean": -0.00119,
+          "low": -0.007282,
+          "high": 0.004894,
+          "n_users": 337,
+          "excludes_zero": false
+        },
+        {
+          "period": "2002-Q2",
+          "mean": -0.007277,
+          "low": -0.015111,
+          "high": 8.2e-05,
+          "n_users": 249,
+          "excludes_zero": false
+        },
+        {
+          "period": "2002-Q3",
+          "mean": 0.003982,
+          "low": -0.002874,
+          "high": 0.012045,
+          "n_users": 233,
+          "excludes_zero": false
+        },
+        {
+          "period": "2002-Q4",
+          "mean": -0.002292,
+          "low": -0.008452,
+          "high": 0.003763,
+          "n_users": 213,
+          "excludes_zero": false
+        },
+        {
+          "period": "2003-Q1",
+          "mean": -0.000995,
+          "low": -0.006309,
+          "high": 0.003926,
+          "n_users": 153,
+          "excludes_zero": false
+        }
+      ],
+      "spearman_vs_gap": {
+        "item_divergence": -0.617582,
+        "new_item_share": -0.604396,
+        "new_user_share": 0.373072
+      }
+    },
+    "item_item": {
+      "params": {
+        "k_neighbors": 200,
+        "min_common": 1,
+        "shrinkage": 100.0
+      },
+      "policies": {
+        "frozen": {
+          "per_period": [
+            {
+              "period": "2000-08",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.116321,
+              "low": 0.091859,
+              "high": 0.141941,
+              "n_users": 187
+            },
+            {
+              "period": "2000-09",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.12106,
+              "low": 0.098497,
+              "high": 0.146226,
+              "n_users": 241
+            },
+            {
+              "period": "2000-10",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.090672,
+              "low": 0.068539,
+              "high": 0.115351,
+              "n_users": 238
+            },
+            {
+              "period": "2000-11",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.092235,
+              "low": 0.069904,
+              "high": 0.114933,
+              "n_users": 227
+            },
+            {
+              "period": "2000-12",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.138502,
+              "low": 0.120521,
+              "high": 0.15703,
+              "n_users": 534
+            },
+            {
+              "period": "2001-Q1",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.131356,
+              "low": 0.117109,
+              "high": 0.146839,
+              "n_users": 741
+            },
+            {
+              "period": "2001-Q2",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.090002,
+              "low": 0.075599,
+              "high": 0.103342,
+              "n_users": 496
+            },
+            {
+              "period": "2001-Q3",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.099284,
+              "low": 0.083189,
+              "high": 0.116303,
+              "n_users": 427
+            },
+            {
+              "period": "2001-Q4",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.097495,
+              "low": 0.079961,
+              "high": 0.114756,
+              "n_users": 341
+            },
+            {
+              "period": "2002-Q1",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.094772,
+              "low": 0.076361,
+              "high": 0.112726,
+              "n_users": 337
+            },
+            {
+              "period": "2002-Q2",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.106052,
+              "low": 0.086031,
+              "high": 0.129006,
+              "n_users": 249
+            },
+            {
+              "period": "2002-Q3",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.079909,
+              "low": 0.059953,
+              "high": 0.100441,
+              "n_users": 233
+            },
+            {
+              "period": "2002-Q4",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.099303,
+              "low": 0.074084,
+              "high": 0.124618,
+              "n_users": 213
+            },
+            {
+              "period": "2003-Q1",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.085044,
+              "low": 0.05839,
+              "high": 0.115685,
+              "n_users": 153
+            }
+          ],
+          "tuning_mean": 0.109351,
+          "test_mean": 0.101269,
+          "retrains": 0,
+          "retrain_periods": []
+        },
+        "periodic": {
+          "per_period": [
+            {
+              "period": "2000-08",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.116321,
+              "low": 0.091859,
+              "high": 0.141941,
+              "n_users": 187
+            },
+            {
+              "period": "2000-09",
+              "trained_before": "2000-09-01",
+              "ndcg@10": 0.119582,
+              "low": 0.097124,
+              "high": 0.145761,
+              "n_users": 241
+            },
+            {
+              "period": "2000-10",
+              "trained_before": "2000-10-01",
+              "ndcg@10": 0.086376,
+              "low": 0.064011,
+              "high": 0.109244,
+              "n_users": 238
+            },
+            {
+              "period": "2000-11",
+              "trained_before": "2000-11-01",
+              "ndcg@10": 0.08395,
+              "low": 0.063363,
+              "high": 0.104665,
+              "n_users": 227
+            },
+            {
+              "period": "2000-12",
+              "trained_before": "2000-12-01",
+              "ndcg@10": 0.132993,
+              "low": 0.11579,
+              "high": 0.150093,
+              "n_users": 534
+            },
+            {
+              "period": "2001-Q1",
+              "trained_before": "2001-01-01",
+              "ndcg@10": 0.130465,
+              "low": 0.117223,
+              "high": 0.145511,
+              "n_users": 741
+            },
+            {
+              "period": "2001-Q2",
+              "trained_before": "2001-04-01",
+              "ndcg@10": 0.093306,
+              "low": 0.078558,
+              "high": 0.107822,
+              "n_users": 496
+            },
+            {
+              "period": "2001-Q3",
+              "trained_before": "2001-07-01",
+              "ndcg@10": 0.093123,
+              "low": 0.077174,
+              "high": 0.108743,
+              "n_users": 427
+            },
+            {
+              "period": "2001-Q4",
+              "trained_before": "2001-10-01",
+              "ndcg@10": 0.103934,
+              "low": 0.085776,
+              "high": 0.121794,
+              "n_users": 341
+            },
+            {
+              "period": "2002-Q1",
+              "trained_before": "2002-01-01",
+              "ndcg@10": 0.090845,
+              "low": 0.072661,
+              "high": 0.108629,
+              "n_users": 337
+            },
+            {
+              "period": "2002-Q2",
+              "trained_before": "2002-04-01",
+              "ndcg@10": 0.111054,
+              "low": 0.088927,
+              "high": 0.135089,
+              "n_users": 249
+            },
+            {
+              "period": "2002-Q3",
+              "trained_before": "2002-07-01",
+              "ndcg@10": 0.084505,
+              "low": 0.062755,
+              "high": 0.106097,
+              "n_users": 233
+            },
+            {
+              "period": "2002-Q4",
+              "trained_before": "2002-10-01",
+              "ndcg@10": 0.092278,
+              "low": 0.069341,
+              "high": 0.11619,
+              "n_users": 213
+            },
+            {
+              "period": "2003-Q1",
+              "trained_before": "2003-01-01",
+              "ndcg@10": 0.09327,
+              "low": 0.063731,
+              "high": 0.126749,
+              "n_users": 153
+            }
+          ],
+          "tuning_mean": 0.107426,
+          "test_mean": 0.100884,
+          "retrains": 13,
+          "retrain_periods": [
+            "2000-09",
+            "2000-10",
+            "2000-11",
+            "2000-12",
+            "2001-Q1",
+            "2001-Q2",
+            "2001-Q3",
+            "2001-Q4",
+            "2002-Q1",
+            "2002-Q2",
+            "2002-Q3",
+            "2002-Q4",
+            "2003-Q1"
+          ]
+        },
+        "drift": {
+          "per_period": [
+            {
+              "period": "2000-08",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.116321,
+              "low": 0.091859,
+              "high": 0.141941,
+              "n_users": 187
+            },
+            {
+              "period": "2000-09",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.12106,
+              "low": 0.098497,
+              "high": 0.146226,
+              "n_users": 241
+            },
+            {
+              "period": "2000-10",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.090672,
+              "low": 0.068539,
+              "high": 0.115351,
+              "n_users": 238
+            },
+            {
+              "period": "2000-11",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.092235,
+              "low": 0.069904,
+              "high": 0.114933,
+              "n_users": 227
+            },
+            {
+              "period": "2000-12",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.138502,
+              "low": 0.120521,
+              "high": 0.15703,
+              "n_users": 534
+            },
+            {
+              "period": "2001-Q1",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.131356,
+              "low": 0.117109,
+              "high": 0.146839,
+              "n_users": 741
+            },
+            {
+              "period": "2001-Q2",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.090002,
+              "low": 0.075599,
+              "high": 0.103342,
+              "n_users": 496
+            },
+            {
+              "period": "2001-Q3",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.099284,
+              "low": 0.083189,
+              "high": 0.116303,
+              "n_users": 427
+            },
+            {
+              "period": "2001-Q4",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.097495,
+              "low": 0.079961,
+              "high": 0.114756,
+              "n_users": 341
+            },
+            {
+              "period": "2002-Q1",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.094772,
+              "low": 0.076361,
+              "high": 0.112726,
+              "n_users": 337
+            },
+            {
+              "period": "2002-Q2",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.106052,
+              "low": 0.086031,
+              "high": 0.129006,
+              "n_users": 249
+            },
+            {
+              "period": "2002-Q3",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.079909,
+              "low": 0.059953,
+              "high": 0.100441,
+              "n_users": 233
+            },
+            {
+              "period": "2002-Q4",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.099303,
+              "low": 0.074084,
+              "high": 0.124618,
+              "n_users": 213
+            },
+            {
+              "period": "2003-Q1",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.085044,
+              "low": 0.05839,
+              "high": 0.115685,
+              "n_users": 153
+            }
+          ],
+          "tuning_mean": 0.109351,
+          "test_mean": 0.101269,
+          "retrains": 0,
+          "retrain_periods": [],
+          "tau": 0.6
+        }
+      },
+      "paired_periodic_minus_frozen": [
+        {
+          "period": "2000-08",
+          "mean": 0.0,
+          "low": 0.0,
+          "high": 0.0,
+          "n_users": 187,
+          "excludes_zero": false
+        },
+        {
+          "period": "2000-09",
+          "mean": -0.001478,
+          "low": -0.009077,
+          "high": 0.006305,
+          "n_users": 241,
+          "excludes_zero": false
+        },
+        {
+          "period": "2000-10",
+          "mean": -0.004295,
+          "low": -0.01066,
+          "high": 0.001601,
+          "n_users": 238,
+          "excludes_zero": false
+        },
+        {
+          "period": "2000-11",
+          "mean": -0.008285,
+          "low": -0.015801,
+          "high": -0.001316,
+          "n_users": 227,
+          "excludes_zero": true
+        },
+        {
+          "period": "2000-12",
+          "mean": -0.005509,
+          "low": -0.01189,
+          "high": 0.001052,
+          "n_users": 534,
+          "excludes_zero": false
+        },
+        {
+          "period": "2001-Q1",
+          "mean": -0.000891,
+          "low": -0.007116,
+          "high": 0.004687,
+          "n_users": 741,
+          "excludes_zero": false
+        },
+        {
+          "period": "2001-Q2",
+          "mean": 0.003304,
+          "low": -0.003595,
+          "high": 0.010693,
+          "n_users": 496,
+          "excludes_zero": false
+        },
+        {
+          "period": "2001-Q3",
+          "mean": -0.006162,
+          "low": -0.013026,
+          "high": 0.000302,
+          "n_users": 427,
+          "excludes_zero": false
+        },
+        {
+          "period": "2001-Q4",
+          "mean": 0.00644,
+          "low": -0.001285,
+          "high": 0.014158,
+          "n_users": 341,
+          "excludes_zero": false
+        },
+        {
+          "period": "2002-Q1",
+          "mean": -0.003927,
+          "low": -0.012632,
+          "high": 0.004091,
+          "n_users": 337,
+          "excludes_zero": false
+        },
+        {
+          "period": "2002-Q2",
+          "mean": 0.005002,
+          "low": -0.00284,
+          "high": 0.013261,
+          "n_users": 249,
+          "excludes_zero": false
+        },
+        {
+          "period": "2002-Q3",
+          "mean": 0.004596,
+          "low": -0.004185,
+          "high": 0.014075,
+          "n_users": 233,
+          "excludes_zero": false
+        },
+        {
+          "period": "2002-Q4",
+          "mean": -0.007025,
+          "low": -0.018206,
+          "high": 0.00396,
+          "n_users": 213,
+          "excludes_zero": false
+        },
+        {
+          "period": "2003-Q1",
+          "mean": 0.008226,
+          "low": -0.002009,
+          "high": 0.020164,
+          "n_users": 153,
+          "excludes_zero": false
+        }
+      ],
+      "spearman_vs_gap": {
+        "item_divergence": 0.041758,
+        "new_item_share": 0.076923,
+        "new_user_share": -0.245036
+      }
+    },
+    "ease": {
+      "params": {
+        "l2": 5000.0
+      },
+      "policies": {
+        "frozen": {
+          "per_period": [
+            {
+              "period": "2000-08",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.118812,
+              "low": 0.093142,
+              "high": 0.14462,
+              "n_users": 187
+            },
+            {
+              "period": "2000-09",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.108386,
+              "low": 0.087653,
+              "high": 0.131838,
+              "n_users": 241
+            },
+            {
+              "period": "2000-10",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.091567,
+              "low": 0.069459,
+              "high": 0.114602,
+              "n_users": 238
+            },
+            {
+              "period": "2000-11",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.085213,
+              "low": 0.066307,
+              "high": 0.104393,
+              "n_users": 227
+            },
+            {
+              "period": "2000-12",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.135607,
+              "low": 0.117085,
+              "high": 0.15446,
+              "n_users": 534
+            },
+            {
+              "period": "2001-Q1",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.130573,
+              "low": 0.117037,
+              "high": 0.14552,
+              "n_users": 741
+            },
+            {
+              "period": "2001-Q2",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.089263,
+              "low": 0.075829,
+              "high": 0.102696,
+              "n_users": 496
+            },
+            {
+              "period": "2001-Q3",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.09569,
+              "low": 0.07945,
+              "high": 0.112726,
+              "n_users": 427
+            },
+            {
+              "period": "2001-Q4",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.09817,
+              "low": 0.081602,
+              "high": 0.114583,
+              "n_users": 341
+            },
+            {
+              "period": "2002-Q1",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.089215,
+              "low": 0.070382,
+              "high": 0.106644,
+              "n_users": 337
+            },
+            {
+              "period": "2002-Q2",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.109127,
+              "low": 0.087301,
+              "high": 0.132359,
+              "n_users": 249
+            },
+            {
+              "period": "2002-Q3",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.085588,
+              "low": 0.064591,
+              "high": 0.10712,
+              "n_users": 233
+            },
+            {
+              "period": "2002-Q4",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.091143,
+              "low": 0.068646,
+              "high": 0.113116,
+              "n_users": 213
+            },
+            {
+              "period": "2003-Q1",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.0871,
+              "low": 0.059106,
+              "high": 0.118127,
+              "n_users": 153
+            }
+          ],
+          "tuning_mean": 0.106255,
+          "test_mean": 0.099699,
+          "retrains": 0,
+          "retrain_periods": []
+        },
+        "periodic": {
+          "per_period": [
+            {
+              "period": "2000-08",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.118812,
+              "low": 0.093142,
+              "high": 0.14462,
+              "n_users": 187
+            },
+            {
+              "period": "2000-09",
+              "trained_before": "2000-09-01",
+              "ndcg@10": 0.105069,
+              "low": 0.084888,
+              "high": 0.129406,
+              "n_users": 241
+            },
+            {
+              "period": "2000-10",
+              "trained_before": "2000-10-01",
+              "ndcg@10": 0.090997,
+              "low": 0.067604,
+              "high": 0.11451,
+              "n_users": 238
+            },
+            {
+              "period": "2000-11",
+              "trained_before": "2000-11-01",
+              "ndcg@10": 0.085438,
+              "low": 0.066749,
+              "high": 0.105382,
+              "n_users": 227
+            },
+            {
+              "period": "2000-12",
+              "trained_before": "2000-12-01",
+              "ndcg@10": 0.129022,
+              "low": 0.111407,
+              "high": 0.147174,
+              "n_users": 534
+            },
+            {
+              "period": "2001-Q1",
+              "trained_before": "2001-01-01",
+              "ndcg@10": 0.128777,
+              "low": 0.11553,
+              "high": 0.142628,
+              "n_users": 741
+            },
+            {
+              "period": "2001-Q2",
+              "trained_before": "2001-04-01",
+              "ndcg@10": 0.091098,
+              "low": 0.077664,
+              "high": 0.105074,
+              "n_users": 496
+            },
+            {
+              "period": "2001-Q3",
+              "trained_before": "2001-07-01",
+              "ndcg@10": 0.099621,
+              "low": 0.083433,
+              "high": 0.117818,
+              "n_users": 427
+            },
+            {
+              "period": "2001-Q4",
+              "trained_before": "2001-10-01",
+              "ndcg@10": 0.103885,
+              "low": 0.086765,
+              "high": 0.120471,
+              "n_users": 341
+            },
+            {
+              "period": "2002-Q1",
+              "trained_before": "2002-01-01",
+              "ndcg@10": 0.086677,
+              "low": 0.068936,
+              "high": 0.1044,
+              "n_users": 337
+            },
+            {
+              "period": "2002-Q2",
+              "trained_before": "2002-04-01",
+              "ndcg@10": 0.115878,
+              "low": 0.092675,
+              "high": 0.14081,
+              "n_users": 249
+            },
+            {
+              "period": "2002-Q3",
+              "trained_before": "2002-07-01",
+              "ndcg@10": 0.104544,
+              "low": 0.080988,
+              "high": 0.12807,
+              "n_users": 233
+            },
+            {
+              "period": "2002-Q4",
+              "trained_before": "2002-10-01",
+              "ndcg@10": 0.083809,
+              "low": 0.063187,
+              "high": 0.104296,
+              "n_users": 213
+            },
+            {
+              "period": "2003-Q1",
+              "trained_before": "2003-01-01",
+              "ndcg@10": 0.087475,
+              "low": 0.059191,
+              "high": 0.116994,
+              "n_users": 153
+            }
+          ],
+          "tuning_mean": 0.104959,
+          "test_mean": 0.101475,
+          "retrains": 13,
+          "retrain_periods": [
+            "2000-09",
+            "2000-10",
+            "2000-11",
+            "2000-12",
+            "2001-Q1",
+            "2001-Q2",
+            "2001-Q3",
+            "2001-Q4",
+            "2002-Q1",
+            "2002-Q2",
+            "2002-Q3",
+            "2002-Q4",
+            "2003-Q1"
+          ]
+        },
+        "drift": {
+          "per_period": [
+            {
+              "period": "2000-08",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.118812,
+              "low": 0.093142,
+              "high": 0.14462,
+              "n_users": 187
+            },
+            {
+              "period": "2000-09",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.108386,
+              "low": 0.087653,
+              "high": 0.131838,
+              "n_users": 241
+            },
+            {
+              "period": "2000-10",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.091567,
+              "low": 0.069459,
+              "high": 0.114602,
+              "n_users": 238
+            },
+            {
+              "period": "2000-11",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.085213,
+              "low": 0.066307,
+              "high": 0.104393,
+              "n_users": 227
+            },
+            {
+              "period": "2000-12",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.135607,
+              "low": 0.117085,
+              "high": 0.15446,
+              "n_users": 534
+            },
+            {
+              "period": "2001-Q1",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.130573,
+              "low": 0.117037,
+              "high": 0.14552,
+              "n_users": 741
+            },
+            {
+              "period": "2001-Q2",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.089263,
+              "low": 0.075829,
+              "high": 0.102696,
+              "n_users": 496
+            },
+            {
+              "period": "2001-Q3",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.09569,
+              "low": 0.07945,
+              "high": 0.112726,
+              "n_users": 427
+            },
+            {
+              "period": "2001-Q4",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.09817,
+              "low": 0.081602,
+              "high": 0.114583,
+              "n_users": 341
+            },
+            {
+              "period": "2002-Q1",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.089215,
+              "low": 0.070382,
+              "high": 0.106644,
+              "n_users": 337
+            },
+            {
+              "period": "2002-Q2",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.109127,
+              "low": 0.087301,
+              "high": 0.132359,
+              "n_users": 249
+            },
+            {
+              "period": "2002-Q3",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.085588,
+              "low": 0.064591,
+              "high": 0.10712,
+              "n_users": 233
+            },
+            {
+              "period": "2002-Q4",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.091143,
+              "low": 0.068646,
+              "high": 0.113116,
+              "n_users": 213
+            },
+            {
+              "period": "2003-Q1",
+              "trained_before": "2000-08-01",
+              "ndcg@10": 0.0871,
+              "low": 0.059106,
+              "high": 0.118127,
+              "n_users": 153
+            }
+          ],
+          "tuning_mean": 0.106255,
+          "test_mean": 0.099699,
+          "retrains": 0,
+          "retrain_periods": [],
+          "tau": 0.6
+        }
+      },
+      "paired_periodic_minus_frozen": [
+        {
+          "period": "2000-08",
+          "mean": 0.0,
+          "low": 0.0,
+          "high": 0.0,
+          "n_users": 187,
+          "excludes_zero": false
+        },
+        {
+          "period": "2000-09",
+          "mean": -0.003318,
+          "low": -0.009926,
+          "high": 0.003096,
+          "n_users": 241,
+          "excludes_zero": false
+        },
+        {
+          "period": "2000-10",
+          "mean": -0.00057,
+          "low": -0.006784,
+          "high": 0.00533,
+          "n_users": 238,
+          "excludes_zero": false
+        },
+        {
+          "period": "2000-11",
+          "mean": 0.000225,
+          "low": -0.00722,
+          "high": 0.007115,
+          "n_users": 227,
+          "excludes_zero": false
+        },
+        {
+          "period": "2000-12",
+          "mean": -0.006585,
+          "low": -0.014836,
+          "high": 0.001351,
+          "n_users": 534,
+          "excludes_zero": false
+        },
+        {
+          "period": "2001-Q1",
+          "mean": -0.001796,
+          "low": -0.008543,
+          "high": 0.00437,
+          "n_users": 741,
+          "excludes_zero": false
+        },
+        {
+          "period": "2001-Q2",
+          "mean": 0.001834,
+          "low": -0.006372,
+          "high": 0.009763,
+          "n_users": 496,
+          "excludes_zero": false
+        },
+        {
+          "period": "2001-Q3",
+          "mean": 0.003931,
+          "low": -0.003929,
+          "high": 0.01198,
+          "n_users": 427,
+          "excludes_zero": false
+        },
+        {
+          "period": "2001-Q4",
+          "mean": 0.005715,
+          "low": -0.002632,
+          "high": 0.014601,
+          "n_users": 341,
+          "excludes_zero": false
+        },
+        {
+          "period": "2002-Q1",
+          "mean": -0.002538,
+          "low": -0.012004,
+          "high": 0.00754,
+          "n_users": 337,
+          "excludes_zero": false
+        },
+        {
+          "period": "2002-Q2",
+          "mean": 0.00675,
+          "low": -0.002409,
+          "high": 0.016973,
+          "n_users": 249,
+          "excludes_zero": false
+        },
+        {
+          "period": "2002-Q3",
+          "mean": 0.018956,
+          "low": 0.008662,
+          "high": 0.030719,
+          "n_users": 233,
+          "excludes_zero": true
+        },
+        {
+          "period": "2002-Q4",
+          "mean": -0.007333,
+          "low": -0.019017,
+          "high": 0.003924,
+          "n_users": 213,
+          "excludes_zero": false
+        },
+        {
+          "period": "2003-Q1",
+          "mean": 0.000375,
+          "low": -0.010322,
+          "high": 0.012169,
+          "n_users": 153,
+          "excludes_zero": false
+        }
+      ],
+      "spearman_vs_gap": {
+        "item_divergence": 0.261538,
+        "new_item_share": 0.397802,
+        "new_user_share": -0.527599
+      }
+    }
+  },
+  "runtime_sec": 155.976,
+  "library_versions": {
+    "movielens-recommender": "0.1.0",
+    "numpy": "2.2.6",
+    "scipy": "1.15.3",
+    "pandas": "2.2.3",
+    "implicit": "0.7.3",
+    "pyyaml": "6.0.3",
+    "torch": "2.6.0+cpu",
+    "lightgbm": "4.6.0"
+  },
+  "host": {
+    "os": "Windows",
+    "os_release": "11",
+    "machine": "AMD64",
+    "processor": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+    "cpu_count": 16,
+    "python": "3.12.1",
+    "numpy_simd": [
+      "AVX2",
+      "FMA3",
+      "SSE42"
+    ]
+  }
+}

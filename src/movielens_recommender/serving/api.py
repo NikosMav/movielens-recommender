@@ -13,14 +13,16 @@ with the command that builds it.
 
 from __future__ import annotations
 
+import json
+import logging
 import os
 import threading
 from pathlib import Path
 from typing import Annotated, Any
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from movielens_recommender import __version__
@@ -36,12 +38,15 @@ from movielens_recommender.serving.cold import (
     load_cold_start_bundle,
     recommend_new_user,
 )
+from movielens_recommender.serving.monitoring import ItemPopularity, Monitor
 from movielens_recommender.serving.reasons import display_title
 
 DEFAULT_ARTIFACTS = Path("artifacts/ml-1m")
 MAX_N = 100
 MAX_PROFILE = 200
 MAX_SEARCH = 50
+
+log = logging.getLogger("movielens_recommender.api")
 
 
 class Rating(BaseModel):
@@ -127,6 +132,43 @@ def create_app(
         description="Top-n movie recommendations from the ml-1m serving snapshots (ADR-0014).",
     )
     app.state.serving = state
+    production = state.production
+    monitor = Monitor(
+        snapshot_created_at=production.manifest.get("created_at") if production else None,
+        loaded={"production": production is not None, "new_user": state.cold is not None},
+        popularity=(
+            ItemPopularity(production.histories["item_id"].to_numpy()) if production else None
+        ),
+    )
+    app.state.monitor = monitor
+
+    @app.middleware("http")
+    async def observe(request: Request, call_next):
+        if request.url.path == "/metrics":
+            return await call_next(request)
+        started = monitor.start()
+        status = 500
+        try:
+            response = await call_next(request)
+            status = response.status_code
+            return response
+        finally:
+            route = getattr(request.scope.get("route"), "path", None) or "unmatched"
+            elapsed = monitor.finish(started, route=route, method=request.method, status=status)
+            record: dict[str, Any] = {
+                "route": route,
+                "method": request.method,
+                "status": status,
+                "latency_ms": round(elapsed * 1000.0, 3),
+            }
+            n = getattr(request.state, "log_n", None) or request.query_params.get("n")
+            if n is not None and str(n).isdigit():
+                record["n"] = int(n)
+            log.info(json.dumps(record))
+
+    @app.get("/metrics", include_in_schema=False)
+    def metrics() -> PlainTextResponse:
+        return PlainTextResponse(monitor.render(), media_type="text/plain; version=0.0.4")
 
     @app.get("/health")
     def health() -> JSONResponse:
@@ -191,16 +233,18 @@ def create_app(
         )
 
     @app.post("/v1/recommendations/new-user")
-    def new_user(request: NewUserRequest) -> dict[str, Any]:
+    def new_user(body: NewUserRequest, request: Request) -> dict[str, Any]:
+        request.state.log_n = body.n
         bundle = state.need_cold()
-        unknown = sorted({r.item_id for r in request.ratings} - state.catalog)
+        unknown = sorted({r.item_id for r in body.ratings} - state.catalog)
         if unknown:
             raise HTTPException(
                 status_code=422, detail=f"item ids not in the catalog: {unknown[:10]}"
             )
-        profile = [(r.item_id, r.rating) for r in request.ratings]
+        profile = [(r.item_id, r.rating) for r in body.ratings]
+        monitor.observe_new_user([item for item, _rating in profile])
         with state.lock:
-            result = recommend_new_user(bundle, profile, n=request.n)
+            result = recommend_new_user(bundle, profile, n=body.n)
         return _plain(result)
 
     @app.get("/v1/movies/search")

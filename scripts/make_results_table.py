@@ -1977,6 +1977,82 @@ def render_serving() -> str:
     return "\n".join(lines)
 
 
+def render_ops() -> str:
+    """S6 panel (ADR-0016). Empty when results/ops/ml-1m.json is absent."""
+    path = RESULTS_DIR / "ops" / "ml-1m.json"
+    if not path.is_file():
+        return ""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    models = payload["models"]
+    selection = payload["tau_selection"]
+    labels = {"most_popular": "most popular", "item_item": "item-item", "ease": "EASE"}
+    lines = [
+        "### Drift and refresh replay (`ml-1m`, S6)",
+        "",
+        "From `results/ops/ml-1m.json`, written by `movielens-recommender drift-study`. "
+        "ml-1m is replayed in time order: the first model is trained on every rating before "
+        f"{payload['protocol']['first_model_trained_before']}, then scored on "
+        f"{len(payload['periods'])} later periods (monthly to December 2000, then quarterly). "
+        "Users need 5 earlier ratings; the target is what they rated 4 or more in the period. "
+        "`frozen` is never retrained, `periodic` is retrained before every period, and `drift` "
+        "retrains when the item divergence passes the threshold chosen on the first "
+        f"{selection['n_tuning_periods']} periods (ADR-0016).",
+        "",
+        "| model | frozen | periodic | drift | retrains (periodic / drift) |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for name, block in models.items():
+        pol = block["policies"]
+        lines.append(
+            f"| {labels.get(name, name)} | {_fmt(pol['frozen']['test_mean'])} | "
+            f"{_fmt(pol['periodic']['test_mean'])} | {_fmt(pol['drift']['test_mean'])} | "
+            f"{pol['periodic']['retrains']} / {pol['drift']['retrains']} |"
+        )
+    lines.append("")
+    lines.append(
+        "Mean NDCG@10 over the test periods. Threshold chosen on item-item: "
+        f"tau={selection['tau']} (qualifying: {selection['qualifying']})."
+    )
+    lines.append("")
+    lines.append(
+        "| period | eval users | item divergence | new-item share | new-user share | "
+        "item-item periodic minus frozen |"
+    )
+    lines.append("| --- | --- | --- | --- | --- | --- |")
+    gaps = models["item_item"]["paired_periodic_minus_frozen"]
+    for period, gap in zip(payload["periods"], gaps, strict=True):
+        drift = period["drift_vs_frozen"]
+        lines.append(
+            f"| {period['name']} | {period['n_eval_users']} | {_fmt(drift['item_divergence'])} | "
+            f"{_fmt(drift['new_item_share'])} | {_fmt(drift['new_user_share'])} | "
+            f"{_fmt(gap['mean'])} [{_fmt(gap['low'])}, {_fmt(gap['high'])}] |"
+        )
+    lines.append("")
+    significant = sum(
+        1
+        for block in models.values()
+        for gap in block["paired_periodic_minus_frozen"]
+        if gap["excludes_zero"]
+    )
+    total = sum(len(block["paired_periodic_minus_frozen"]) - 1 for block in models.values())
+    lines.append(
+        f"Sampling-noise floor of the item divergence: {_fmt(payload['divergence_floor'])}. "
+        f"Paired periodic-minus-frozen intervals that exclude 0: {significant} of {total} "
+        "(the first period is the same model)."
+    )
+    rho = "; ".join(
+        f"{labels.get(name, name)} "
+        + ", ".join(
+            f"{signal.replace('_', ' ')} {('n/a' if value is None else f'{value:+.2f}')}"
+            for signal, value in block["spearman_vs_gap"].items()
+        )
+        for name, block in models.items()
+    )
+    lines.append(f"Spearman correlation of each drift signal with the retraining gain: {rho}.")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def build_section(results: list[tuple[str, dict]]) -> str:
     parts = [BEGIN, ""]
     for filename, payload in results:
@@ -1996,6 +2072,9 @@ def build_section(results: list[tuple[str, dict]]) -> str:
     serving = render_serving()
     if serving:
         parts.append(serving)
+    ops = render_ops()
+    if ops:
+        parts.append(ops)
     parts.append(END)
     return "\n".join(parts) + "\n"
 
