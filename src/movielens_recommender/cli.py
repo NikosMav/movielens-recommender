@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import platform
 import random
 import sys
 import time
@@ -65,6 +67,31 @@ def library_versions() -> dict[str, str]:
     if lgb_v != "unknown":
         versions["lightgbm"] = lgb_v
     return versions
+
+
+def host_info() -> dict[str, Any]:
+    """Where a result was computed. BLAS and LightGBM inputs differ in the last
+    bits across OS builds and CPU families, so a rerun elsewhere can move a
+    ranker result slightly (ADR-0015)."""
+    try:
+        from numpy._core._multiarray_umath import __cpu_features__
+
+        simd = sorted(
+            name
+            for name in ("SSE42", "AVX2", "FMA3", "AVX512F", "AVX512_SKX", "AVX512_ICL")
+            if __cpu_features__.get(name)
+        )
+    except ImportError:
+        simd = []
+    return {
+        "os": platform.system(),
+        "os_release": platform.release(),
+        "machine": platform.machine(),
+        "processor": platform.processor() or "unknown",
+        "cpu_count": int(os.cpu_count() or 0),
+        "python": platform.python_version(),
+        "numpy_simd": simd,
+    }
 
 
 def set_seeds(seed: int) -> None:
@@ -451,6 +478,7 @@ def run_pipeline(
         },
         "config": config.to_dict(),
         "library_versions": library_versions(),
+        "host": host_info(),
         "hyperparameters": hyperparams,
         "tuned": tuned_flags,
         "metrics": results,
@@ -955,6 +983,7 @@ def run_global_cutoff(
         },
         "config": config.to_dict(),
         "library_versions": library_versions(),
+        "host": host_info(),
         "hyperparameters": hyperparams,
         "metrics": results,
         "primary_metric": "ndcg@10",

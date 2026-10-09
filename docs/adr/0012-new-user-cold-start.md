@@ -103,7 +103,7 @@ The round 1 pipeline loses to most-popular at every N. Round 2 was redesigned af
 
 ### Round 2 outcome
 
-Copied from `results/cold-start/ml-1m.json` after the round-2 score of the same 604 users. The design of this round used the round-1 held-out table. The validation choices below were not changed after the round-2 score.
+Copied from the original `results/cold-start/ml-1m.json` after the round-2 score of the same 604 users. That file has since been regenerated with deterministic top-n selection; see the amendment at the end of this ADR. The numbers in this section are the original run's. The design of this round used the round-1 held-out table. The validation choices below were not changed after the round-2 score.
 
 **Validation choices.** The expanded dropout search still selects `dropout_0.25` (validation NDCG@10 0.071919, epoch 2). p=0.0 is 0.068959 (epoch 6), p=0.1 is 0.068212 (epoch 2), history-only is 0.069339 (epoch 1), p=0.5 is 0.070440, p=0.75 is 0.069066. 0.25 is no longer a grid edge. `dropout_best_at_edge` and `selected_at_grid_edge` are both false.
 
@@ -159,3 +159,18 @@ Cold-start popularity remains higher than the known-user most-popular number (0.
 - "Because you rated … highly" needs a stored item-item similarity above 0 and a rating of at least 4.
 - The held-out 604 were reused. Round 2 was redesigned after round 1's results on that same set: dropout p=0.0 and p=0.1, the short-profile ranker, and the per-N rule. The round-2 held-out numbers are not a fully fresh test, even though every choice was frozen on validation before the second score.
 - The sensitivity tail was added after the first held-out table. It does not choose the serving rule.
+- The ranker is not bit-reproducible across platforms. Last-bit BLAS differences move its tree count and the chosen K (ADR-0015).
+
+## Amendment: deterministic top-n (ADR-0015)
+
+A rerun on a second machine did not reproduce the round-2 file. The cause was top-n selection that broke ties by the CPU's SIMD sort path instead of by item index, which matters for short profiles, where many items tie at zero. With that fixed, a smaller platform effect remains: last-bit BLAS differences between OS builds change the ranker's features and so its early stopping.
+
+`results/cold-start/ml-1m.json` was regenerated with the fix inside the project's Docker image. The protocol, the grids, and the selection rules did not change. What the regenerated file says:
+
+- The serving rule is unchanged: the short-profile ranker at N=1, 3, 5, and 10.
+- K is now 200 (134 trees) instead of 50 (88 trees). The three K values are within about 0.002 on validation, and K changed between platforms, so the choice of K is not a finding.
+- The served list still beats most-popular at N=3, 5, and 10, with paired intervals well clear of 0, as in every rerun.
+- At N=1 it still does not beat most-popular: 0.0062 [-0.0033, 0.0157]. Across five reruns the low end of that interval ranged from -0.0033 to +0.0004. Read N=1 as no detectable difference from popularity.
+- On the sensitivity tail, the original "beats popularity at N=3" does not hold in the regenerated file. No N beats popularity there.
+
+The generated README panel shows the regenerated numbers. ADR-0015 has the per-run table.

@@ -10,6 +10,7 @@ from movielens_recommender.baselines.common import (
     binary_user_item,
     mask_seen,
     recommend_from_scores,
+    top_n_indices,
 )
 from movielens_recommender.scale import SPARSE_CATALOG_ITEMS, should_cache_user_scores
 
@@ -214,7 +215,7 @@ def _positive_topk_indices(row: np.ndarray, k: int) -> np.ndarray:
     n_cols = row.shape[0]
     if k >= n_cols:
         return np.flatnonzero(row > 0.0).astype(np.int32)
-    part = np.argpartition(-row, k)[:k]
+    part = np.sort(top_n_indices(row, k))
     return part[row[part] > 0.0].astype(np.int32)
 
 
@@ -228,7 +229,7 @@ def _top_k_per_row(sim: np.ndarray, k: int) -> np.ndarray:
     out = np.zeros_like(sim)
     for i in range(n_rows):
         row = sim[i]
-        part = np.argpartition(-row, k)[:k]
+        part = top_n_indices(row, k)
         keep = part[row[part] > 0.0]
         out[i, keep] = row[keep]
     return out
