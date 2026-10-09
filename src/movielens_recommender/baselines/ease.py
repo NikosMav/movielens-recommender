@@ -12,6 +12,7 @@ from movielens_recommender.baselines.common import (
     binary_user_item,
     mask_seen,
     recommend_from_scores,
+    top_n_indices,
 )
 from movielens_recommender.scale import should_cache_user_scores
 
@@ -196,15 +197,5 @@ def _popular_item_ids(train: pd.DataFrame, max_items: int) -> np.ndarray:
 
 
 def _ease_topk_indices(scores: np.ndarray, n: int) -> np.ndarray:
-    """Indices of the top-n finite scores, ties broken by mergesort."""
-    finite = np.isfinite(scores)
-    if not finite.any():
-        return np.array([], dtype=np.int64)
-    idx = np.flatnonzero(finite)
-    sc = scores[idx]
-    if n >= len(idx):
-        order = np.argsort(-sc, kind="mergesort")
-        return idx[order]
-    part = np.argpartition(-sc, n - 1)[:n]
-    order = part[np.argsort(-sc[part], kind="mergesort")]
-    return idx[order]
+    """Indices of the top-n finite scores, ties broken by lowest index."""
+    return top_n_indices(scores, n)

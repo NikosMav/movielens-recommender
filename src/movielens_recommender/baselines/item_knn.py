@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from scipy import sparse
 
+from movielens_recommender.baselines.common import top_n_indices
 from movielens_recommender.scale import SPARSE_CATALOG_ITEMS
 
 
@@ -120,13 +121,7 @@ class ItemItemCosineRecommender:
         # Never recommend items the user already interacted with in train.
         scores[user_vec != 0] = -np.inf
 
-        if n >= len(scores):
-            order = np.argsort(-scores, kind="mergesort")
-        else:
-            # Partial top-n then stable sort those.
-            part = np.argpartition(-scores, n - 1)[:n]
-            order = part[np.argsort(-scores[part], kind="mergesort")]
-        return [int(self._item_ids[i]) for i in order[:n] if np.isfinite(scores[i])]
+        return [int(self._item_ids[i]) for i in top_n_indices(scores, n)]
 
     def topk_with_scores(
         self,
@@ -338,18 +333,8 @@ class ItemItemCosineRecommender:
 
 
 def _topk_indices(scores: np.ndarray, n: int) -> np.ndarray:
-    """Indices of the top-n finite scores, ties broken by mergesort."""
-    finite = np.isfinite(scores)
-    if not finite.any():
-        return np.array([], dtype=np.int64)
-    idx = np.flatnonzero(finite)
-    sc = scores[idx]
-    if n >= len(idx):
-        order = np.argsort(-sc, kind="mergesort")
-        return idx[order]
-    part = np.argpartition(-sc, n - 1)[:n]
-    order = part[np.argsort(-sc[part], kind="mergesort")]
-    return idx[order]
+    """Indices of the top-n finite scores, ties broken by lowest index."""
+    return top_n_indices(scores, n)
 
 
 def _sparse_topk_cosine(
@@ -401,7 +386,7 @@ def _sparse_topk_cosine(
             if k_neighbors >= n_items:
                 kept = np.arange(n_items, dtype=np.int32)
             else:
-                kept = np.argpartition(-row, k_neighbors)[:k_neighbors].astype(np.int32)
+                kept = np.sort(top_n_indices(row, k_neighbors)).astype(np.int32)
             indices.append(kept)
             data.append(row[kept])
             nnz += len(kept)
@@ -425,15 +410,12 @@ def _top_k_neighbors(sim: np.ndarray, k: int) -> np.ndarray:
     """Zero all but the top-k absolute similarities per row (stable ties)."""
     n = sim.shape[0]
     out = np.zeros_like(sim)
-    # argpartition on -sim keeps largest similarities.
-    # For each row, keep top-k; ties broken by original column index via mergesort.
+    # Keep the k largest similarities per row; ties go to the lower column index.
     for i in range(n):
         row = sim[i]
         if k >= n:
             out[i] = row
             continue
-        part = np.argpartition(-row, k)[:k]
-        # Stable order among the selected for determinism of which ties survive
-        # is not required for scoring; keep the partitioned top-k values.
+        part = top_n_indices(row, k)
         out[i, part] = row[part]
     return out

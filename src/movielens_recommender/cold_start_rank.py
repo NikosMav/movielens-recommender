@@ -1148,7 +1148,7 @@ def finish_round2(
     latency = measure_new_user_latency(artifact_dir, full_train)
     print(f"Warmed new-user latency: {latency['latency_sec']:.4f}s", flush=True)
 
-    from movielens_recommender.cli import library_versions
+    from movielens_recommender.cli import host_info, library_versions
 
     payload: dict[str, Any] = {
         "experiment": "s5c_new_user_cold_start",
@@ -1296,6 +1296,7 @@ def finish_round2(
         "popularity_vs_known_users": POPULARITY_VS_KNOWN_USERS,
         "runtime_sec": _round(time.perf_counter() - t0),
         "library_versions": library_versions(),
+        "host": host_info(),
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")

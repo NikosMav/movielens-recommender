@@ -45,18 +45,35 @@ def mask_seen(scores: np.ndarray, interactions: sparse.csr_matrix) -> np.ndarray
     return masked
 
 
+def top_n_indices(scores: np.ndarray, n: int) -> np.ndarray:
+    """Indices of the ``n`` largest finite scores, best first; ties go to the lower index.
+
+    Same result as ``np.argsort(-scores, kind="stable")[:n]`` over the finite
+    entries, without sorting the whole array. ``np.argpartition`` alone is not
+    enough: which tied entries it keeps at the cut depends on the CPU's SIMD
+    sort path, so the same data gave different lists on different hosts (ADR-0015).
+    """
+    scores = np.asarray(scores, dtype=np.float64)
+    if n <= 0 or scores.size == 0:
+        return np.empty(0, dtype=np.int64)
+    finite = np.isfinite(scores)
+    if not finite.all():
+        idx = np.flatnonzero(finite)
+        return idx[top_n_indices(scores[idx], n)]
+    if n >= scores.size:
+        return np.argsort(-scores, kind="stable")
+    # The n-th largest value is the same whichever tied entry argpartition puts there.
+    cut = scores[np.argpartition(-scores, n - 1)[n - 1]]
+    above = np.flatnonzero(scores > cut)
+    tied = np.flatnonzero(scores == cut)[: n - above.size]
+    chosen = np.sort(np.concatenate([above, tied]))
+    return chosen[np.argsort(-scores[chosen], kind="stable")]
+
+
 def recommend_from_scores(
     scores: np.ndarray,
     item_ids: np.ndarray,
     n: int,
 ) -> list[int]:
-    """Top-n finite scores. Ties break by item column index (mergesort)."""
-    if n <= 0:
-        return []
-    scores = np.asarray(scores, dtype=np.float64)
-    if n >= len(scores):
-        order = np.argsort(-scores, kind="mergesort")
-    else:
-        part = np.argpartition(-scores, n - 1)[:n]
-        order = part[np.argsort(-scores[part], kind="mergesort")]
-    return [int(item_ids[i]) for i in order[:n] if np.isfinite(scores[i])]
+    """Top-n finite scores. Ties break by item column index."""
+    return [int(item_ids[i]) for i in top_n_indices(scores, n)]

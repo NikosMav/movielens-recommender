@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 from scipy import sparse
 
+from movielens_recommender.baselines.common import top_n_indices
+
 
 class ALSRecommender:
     """Implicit ALS on confidence-weighted ratings.
@@ -111,13 +113,7 @@ class ALSRecommender:
         if not finite.any():
             return []
         # Rank only among unscored-as-seen items.
-        candidates = np.where(finite)[0]
-        cand_scores = scores[candidates]
-        if n >= len(candidates):
-            order = candidates[np.argsort(-cand_scores, kind="mergesort")]
-        else:
-            part = np.argpartition(-cand_scores, n - 1)[:n]
-            order = candidates[part[np.argsort(-cand_scores[part], kind="mergesort")]]
+        order = top_n_indices(scores, n)
         return [int(self._item_ids[int(i)]) for i in order[:n]]
 
     def hyperparams(self) -> dict:

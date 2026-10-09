@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import torch
 
+from movielens_recommender.baselines.common import top_n_indices
 from movielens_recommender.two_tower.features import TwoTowerFeatures, pad_histories
 from movielens_recommender.two_tower.model import TwoTowerModel
 
@@ -110,13 +111,7 @@ class TwoTowerRecommender:
         finite = np.isfinite(scores)
         if not finite.any():
             return []
-        candidates = np.where(finite)[0]
-        cand_scores = scores[candidates]
-        if n >= len(candidates):
-            order = candidates[np.argsort(-cand_scores, kind="mergesort")]
-        else:
-            part = np.argpartition(-cand_scores, n - 1)[:n]
-            order = candidates[part[np.argsort(-cand_scores[part], kind="mergesort")]]
+        order = top_n_indices(scores, n)
         return [
             (int(self._features.item_ids[i]), float(scores[i]))
             for i in order
@@ -385,15 +380,5 @@ class TwoTowerRecommender:
 
 
 def _topk_indices(scores: np.ndarray, n: int) -> np.ndarray:
-    """Indices of the top-n finite scores, ties broken by mergesort."""
-    finite = np.isfinite(scores)
-    if not finite.any():
-        return np.array([], dtype=np.int64)
-    idx = np.flatnonzero(finite)
-    sc = scores[idx]
-    if n >= len(idx):
-        order = np.argsort(-sc, kind="mergesort")
-        return idx[order]
-    part = np.argpartition(-sc, n - 1)[:n]
-    order = part[np.argsort(-sc[part], kind="mergesort")]
-    return idx[order]
+    """Indices of the top-n finite scores, ties broken by lowest index."""
+    return top_n_indices(scores, n)
