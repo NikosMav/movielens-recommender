@@ -1105,6 +1105,20 @@ def _cmd_batch_recommend(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_drift_study(args: argparse.Namespace) -> int:
+    """S6 replay of ml-1m in time order (ADR-0016). Writes results/ops/ml-1m.json."""
+    config = load_config(args.config)
+    if args.data_dir is not None:
+        config.data_dir = args.data_dir
+    if args.results_dir is not None:
+        config.results_dir = args.results_dir
+    from movielens_recommender.ops.study import run_drift_study
+
+    out = run_drift_study(config, download=not args.no_download)
+    print(f"Wrote drift study to {out}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="movielens-recommender",
@@ -1270,6 +1284,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Comma-separated user ids (default: every user in the snapshot)",
     )
     p_batch.set_defaults(func=_cmd_batch_recommend)
+
+    p_drift = sub.add_parser(
+        "drift-study",
+        help="S6: replay ml-1m in time order to measure decay, drift, and refresh policies",
+    )
+    p_drift.add_argument(
+        "--config", default="configs/ml-1m.yaml", help="Path to the ml-1m YAML config"
+    )
+    p_drift.add_argument("--data-dir", default=None, help="Override data_dir from config")
+    p_drift.add_argument("--results-dir", default=None, help="Override results_dir from config")
+    p_drift.add_argument(
+        "--no-download", action="store_true", help="Do not download; require ml-1m on disk"
+    )
+    p_drift.set_defaults(func=_cmd_drift_study)
 
     return parser
 

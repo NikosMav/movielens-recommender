@@ -61,6 +61,6 @@ Committed numbers live in `results/*.json`. Tuning grids and val scores live in 
 | **S5** | Serving (inference path, latency budget) |
 | **S5b** | Batch recommendations, FastAPI service, Docker image; latency budget fixed before measuring (ADR-0014) |
 | **S5c** | New-user profile (cold start): rate a few films with no MovieLens id (ADR-0012) |
-| **S6** | Operations (monitoring, refresh, drift) |
+| **S6** | Operations: API monitoring, data drift signals, and a time-ordered refresh replay (ADR-0016) |
 
 Each modeling stage reuses this harness. If a stage does not improve NDCG@10 (with CI context), write it up as a negative result rather than claiming progress.

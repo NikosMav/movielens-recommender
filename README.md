@@ -2,7 +2,7 @@
 
 A movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings, with an evaluation protocol strict enough that negative results are reported as such.
 
-It covers the path from data to a demo: download and cleaning, a per-user time split, an evaluation harness with bootstrap confidence intervals, classic baselines, a two-tower retrieval model, a LightGBM LambdaRank re-ranker, a Streamlit app that explains each recommendation in plain language and also serves people with no MovieLens history, and an HTTP API with batch scoring and a Docker image. The same harness runs on ml-latest-small, ml-1m, and MovieLens 32M.
+It covers the path from data to a demo: download and cleaning, a per-user time split, an evaluation harness with bootstrap confidence intervals, classic baselines, a two-tower retrieval model, a LightGBM LambdaRank re-ranker, a Streamlit app that explains each recommendation in plain language and also serves people with no MovieLens history, an HTTP API with batch scoring, monitoring, and a Docker image, and a time-ordered replay that tests when the models need retraining. The same harness runs on ml-latest-small, ml-1m, and MovieLens 32M.
 
 ![ml-1m user 155: training history and an open explanation for Sleepless in Seattle](docs/demo/streamlit.png)
 
@@ -34,6 +34,7 @@ Every number behind these sentences is in [Results](#results), generated from `r
 - **Reproducibility.** Top-n selection used to break ties differently on different CPUs, which moved the new-user results between machines; ties now always go to the lower item index. Small floating-point differences between math-library builds still change the new-user ranker's details across platforms, so its results are regenerated in the Docker image and record the host they ran on (ADR-0015).
 - **Other two-tower losses (S3e).** On ml-1m, full softmax and sampled softmax both beat the in-batch two-tower on test NDCG@10. LambdaRank on the validation-chosen new tower is worse than LambdaRank on the current two-tower, and worse than the new tower's own list (both paired intervals exclude 0). On ml-32M, sampled softmax does not beat the in-batch two-tower on validation, even at the same epoch budget, and full softmax was skipped for compute. The app keeps the current model (ADR-0013).
 - **Serving (S5b).** The same snapshots run behind a FastAPI service, a batch scorer, and a Docker image. Every latency and batch budget fixed in advance was met on the measuring host, and indexing the snapshot tables at load time more than halved the explained known-user latency (ADR-0014).
+- **Drift and refresh (S6).** Replaying ml-1m month by month, a popularity, item–item, or EASE model trained once in mid-2000 scores as well as one retrained every period, for two and a half years. ml-1m adds almost no new titles after 2000, and the item-mix drift signal never rises clearly above its own sampling noise, so the pre-registered rule chose never to retrain (ADR-0016).
 
 ## Quickstart
 
@@ -79,8 +80,11 @@ uvicorn --factory movielens_recommender.serving.api:create_app_from_env --port 8
 | GET | `/v1/users/{user_id}/recommendations?n=10&explain=true` | Production top n for a known ml-1m user, with plain-language reasons |
 | POST | `/v1/recommendations/new-user` | Top n for `{"ratings": [{"item_id": 2571, "rating": 5}], "n": 10}` |
 | GET | `/v1/movies/search?q=matrix` | Find item ids by title |
+| GET | `/metrics` | Prometheus metrics: requests and latency by route, snapshot age, new-user input drift |
 
 Interactive docs are at `/docs`. The API takes ratings only: demographic fields are rejected. It has no authentication, so keep it local.
+
+`/metrics` labels requests by route template (`/v1/users/{user_id}/recommendations`), never by raw path, so user ids do not leak into labels. For the last 500 new-user requests it reports how popular the rated titles are, next to the same figures for the training ratings, so a shift in who is using the new-user path shows up without extra tooling. Each request also writes one JSON line to the `movielens_recommender.api` logger, with no item ids or ratings (ADR-0016).
 
 ```bash
 curl "http://127.0.0.1:8000/v1/users/155/recommendations?n=5"
@@ -115,7 +119,8 @@ Measured latency and batch time are in the [serving panel](#serving-latency-and-
 | `src/movielens_recommender/baselines/` | Most popular, item–item cosine, ALS, EASE^R, RP3beta |
 | `src/movielens_recommender/two_tower/` | Two-tower model, features, training losses, and the S3e budget planner |
 | `src/movielens_recommender/ranker/` | Candidate sets, ranker features, LambdaRank training, SHAP explanations, demographics |
-| `src/movielens_recommender/serving/` | Serving snapshots (build, save, load), new-user serving, plain-language reasons, batch scoring, the HTTP API |
+| `src/movielens_recommender/serving/` | Serving snapshots (build, save, load), new-user serving, plain-language reasons, batch scoring, the HTTP API and its monitoring |
+| `src/movielens_recommender/ops/` | Drift signals and the time-ordered refresh replay (S6) |
 | `Dockerfile` | API image; holds no MovieLens data or snapshot |
 | `app/streamlit_app.py` | The demo page |
 | `configs/` | Run configs: `default.yaml` (ml-latest-small), `ml-1m.yaml`, `ml-32m.yaml` |
@@ -144,7 +149,7 @@ Each modeling stage must beat the previous best on **NDCG@10** on the same harne
 | S5a | Done | Streamlit explainable UI | [0010](docs/adr/0010-streamlit-ui.md) |
 | S5c | Done | New-user profile (cold start) | [0012](docs/adr/0012-new-user-cold-start.md) |
 | S5b | Done | Batch recommendations, FastAPI service, Dockerfile | [0014](docs/adr/0014-batch-api-docker.md) |
-| S6 | Planned | Operations: monitoring, refresh, drift | |
+| S6 | Done | Operations: monitoring, refresh, drift | [0016](docs/adr/0016-drift-refresh-monitoring.md) |
 
 ## Data
 
@@ -229,6 +234,7 @@ Tuning grids and per-trial validation scores are in `results/tuning/`.
 movielens-recommender run --config configs/default.yaml   # ml-latest-small
 movielens-recommender run --config configs/ml-1m.yaml
 movielens-recommender run --config configs/ml-32m.yaml    # long; budget in ADR-0011
+movielens-recommender drift-study --config configs/ml-1m.yaml   # S6 replay, about 3 min
 python scripts/make_results_table.py                      # regenerate the Results section
 ```
 
@@ -1053,5 +1059,37 @@ From `results/serving/ml-1m.json`, written by `scripts/measure_serving.py`. Budg
 
 The load-time lookups make the explained known-user call 2.42x faster at p50 than the pre-S5b table scans, on the same users.
 Batch: top 10 for 6040 users (60400 rows) in 69.5s, 86.9 users/s, budget 600s, within budget: yes.
+
+### Drift and refresh replay (`ml-1m`, S6)
+
+From `results/ops/ml-1m.json`, written by `movielens-recommender drift-study`. ml-1m is replayed in time order: the first model is trained on every rating before 2000-08-01, then scored on 14 later periods (monthly to December 2000, then quarterly). Users need 5 earlier ratings; the target is what they rated 4 or more in the period. `frozen` is never retrained, `periodic` is retrained before every period, and `drift` retrains when the item divergence passes the threshold chosen on the first 3 periods (ADR-0016).
+
+| model | frozen | periodic | drift | retrains (periodic / drift) |
+| --- | --- | --- | --- | --- |
+| most popular | 0.0896 | 0.0891 | 0.0896 | 13 / 0 |
+| item-item | 0.1013 | 0.1009 | 0.1013 | 13 / 0 |
+| EASE | 0.0997 | 0.1015 | 0.0997 | 13 / 0 |
+
+Mean NDCG@10 over the test periods. Threshold chosen on item-item: tau=0.6 (qualifying: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]).
+
+| period | eval users | item divergence | new-item share | new-user share | item-item periodic minus frozen |
+| --- | --- | --- | --- | --- | --- |
+| 2000-08 | 187 | 0.3689 | 0.0059 | 0.9307 | 0.0000 [0.0000, 0.0000] |
+| 2000-09 | 241 | 0.3981 | 0.0155 | 0.9524 | -0.0015 [-0.0091, 0.0063] |
+| 2000-10 | 238 | 0.3912 | 0.0266 | 0.8240 | -0.0043 [-0.0107, 0.0016] |
+| 2000-11 | 227 | 0.3935 | 0.0317 | 0.7995 | -0.0083 [-0.0158, -0.0013] |
+| 2000-12 | 534 | 0.3853 | 0.0329 | 0.9799 | -0.0055 [-0.0119, 0.0011] |
+| 2001-Q1 | 741 | 0.3930 | 0.0277 | 0.7497 | -0.0009 [-0.0071, 0.0047] |
+| 2001-Q2 | 496 | 0.4244 | 0.0501 | 0.0032 | 0.0033 [-0.0036, 0.0107] |
+| 2001-Q3 | 427 | 0.4506 | 0.0898 | 0.0025 | -0.0062 [-0.0130, 0.0003] |
+| 2001-Q4 | 341 | 0.4341 | 0.0645 | 0.0000 | 0.0064 [-0.0013, 0.0142] |
+| 2002-Q1 | 337 | 0.4443 | 0.0625 | 0.0147 | -0.0039 [-0.0126, 0.0041] |
+| 2002-Q2 | 249 | 0.4279 | 0.0672 | 0.0136 | 0.0050 [-0.0028, 0.0133] |
+| 2002-Q3 | 233 | 0.4192 | 0.0590 | 0.0000 | 0.0046 [-0.0042, 0.0141] |
+| 2002-Q4 | 213 | 0.4383 | 0.0667 | 0.0000 | -0.0070 [-0.0182, 0.0040] |
+| 2003-Q1 | 153 | 0.4219 | 0.0511 | 0.0325 | 0.0082 [-0.0020, 0.0202] |
+
+Sampling-noise floor of the item divergence: 0.3693. Paired periodic-minus-frozen intervals that exclude 0: 3 of 39 (the first period is the same model).
+Spearman correlation of each drift signal with the retraining gain: most popular item divergence -0.62, new item share -0.60, new user share +0.37; item-item item divergence +0.04, new item share +0.08, new user share -0.25; EASE item divergence +0.26, new item share +0.40, new user share -0.53.
 
 <!-- END RESULTS TABLE -->
