@@ -1,0 +1,502 @@
+{
+  "adr": "docs/adr/0017-beyond-accuracy.md",
+  "bootstrap": {
+    "alpha": 0.05,
+    "n_bootstrap": 1000,
+    "seed": 42
+  },
+  "cold_start": {
+    "n_cold_items_in_test": 39,
+    "n_eval_users": 5958,
+    "n_relevant_dropped_cold_item": 18,
+    "n_train_items": 3667,
+    "n_train_users": 6040,
+    "n_users_excluded_no_warm_relevant": 82
+  },
+  "dataset": "ml-1m",
+  "dataset_sha256": "a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20",
+  "dataset_version": "ml-1m@sha256:a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20",
+  "definitions": {
+    "coverage": "Share of the train catalog that appears in at least one top-k list. Point estimate only: a user bootstrap of this set-union is biased low and does not contain the point estimate (ADR-0003).",
+    "intra_list_diversity": "Mean over users of 1 minus the mean pairwise cosine similarity of the top-k items. The item vector is the genre multi-hot from movies.dat.",
+    "long_tail_share": "Mean over users of the fraction of the top-k list that falls in the train tail. The tail is every train item outside the top 20% head.",
+    "mean_popularity": "Existing diagnostic: mean over users of the mean train interaction count of the top-k items. Not a second popularity metric.",
+    "ndcg": "Existing binary NDCG@k (relevant when the test rating is at least the harness threshold). Recomputed on the lists scored here.",
+    "novelty": "Mean over users of the mean self-information of the top-k items. Self-information of item i is -log2(count(i) / n_train_interactions), where count(i) is the number of train rows for i."
+  },
+  "eval_users": {
+    "matches_committed_count": true,
+    "n": 5958,
+    "user_ids_sha256": "2a171dabc38ef91852ae95815dd38582fd20e454a4d615f7ae851163dfc2bd23"
+  },
+  "future_work": "ml-32M is future work. This panel is ml-1m only.",
+  "host": {
+    "cpu_count": 4,
+    "machine": "x86_64",
+    "numpy_simd": [
+      "AVX2",
+      "AVX512F",
+      "AVX512_ICL",
+      "AVX512_SKX",
+      "FMA3",
+      "SSE42"
+    ],
+    "os": "Linux",
+    "os_release": "6.12.94+",
+    "processor": "x86_64",
+    "python": "3.12.3"
+  },
+  "item_representation": "Genre multi-hot from movies.dat, the same vector as build_item_side_features: one bit per entry of GENRES, ml-1m Children's mapped to Children, and a single (no genres listed) bit when the item is missing or has no known genre. Cosine is computed on these raw 0/1 vectors. A zero norm would count as cosine 0; the movies.dat builder does not emit an all-zero vector.",
+  "k": 10,
+  "library_versions": {
+    "implicit": "0.7.3",
+    "lightgbm": "4.6.0",
+    "movielens-recommender": "0.1.0",
+    "numpy": "2.2.6",
+    "pandas": "2.2.3",
+    "pyyaml": "6.0.3",
+    "scipy": "1.15.3",
+    "torch": "2.6.0+cpu"
+  },
+  "long_tail": {
+    "n_head_items": 733,
+    "n_tail_items": 2934,
+    "n_train_items": 3667,
+    "tail_fraction": 0.800109
+  },
+  "model_order": [
+    "most_popular",
+    "item_item_cosine",
+    "als_tuned",
+    "ease",
+    "rp3beta",
+    "two_tower",
+    "lambdarank"
+  ],
+  "models": {
+    "als_tuned": {
+      "confidence_intervals": {
+        "intra_list_diversity@10": {
+          "high": 0.655198,
+          "low": 0.648208,
+          "mean": 0.651837
+        },
+        "long_tail_share@10": {
+          "high": 0.115576,
+          "low": 0.107619,
+          "mean": 0.111699
+        },
+        "mean_popularity@10": {
+          "high": 1129.855677,
+          "low": 1106.00578,
+          "mean": 1118.008476
+        },
+        "ndcg@10": {
+          "high": 0.09395,
+          "low": 0.087425,
+          "mean": 0.09062
+        },
+        "novelty@10": {
+          "high": 9.857273,
+          "low": 9.821175,
+          "mean": 9.839127
+        }
+      },
+      "coverage@10": 0.45405,
+      "fit_sec": 4.383,
+      "hyperparameters": {
+        "alpha": 20.0,
+        "confidence_threshold": 4.0,
+        "factors": 128,
+        "iterations": 15,
+        "random_state": 42,
+        "regularization": 0.1
+      },
+      "intra_list_diversity@10": 0.651837,
+      "list_seed": null,
+      "long_tail_share@10": 0.111699,
+      "mean_popularity@10": 1118.008476,
+      "n_eval_users": 5958,
+      "ndcg@10": 0.09062,
+      "ndcg@10_committed": 0.09062,
+      "ndcg@10_committed_source": "results/ml-1m.json metrics.als_tuned.ndcg@10",
+      "ndcg@10_headline": 0.09062,
+      "ndcg@10_matches_committed_at_4_decimals": true,
+      "ndcg@10_matches_headline_at_4_decimals": true,
+      "novelty@10": 9.839127
+    },
+    "ease": {
+      "confidence_intervals": {
+        "intra_list_diversity@10": {
+          "high": 0.63359,
+          "low": 0.626368,
+          "mean": 0.630106
+        },
+        "long_tail_share@10": {
+          "high": 0.006898,
+          "low": 0.004901,
+          "mean": 0.005874
+        },
+        "mean_popularity@10": {
+          "high": 1584.193065,
+          "low": 1565.419324,
+          "mean": 1575.256546
+        },
+        "ndcg@10": {
+          "high": 0.122587,
+          "low": 0.114173,
+          "mean": 0.11838
+        },
+        "novelty@10": {
+          "high": 9.152396,
+          "low": 9.130589,
+          "mean": 9.140898
+        }
+      },
+      "coverage@10": 0.209981,
+      "fit_sec": 3.152,
+      "hyperparameters": {
+        "l2": 5000.0,
+        "n_items_before_restriction": 3667,
+        "n_items_fit": 3667
+      },
+      "intra_list_diversity@10": 0.630106,
+      "list_seed": null,
+      "long_tail_share@10": 0.005874,
+      "mean_popularity@10": 1575.256546,
+      "n_eval_users": 5958,
+      "ndcg@10": 0.11838,
+      "ndcg@10_committed": 0.11838,
+      "ndcg@10_committed_source": "results/ml-1m.json metrics.ease.ndcg@10",
+      "ndcg@10_headline": 0.11838,
+      "ndcg@10_matches_committed_at_4_decimals": true,
+      "ndcg@10_matches_headline_at_4_decimals": true,
+      "novelty@10": 9.140898
+    },
+    "item_item_cosine": {
+      "confidence_intervals": {
+        "intra_list_diversity@10": {
+          "high": 0.632073,
+          "low": 0.625729,
+          "mean": 0.628774
+        },
+        "long_tail_share@10": {
+          "high": 0.004028,
+          "low": 0.002198,
+          "mean": 0.003105
+        },
+        "mean_popularity@10": {
+          "high": 1803.25888,
+          "low": 1786.485266,
+          "mean": 1794.567153
+        },
+        "ndcg@10": {
+          "high": 0.124155,
+          "low": 0.115829,
+          "mean": 0.120135
+        },
+        "novelty@10": {
+          "high": 8.907705,
+          "low": 8.891006,
+          "mean": 8.899621
+        }
+      },
+      "coverage@10": 0.127352,
+      "fit_sec": 7.496,
+      "hyperparameters": {
+        "k_neighbors": 0,
+        "min_common": 1,
+        "shrinkage": 0.0
+      },
+      "intra_list_diversity@10": 0.628774,
+      "list_seed": null,
+      "long_tail_share@10": 0.003105,
+      "mean_popularity@10": 1794.567153,
+      "n_eval_users": 5958,
+      "ndcg@10": 0.120135,
+      "ndcg@10_committed": 0.120135,
+      "ndcg@10_committed_source": "results/ml-1m.json metrics.item_item_cosine.ndcg@10",
+      "ndcg@10_headline": 0.120135,
+      "ndcg@10_matches_committed_at_4_decimals": true,
+      "ndcg@10_matches_headline_at_4_decimals": true,
+      "novelty@10": 8.899621
+    },
+    "lambdarank": {
+      "confidence_intervals": {
+        "intra_list_diversity@10": {
+          "high": 0.646102,
+          "low": 0.638493,
+          "mean": 0.642388
+        },
+        "long_tail_share@10": {
+          "high": 0.048927,
+          "low": 0.042967,
+          "mean": 0.045888
+        },
+        "mean_popularity@10": {
+          "high": 1325.113254,
+          "low": 1305.659319,
+          "mean": 1315.429305
+        },
+        "ndcg@10": {
+          "high": 0.133291,
+          "low": 0.124798,
+          "mean": 0.129253
+        },
+        "novelty@10": {
+          "high": 9.519337,
+          "low": 9.490756,
+          "mean": 9.504728
+        }
+      },
+      "coverage@10": 0.386965,
+      "fit_sec": 11.587,
+      "hyperparameters": {
+        "bagging_fraction": 0.8,
+        "best_iteration": 126,
+        "candidate_k": 200,
+        "candidate_set": "two_tower",
+        "committed_best_iteration": 95,
+        "demographics": "off",
+        "early_stop_fraction": 0.2,
+        "early_stop_user_split_seed": 42,
+        "early_stopping_rounds": 30,
+        "feature_fraction": 0.9,
+        "learning_rate": 0.05,
+        "list_seed": 42,
+        "min_data_in_leaf": 20,
+        "n_features": 51,
+        "num_boost_round_cap": 200,
+        "num_leaves": 31,
+        "retriever_item_item": {
+          "k_neighbors": 200,
+          "min_common": 1,
+          "shrinkage": 100.0
+        },
+        "retriever_two_tower": {
+          "batch_size": 1024,
+          "embedding_dim": 64,
+          "learning_rate": 0.003,
+          "max_epochs": 20,
+          "max_history": 50,
+          "patience": 3,
+          "temperature": 0.1,
+          "weight_decay": 0.0001
+        },
+        "retriever_two_tower_epochs": 6
+      },
+      "intra_list_diversity@10": 0.642388,
+      "list_seed": 42,
+      "long_tail_share@10": 0.045888,
+      "mean_popularity@10": 1315.429305,
+      "n_eval_users": 5958,
+      "ndcg@10": 0.129253,
+      "ndcg@10_committed": 0.128786,
+      "ndcg@10_committed_source": "results/ml-1m.json ranker.per_seed seed 42",
+      "ndcg@10_headline": 0.127264,
+      "ndcg@10_matches_committed_at_4_decimals": false,
+      "ndcg@10_matches_headline_at_4_decimals": false,
+      "novelty@10": 9.504728
+    },
+    "most_popular": {
+      "confidence_intervals": {
+        "intra_list_diversity@10": {
+          "high": 0.634425,
+          "low": 0.629872,
+          "mean": 0.632125
+        },
+        "long_tail_share@10": {
+          "high": 0.0,
+          "low": 0.0,
+          "mean": 0.0
+        },
+        "mean_popularity@10": {
+          "high": 2331.573671,
+          "low": 2319.934049,
+          "mean": 2325.936069
+        },
+        "ndcg@10": {
+          "high": 0.093487,
+          "low": 0.085661,
+          "mean": 0.089508
+        },
+        "novelty@10": {
+          "high": 8.451935,
+          "low": 8.443597,
+          "mean": 8.447624
+        }
+      },
+      "coverage@10": 0.032452,
+      "fit_sec": 0.086,
+      "hyperparameters": {},
+      "intra_list_diversity@10": 0.632125,
+      "list_seed": null,
+      "long_tail_share@10": 0.0,
+      "mean_popularity@10": 2325.936069,
+      "n_eval_users": 5958,
+      "ndcg@10": 0.089508,
+      "ndcg@10_committed": 0.089508,
+      "ndcg@10_committed_source": "results/ml-1m.json metrics.most_popular.ndcg@10",
+      "ndcg@10_headline": 0.089508,
+      "ndcg@10_matches_committed_at_4_decimals": true,
+      "ndcg@10_matches_headline_at_4_decimals": true,
+      "novelty@10": 8.447624
+    },
+    "rp3beta": {
+      "confidence_intervals": {
+        "intra_list_diversity@10": {
+          "high": 0.615701,
+          "low": 0.608384,
+          "mean": 0.61194
+        },
+        "long_tail_share@10": {
+          "high": 0.008762,
+          "low": 0.00569,
+          "mean": 0.007234
+        },
+        "mean_popularity@10": {
+          "high": 1759.711225,
+          "low": 1740.975319,
+          "mean": 1750.15663
+        },
+        "ndcg@10": {
+          "high": 0.11781,
+          "low": 0.109483,
+          "mean": 0.113834
+        },
+        "novelty@10": {
+          "high": 8.975769,
+          "low": 8.953734,
+          "mean": 8.964847
+        }
+      },
+      "coverage@10": 0.17562,
+      "fit_sec": 4.552,
+      "hyperparameters": {
+        "alpha": 0.4,
+        "beta": 0.6,
+        "top_k": 2000
+      },
+      "intra_list_diversity@10": 0.61194,
+      "list_seed": null,
+      "long_tail_share@10": 0.007234,
+      "mean_popularity@10": 1750.15663,
+      "n_eval_users": 5958,
+      "ndcg@10": 0.113834,
+      "ndcg@10_committed": 0.113834,
+      "ndcg@10_committed_source": "results/ml-1m.json metrics.rp3beta.ndcg@10",
+      "ndcg@10_headline": 0.113834,
+      "ndcg@10_matches_committed_at_4_decimals": true,
+      "ndcg@10_matches_headline_at_4_decimals": true,
+      "novelty@10": 8.964847
+    },
+    "two_tower": {
+      "confidence_intervals": {
+        "intra_list_diversity@10": {
+          "high": 0.619732,
+          "low": 0.61195,
+          "mean": 0.615984
+        },
+        "long_tail_share@10": {
+          "high": 0.108359,
+          "low": 0.099932,
+          "mean": 0.103995
+        },
+        "mean_popularity@10": {
+          "high": 1186.304303,
+          "low": 1164.329702,
+          "mean": 1175.158459
+        },
+        "ndcg@10": {
+          "high": 0.123048,
+          "low": 0.114975,
+          "mean": 0.119078
+        },
+        "novelty@10": {
+          "high": 9.884111,
+          "low": 9.838568,
+          "mean": 9.860291
+        }
+      },
+      "coverage@10": 0.466867,
+      "fit_sec": 40.113,
+      "hyperparameters": {
+        "batch_size": 1024,
+        "embedding_dim": 64,
+        "learning_rate": 0.003,
+        "list_seed": 42,
+        "max_epochs": 20,
+        "max_history": 50,
+        "patience": 3,
+        "refit_epochs": 6,
+        "temperature": 0.1,
+        "weight_decay": 0.0001
+      },
+      "intra_list_diversity@10": 0.615984,
+      "list_seed": 42,
+      "long_tail_share@10": 0.103995,
+      "mean_popularity@10": 1175.158459,
+      "n_eval_users": 5958,
+      "ndcg@10": 0.119078,
+      "ndcg@10_committed": 0.119078,
+      "ndcg@10_committed_source": "results/ml-1m.json two_tower.per_seed seed 42",
+      "ndcg@10_headline": 0.119246,
+      "ndcg@10_matches_committed_at_4_decimals": true,
+      "ndcg@10_matches_headline_at_4_decimals": false,
+      "novelty@10": 9.860291
+    }
+  },
+  "n_eval_users": 5958,
+  "ndcg_comparison_note": "Two-tower and LambdaRank lists are seed 42 only. Their committed NDCG@10 is that seed's test number in results/ml-1m.json. The headline NDCG@10 for those two is the mean over three seeds and is stored beside it.",
+  "protocol": {
+    "demographics": "off",
+    "fit_matrix": "full_train",
+    "no_tuning": true,
+    "ranker_candidate_set": "two_tower",
+    "relevance_threshold": 4.0,
+    "split": "per-user time split from results/ml-1m.json",
+    "tie_break": "top_n_indices (ADR-0015)",
+    "two_tower_epochs_trained": 6
+  },
+  "relevance_threshold": 4.0,
+  "reproduction_command": "python scripts/run_beyond_accuracy.py",
+  "runtime_sec": 143.335,
+  "seed": 42,
+  "split": {
+    "config": {
+      "min_ratings": 5,
+      "relevance_threshold": 4.0,
+      "test_fraction": 0.2,
+      "val_fraction": 0.1
+    },
+    "n_full_train": 802553,
+    "n_full_train_items": 3667,
+    "n_full_train_users": 6040,
+    "n_test": 197656,
+    "n_test_users": 6040,
+    "n_train": 724973,
+    "n_train_items": 3655,
+    "n_train_users": 6040,
+    "n_users_dropped": 0,
+    "n_users_kept": 6040,
+    "n_val": 77580,
+    "n_val_users": 6040
+  },
+  "uncertainty_policy": {
+    "alpha": 0.05,
+    "bootstrap": "bootstrap_mean_ci",
+    "bootstrap_over_users": [
+      "novelty@10",
+      "intra_list_diversity@10",
+      "mean_popularity@10",
+      "long_tail_share@10",
+      "ndcg@10"
+    ],
+    "coverage_ci_policy": "point_estimate_only",
+    "n_bootstrap": 1000,
+    "point_estimate_only": [
+      "coverage@10"
+    ],
+    "seed": 42
+  }
+}

@@ -80,4 +80,22 @@ The results file records the host block from ADR-0015 (OS, CPU count, Python, Nu
 
 ## Outcome
 
-Pending the ml-1m run. Definitions above stay as written.
+Scored on the committed ml-1m split, 5958 eval users, full train of 802,553 interactions and 3,667 items. The tail cut keeps 733 head items and 2,934 tail items (80.0109% of the catalog; 3,667 is not divisible by 5). Runtime 143.335 seconds. Host: Linux 6.12.94+, x86_64, 4 CPUs, Python 3.12.3, NumPy SIMD AVX2, AVX512F, AVX512_ICL, AVX512_SKX, FMA3, SSE42. Library pins match `results/ml-1m.json` (NumPy 2.2.6, implicit 0.7.3, Torch 2.6.0+cpu, LightGBM 4.6.0). Definitions above were not changed after these numbers.
+
+Point estimates at k=10. Intervals are the 1,000-resample user bootstrap except coverage, which stays a point estimate. Full precision is in `results/beyond-accuracy/ml-1m.json`.
+
+| model | NDCG@10 | Coverage | Novelty | Intra-list diversity | Mean popularity | Long-tail share |
+| --- | --- | --- | --- | --- | --- | --- |
+| most_popular | 0.0895 [0.0857, 0.0935] | 0.0325 | 8.4476 [8.4436, 8.4519] | 0.6321 [0.6299, 0.6344] | 2325.9361 [2319.9340, 2331.5737] | 0.0000 [0.0000, 0.0000] |
+| item_item_cosine | 0.1201 [0.1158, 0.1242] | 0.1274 | 8.8996 [8.8910, 8.9077] | 0.6288 [0.6257, 0.6321] | 1794.5672 [1786.4853, 1803.2589] | 0.0031 [0.0022, 0.0040] |
+| als_tuned | 0.0906 [0.0874, 0.0940] | 0.4541 | 9.8391 [9.8212, 9.8573] | 0.6518 [0.6482, 0.6552] | 1118.0085 [1106.0058, 1129.8557] | 0.1117 [0.1076, 0.1156] |
+| ease | 0.1184 [0.1142, 0.1226] | 0.2100 | 9.1409 [9.1306, 9.1524] | 0.6301 [0.6264, 0.6336] | 1575.2565 [1565.4193, 1584.1931] | 0.0059 [0.0049, 0.0069] |
+| rp3beta | 0.1138 [0.1095, 0.1178] | 0.1756 | 8.9648 [8.9537, 8.9758] | 0.6119 [0.6084, 0.6157] | 1750.1566 [1740.9753, 1759.7112] | 0.0072 [0.0057, 0.0088] |
+| two_tower | 0.1191 [0.1150, 0.1230] | 0.4669 | 9.8603 [9.8386, 9.8841] | 0.6160 [0.6119, 0.6197] | 1175.1585 [1164.3297, 1186.3043] | 0.1040 [0.0999, 0.1084] |
+| lambdarank | 0.1293 [0.1248, 0.1333] | 0.3870 | 9.5047 [9.4908, 9.5193] | 0.6424 [0.6385, 0.6461] | 1315.4293 [1305.6593, 1325.1133] | 0.0459 [0.0430, 0.0489] |
+
+`lambdarank` leads NDCG@10. `two_tower` leads novelty, and its NDCG@10 is lower, so it is the accuracy-for-novelty trade at the top of this panel. `als_tuned` is close on novelty and has the highest long-tail share, with NDCG@10 near most-popular. `most_popular` is the popularity pole: mean popularity about 2326 and a long-tail share of 0. ml-32M is future work.
+
+Recomputed NDCG@10 matches the committed list target to 4 decimals for six models, and to 6 decimals for those six (`most_popular` 0.089508, `item_item_cosine` 0.120135, `als_tuned` 0.090620, `ease` 0.118380, `rp3beta` 0.113834, `two_tower` 0.119078). Their coverage and mean popularity also match the committed figures, except `two_tower`, whose committed headline coverage and mean popularity are the three-seed means. This list's mean popularity matches the seed-42 interval mean in `results/ml-1m.json` (1175.158459).
+
+`lambdarank` does not match. This run's NDCG@10 is 0.129253 against the committed seed-42 value 0.128786 (0.1293 versus 0.1288 at 4 decimals). Early stopping picked 126 trees; the committed primary seed picked 95. The hyperparameters, candidate set, demographic mode, and early-stop-then-refit procedure were not changed. The headline three-seed mean is 0.127264, so the list also misses the headline at 4 decimals (0.1293 versus 0.1273). `two_tower` matches its seed-42 target and misses the headline three-seed mean 0.119246 at 4 decimals (0.1191 versus 0.1192). That headline gap is expected: the panel scores one seed.
