@@ -108,7 +108,7 @@ If validation does not beat 0.100781 and `best_epoch` is below 6, the result is:
 
 ## Outcome
 
-ml-1m was scored before the ml-32m amendment. Its grid was not changed after `results/two-tower-v2/ml-1m.json` existed. The ml-1m numbers are copied from `results/tuning/two_tower_v2_ml-1m.json` and `results/two-tower-v2/ml-1m.json`. The ml-32m numbers are copied from `results/tuning/two_tower_v2_ml-32m.json` and `results/two-tower-v2/ml-32m.json`, both written after the reduced-budget amendment. The matched-budget round is `results/two-tower-v2/ml-32m-matched.json`. The ml-1m edge check is `results/two-tower-v2/ml-1m-edges.json`. Both were scored after the amendment above.
+ml-1m was scored before the ml-32m amendment. Its grid was not changed after `results/two-tower-v2/ml-1m.json` existed. That sentence is the first-round history. The ml-1m edges were extended later in the edge-extension round. The ml-1m numbers are copied from `results/tuning/two_tower_v2_ml-1m.json` and `results/two-tower-v2/ml-1m.json`. The ml-32m numbers are copied from `results/tuning/two_tower_v2_ml-32m.json` and `results/two-tower-v2/ml-32m.json`, both written after the reduced-budget amendment. The matched-budget round is `results/two-tower-v2/ml-32m-matched.json`. The ml-1m edge check is `results/two-tower-v2/ml-1m-edges.json`. Both were scored after the amendment above.
 
 **ml-1m validation.** 36 trials, `tune_wall_sec` 7315.623, under the 7704.0 s cap. Reference validation NDCG@10 is 0.082601.
 
@@ -117,7 +117,7 @@ ml-1m was scored before the ml-32m amendment. Its grid was not changed after `re
 | full_softmax | 0.08548 | 9 | dim 64, lr 0.003, temperature 0.2 | high edge on dim, learning rate, and temperature |
 | sampled_softmax | 0.08556 | 20 | dim 64, lr 0.003, temperature 0.2, 256 negatives | same three high edges, and `best_epoch` equals `max_epochs` 20 |
 
-The validation winner is sampled softmax. It beats the reference (0.08556 > 0.082601). Learning rate 0.0003 was in the grid and did not win. The chosen learning rate is 0.003, which was already the high edge of the ADR-0006 grid. Temperature 0.2 and embedding dim 64 are high edges of this grid. They were not extended. The sampled-softmax run was still improving at epoch 20.
+The validation winner is sampled softmax. It beats the reference (0.08556 > 0.082601). Learning rate 0.0003 was in the grid and did not win. The chosen learning rate is 0.003, which was already the high edge of the ADR-0006 grid. Temperature 0.2 and embedding dim 64 are high edges of this grid. They were not extended. That sentence is the first-round history. The ml-1m edges were extended later in the edge-extension round. The sampled-softmax run was still improving at epoch 20.
 
 **ml-1m test.** Seeds 42, 43, 44. NDCG@10 below is the 3-seed mean. The 95% interval is the primary seed (42), 1000 resamples, alpha 0.05. `test_train_sec` 706.29. `test_wall_sec` 1194.074.
 
@@ -236,4 +236,4 @@ The re-scored tower beats the reference refit on NDCG@10. The tail interval incl
 
 Paired, primary seed, new ranker minus the reference-tower ranker: mean -0.006272, low -0.009728, high -0.002685, excludes 0, 5958 users. New ranker minus `no_ranker`: mean -0.004074, low -0.007344, high -0.000816, excludes 0, 5958 users. The ranker is worse, not flat. It is below its own candidate list, and it is below the reference-tower ranker. Both paired intervals exclude 0.
 
-The first ml-1m test still stands: both new losses beat the reference two-tower. The ranker on the re-scored tower is worse than both its own candidate list and the reference-tower ranker. The app stays. The re-scored tower beats the reference on validation (0.08601 > 0.082601) and on the paired test interval above, but the ranker mean 0.127688 is below the reference-tower ranker 0.13341, and the paired interval's low end is -0.009728. This change does not switch the Streamlit model.
+The first ml-1m test still stands: both new losses beat the reference two-tower. The ranker on the re-scored tower is worse than both its own candidate list and the reference-tower ranker. The app stays. The re-scored tower beats the reference on validation (0.08601 > 0.082601) and on the paired test interval above, but the ranker mean 0.127688 is below the reference-tower ranker 0.13341, and the whole paired interval [-0.009728, -0.002685] lies below 0, so the ranker on the edge-extension tower is significantly worse than the reference-tower ranker (-0.006272). This change does not switch the Streamlit model.

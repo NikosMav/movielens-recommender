@@ -1467,6 +1467,92 @@ def _segment_value_metrics(metrics: dict, which: str) -> float | None:
     return float(value)
 
 
+def _edge_number(value: object) -> str:
+    number = float(value)
+    if number.is_integer():
+        return str(int(number))
+    return format(number, ".12f").rstrip("0").rstrip(".")
+
+
+def _join_phrases(items: list[str]) -> str:
+    if len(items) == 1:
+        return items[0]
+    if len(items) == 2:
+        return f"{items[0]} and {items[1]}"
+    return ", ".join(items[:-1]) + f", and {items[-1]}"
+
+
+def _winner_still_on_edges(edges: list[dict]) -> str:
+    """Plain sentence for the edges the extended-grid winner still occupies."""
+    if not edges:
+        return ""
+    names = {
+        "embedding_dim": "dim",
+        "learning_rate": "learning rate",
+        "temperature": "temperature",
+    }
+    grouped: dict[str, list[str]] = {}
+    seen: list[str] = []
+    for edge in edges:
+        side = str(edge["edge"])
+        if side not in grouped:
+            grouped[side] = []
+            seen.append(side)
+        name = names.get(str(edge["parameter"]), str(edge["parameter"]).replace("_", " "))
+        grouped[side].append(f"{name} {_edge_number(edge['value'])}")
+    preferred = [side for side in ("high", "low") if side in grouped]
+    rest = [side for side in seen if side not in preferred]
+    clauses = [
+        f"the {side} edge of {_join_phrases(grouped[side])}" for side in preferred + rest
+    ]
+    if len(clauses) == 1:
+        body = clauses[0]
+    elif len(clauses) == 2:
+        body = f"{clauses[0]}, and {clauses[1]}"
+    else:
+        body = ", ".join(clauses[:-1]) + f", and {clauses[-1]}"
+    return f"The winner still sits on {body}."
+
+
+def _tuning_edge_grid(payload: dict) -> list[dict]:
+    """Grid edges of the ml-1m edge-extension winner, from the tuning file."""
+    path = RESULTS_DIR / "tuning" / "two_tower_v2_ml-1m-edges.json"
+    if path.is_file():
+        selected = json.loads(path.read_text(encoding="utf-8")).get("selected") or {}
+        edges = selected.get("grid_edges") or []
+        if edges:
+            return list(edges)
+    return list((payload.get("selected") or {}).get("grid_edges") or [])
+
+
+def _first_round_ranker_note(payload: dict) -> str:
+    """The includes-0 ranker interval is the first round, not the final tower."""
+    if payload.get("dataset") != "ml-1m":
+        return ""
+    versus = ((payload.get("ranker") or {}).get("paired_vs_reference_ranker") or {}).get(
+        "ndcg@10"
+    ) or {}
+    if versus.get("excludes_zero") is not False:
+        return ""
+    path = RESULTS_DIR / "two-tower-v2" / "ml-1m-edges.json"
+    if not path.is_file():
+        return ""
+    edge = json.loads(path.read_text(encoding="utf-8"))
+    final = ((edge.get("ranker") or {}).get("paired_vs_reference_ranker") or {}).get(
+        "ndcg@10"
+    ) or {}
+    high = final.get("high")
+    low = final.get("low")
+    if high is None or low is None:
+        return ""
+    if not (float(high) < 0 and float(low) < 0 and final.get("excludes_zero")):
+        return ""
+    return (
+        ". This is the first-round tower. "
+        "For the final edge-extension tower the ranker is significantly worse"
+    )
+
+
 def _answer_ranker(payload: dict) -> str:
     tuning = payload.get("tuning") or {}
     ranker = payload.get("ranker")
@@ -1535,6 +1621,7 @@ def _answer_ranker(payload: dict) -> str:
         f"`no_ranker` {_fmt(no_ranker)}. "
         + _v2_pair_sentence("Paired versus no_ranker", lift)
         + versus_sentence
+        + _first_round_ranker_note(payload)
         + f". Published LambdaRank in `{published.get('lambdarank_source')}` is "
         f"{_fmt(float(published['lambdarank_ndcg@10']))} "
         f"(demographics {published.get('lambdarank_demographics')})."
@@ -1586,7 +1673,13 @@ def _render_matched_budget(dataset: str) -> list[str]:
             f"tail {_fmt(float(_segment_value_metrics(metrics, 'tail')))}."
         )
     elif test.get("reason"):
-        lines.append(f"Test: {test['reason']}")
+        reason = str(test["reason"])
+        if reason == "Validation did not beat the published reference.":
+            lines.append(
+                "Test not re-scored: validation did not beat the published reference."
+            )
+        else:
+            lines.append(f"Test: {reason}")
     paired = (payload.get("paired_vs_reference") or {}).get("ndcg@10")
     if paired:
         lines.append(
@@ -1705,8 +1798,11 @@ def _render_edge_extension(dataset: str) -> list[str]:
             + " |"
         )
     lines.append("")
+    still_on_edges = _winner_still_on_edges(_tuning_edge_grid(payload))
     if payload.get("winner_held"):
         lines.append("The edges were checked and the winner held.")
+        if still_on_edges:
+            lines.append(still_on_edges)
     else:
         selected = payload.get("selected") or {}
         lines.append(
@@ -1716,6 +1812,8 @@ def _render_edge_extension(dataset: str) -> list[str]:
             f"temperature {selected.get('hyperparams', {}).get('temperature')}, "
             f"val NDCG@10 {_fmt(float(selected['val_ndcg@10']))}."
         )
+        if still_on_edges:
+            lines.append(still_on_edges)
         test = payload.get("test") or {}
         if test.get("status") == "ran":
             metrics = test["model"]["metrics"]

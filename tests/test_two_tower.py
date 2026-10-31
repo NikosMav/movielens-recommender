@@ -12,7 +12,7 @@ torch = pytest.importorskip("torch")
 
 from movielens_recommender.config import TWO_TOWER_LOSS_NAMES, load_config  # noqa: E402
 from movielens_recommender.movies import GENRES, parse_year_from_title  # noqa: E402
-from movielens_recommender.split import SplitConfig, time_based_split  # noqa: E402
+from movielens_recommender.split import SplitConfig, SplitResult, time_based_split  # noqa: E402
 from movielens_recommender.two_tower.features import (  # noqa: E402
     build_features,
     pad_histories,
@@ -25,6 +25,7 @@ from movielens_recommender.two_tower.train import (  # noqa: E402
     resolve_two_tower_loss,
     sampled_softmax_logq_loss,
     sampled_softmax_loss,
+    train_two_tower,
     tune_two_tower,
 )
 
@@ -423,24 +424,114 @@ def test_fairness_panel_states_the_matched_loss_and_keeps_the_app():
 
     root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(root / "scripts"))
-    from make_results_table import _render_edge_extension, _render_matched_budget
+    from make_results_table import (
+        _render_edge_extension,
+        _render_matched_budget,
+        render_two_tower_v2,
+    )
 
     matched = "\n".join(_render_matched_budget("ml-32m"))
     assert (
         "sampled softmax does not beat the in-batch reference on ml-32M "
         "at matched epoch budget."
     ) in matched
+    assert "Test not re-scored: validation did not beat the published reference." in matched
+    assert "Test: Validation did not beat the published reference." not in matched
+    assert "Ranker: Validation did not beat the published reference." in matched
     assert "The app stays. This change does not switch the Streamlit model." in matched
     edges = "\n".join(_render_edge_extension("ml-1m"))
     assert "run after the ml-1m test results existed" in edges
     assert "the ranker does not gain" not in edges
     assert "versus the reference-tower ranker 0.1334" in edges
     assert (
+        "The winner still sits on the high edge of dim 128 and learning rate 0.01, "
+        "and the low edge of temperature 0.2."
+    ) in edges
+    assert (
         "The ranker on the re-scored tower is worse, not flat: it is below its own "
         "candidate list and below the reference-tower ranker, and both paired "
         "intervals exclude 0."
     ) in edges
     assert "The app stays. This change does not switch the Streamlit model." in edges
+    panel = render_two_tower_v2()
+    assert (
+        "This is the first-round tower. "
+        "For the final edge-extension tower the ranker is significantly worse."
+    ) in panel
+
+
+def _scripted_val_split(train: pd.DataFrame) -> SplitResult:
+    val = train.iloc[:8].copy()
+    return SplitResult(
+        train=train,
+        test=val,
+        val=val,
+        config=SplitConfig(min_ratings=1, test_fraction=0.2, val_fraction=0.2),
+        n_users_kept=int(train["user_id"].nunique()),
+        n_users_dropped=0,
+    )
+
+
+def test_early_stop_patience_counts_non_improving_epochs(monkeypatch):
+    """patience=0 must not stop on an improving epoch; patience=2 stops after two misses."""
+    train = _toy_ratings()
+    features = build_features(
+        train,
+        dataset="synthetic",
+        movies=_toy_movies(),
+        relevance_threshold=4.0,
+        max_history=10,
+    )
+    val_split = _scripted_val_split(train)
+
+    def _run(patience: int, scores: list[float], max_epochs: int):
+        queued = list(scores)
+
+        def fake_ndcg(*_args, **_kwargs):
+            assert queued, "validation ran past the scripted scores"
+            return queued.pop(0)
+
+        monkeypatch.setattr(
+            "movielens_recommender.two_tower.train.ndcg_point_estimate",
+            fake_ndcg,
+        )
+        _model, result = train_two_tower(
+            features,
+            hyperparams=_toy_hyperparams(
+                embedding_dim=8,
+                batch_size=64,
+                max_epochs=max_epochs,
+                patience=patience,
+            ),
+            seed=0,
+            val_split=val_split,
+        )
+        return result, queued
+
+    # Strictly increasing scores. The old check stopped after epoch 1 because
+    # stale was reset to 0 and 0 >= patience.
+    kept, left = _run(0, [0.10, 0.20, 0.30], 3)
+    assert kept.epochs_trained == 3
+    assert kept.best_epoch == 3
+    assert kept.best_val_ndcg10 == pytest.approx(0.30)
+    assert [row["val_ndcg@10"] for row in kept.history] == [0.1, 0.2, 0.3]
+    assert left == []
+
+    # First non-improving epoch stops when patience is 0, and the later score is unused.
+    stopped, left = _run(0, [0.10, 0.40, 0.20, 0.90], 6)
+    assert stopped.epochs_trained == 3
+    assert stopped.best_epoch == 2
+    assert stopped.best_val_ndcg10 == pytest.approx(0.40)
+    assert [row["val_ndcg@10"] for row in stopped.history] == [0.1, 0.4, 0.2]
+    assert left == [0.90]
+
+    # Two non-improving epochs are required before patience 2 stops.
+    patient, left = _run(2, [0.20, 0.50, 0.40, 0.30, 0.90], 8)
+    assert patient.epochs_trained == 4
+    assert patient.best_epoch == 2
+    assert patient.best_val_ndcg10 == pytest.approx(0.50)
+    assert [row["val_ndcg@10"] for row in patient.history] == [0.2, 0.5, 0.4, 0.3]
+    assert left == [0.90]
 
 
 def test_epoch_checkpoint_resumes(tmp_path):

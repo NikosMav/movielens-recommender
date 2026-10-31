@@ -983,7 +983,7 @@ Did full softmax help? Yes. Full softmax test NDCG@10 is 0.1286 against the refe
 
 Does it fix the tail weakness? There was no tail gap versus item-item to fix. `full_softmax` is higher than the reference. `full_softmax` tail NDCG@10 is 0.0867 (head 0.1429). Published reference tail is 0.0825; item-item tail is 0.0321. Paired tail difference versus the reference rerun 0.0042 [0.0008, 0.0074] (excludes 0).
 
-Does the ranker gain? No. The point estimate is above the candidate list and the paired interval includes 0. It does not beat the reference-tower ranker. New ranker NDCG@10 0.1301 versus `no_ranker` 0.1300. Paired versus no_ranker 0.0010 [-0.0025, 0.0044] (includes 0). Paired versus the reference-tower ranker -0.0013 [-0.0043, 0.0019] (includes 0). Published LambdaRank in `results/ml-1m.json` is 0.1273 (demographics off).
+Does the ranker gain? No. The point estimate is above the candidate list and the paired interval includes 0. It does not beat the reference-tower ranker. New ranker NDCG@10 0.1301 versus `no_ranker` 0.1300. Paired versus no_ranker 0.0010 [-0.0025, 0.0044] (includes 0). Paired versus the reference-tower ranker -0.0013 [-0.0043, 0.0019] (includes 0). This is the first-round tower. For the final edge-extension tower the ranker is significantly worse. Published LambdaRank in `results/ml-1m.json` is 0.1273 (demographics off).
 
 Compute: tune 7315.623s, test training 706.290s, ranker 325.702s, seeds [42, 43, 44].
 
@@ -1001,6 +1001,7 @@ Edge extension, run after the ml-1m test results existed. Sampled softmax only: 
 | 128 | 0.01 | 0.5 | 0.0709 | 17 | embedding_dim=128.0 (high of [64.0, 128.0]); learning_rate=0.01 (high of [0.003, 0.01]); temperature=0.5 (high of [0.2, 0.5]) |
 
 The validation winner changed to dim 128, learning rate 0.01, temperature 0.2, val NDCG@10 0.0860.
+The winner still sits on the high edge of dim 128 and learning rate 0.01, and the low edge of temperature 0.2.
 Re-scored test NDCG@10 0.1309 [0.1255, 0.1346].
 LambdaRank NDCG@10 0.1277 versus the reference-tower ranker 0.1334.
 Paired versus no_ranker -0.0041 [-0.0073, -0.0008] (excludes 0).
@@ -1040,7 +1041,7 @@ Compute: tune 7176.076s, test training 2400.219s, ranker not run, seeds [42].
 Matched epoch budget, added after the first ml-32M test result. sampled softmax does not beat the in-batch reference on ml-32M at matched epoch budget.
 
 Validation NDCG@10 0.0987 versus the published reference 0.1008. best_epoch 4, epochs trained 6, truncated False.
-Test: Validation did not beat the published reference.
+Test not re-scored: validation did not beat the published reference.
 The matched run has no test score, so a paired interval was not computed.
 Ranker: Validation did not beat the published reference.
 Matched-round wall clock 4284.071s.
