@@ -1122,4 +1122,20 @@ Beyond-accuracy runtime: 143.3350s.
 
 Rebuild the lists with `python scripts/run_beyond_accuracy.py`.
 
+### Implicit ALS retune (`ml-1m`)
+
+From `results/als-retune/ml-1m.json`, with the grid in `results/tuning/als_retune_ml-1m.json`. Selection is validation NDCG@10 on the existing split. Test is scored once. The old ALS config is the committed winner, refit under the current top-n rule (ADR-0018).
+
+Validation selected tfidf confidence, factors 64, regularization 1, iterations 30 with NDCG@10 0.0797; its sealed test NDCG@10 is 0.1138 [0.1099, 0.1181].
+On this code the old ALS config scores 0.0906 [0.0874, 0.0940] and item–item scores 0.1201 [0.1158, 0.1242]; the paired retuned-minus-old difference is 0.0232 [0.0197, 0.0267] (excludes 0: yes) and the paired retuned-minus-item–item difference is -0.0063 [-0.0104, -0.0021] (excludes 0: yes).
+Negative result: retuned ALS still trails item–item on test NDCG@10, and the selected config sits on no edge of the values scored, after one step past the low factors edge (64), the high regularization edge (1) and the high iterations edge (30).
+
+Validation configs in the locked grid: 144. EASE had 8 and RP3beta had 125 in the committed ml-1m tuning file. Edge-extension trials scored after the base grid, under the ADR-0018 one-step rule: 3 (factors 32, regularization 10, iterations 60; all lower on validation).
+
+| model | validation NDCG@10 | test NDCG@10 | 95% CI | committed test NDCG@10 |
+| --- | --- | --- | --- | --- |
+| old ALS | 0.0646 | 0.0906 | [0.0874, 0.0940] | 0.0906 |
+| retuned ALS | 0.0797 | 0.1138 | [0.1099, 0.1181] | — |
+| item–item cosine | — | 0.1201 | [0.1158, 0.1242] | 0.1201 |
+
 <!-- END RESULTS TABLE -->

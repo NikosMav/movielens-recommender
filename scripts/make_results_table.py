@@ -2371,6 +2371,224 @@ def render_beyond_accuracy(path: Path | None = None) -> str:
     return render_beyond_accuracy_payload(payload)
 
 
+def _plain_num(value: float | int) -> str:
+    number = float(value)
+    if number.is_integer():
+        return str(int(number))
+    return f"{number:.6g}"
+
+
+def _als_phrase(hp: dict) -> str:
+    scheme = str(hp["confidence"])
+    parts = [f"{scheme} confidence"]
+    if scheme == "bm25":
+        parts.append(f"K1 {_plain_num(hp['bm25_k1'])}, B {_plain_num(hp['bm25_b'])}")
+    parts.append(f"factors {_plain_num(hp['factors'])}")
+    parts.append(f"regularization {_plain_num(hp['regularization'])}")
+    if "alpha" in hp:
+        parts.append(f"alpha {_plain_num(hp['alpha'])}")
+    parts.append(f"iterations {_plain_num(hp['iterations'])}")
+    return ", ".join(parts)
+
+
+def _edge_clause(selected: dict) -> str:
+    """Where the winner sits. Base-grid edges are named when the one step moved past them."""
+    edges = selected.get("grid_edges") or []
+    base = selected.get("base_grid_edges") or []
+    if edges:
+        return f"sits on {_edge_phrase(edges)}"
+    if base:
+        return (
+            "sits on no edge of the values scored, after one step past "
+            f"{_edge_phrase(base)}"
+        )
+    return "sits on no edge of the searched axes"
+
+
+def _edge_phrase(edges: list) -> str:
+    if not edges:
+        return "no edge of the searched axes"
+    parts = [
+        f"the {edge['side']} {edge['parameter']} edge ({_plain_num(edge['value'])})"
+        for edge in edges
+    ]
+    if len(parts) == 1:
+        return parts[0]
+    return ", ".join(parts[:-1]) + " and " + parts[-1]
+
+
+def _pair_text(block: dict) -> str:
+    flag = "yes" if block["excludes_zero"] else "no"
+    return (
+        f"{_fmt(float(block['mean']))} [{_fmt(float(block['low']))}, {_fmt(float(block['high']))}] "
+        f"(excludes 0: {flag})"
+    )
+
+
+def als_retune_reading(payload: dict) -> list[str]:
+    """Three sentences. Every number is read from the retune results JSON."""
+    selected = payload["selected"]
+    models = payload["models"]
+    retuned = models["als_retuned"]["metrics"]
+    old = models["als_old"]["metrics"]
+    item_item = models["item_item_cosine"]["metrics"]
+    retuned_ci = retuned["confidence_intervals"]["ndcg@10"]
+    old_ci = old["confidence_intervals"]["ndcg@10"]
+    item_ci = item_item["confidence_intervals"]["ndcg@10"]
+    paired = payload["paired"]
+    decision = payload["decision"]
+    if decision["negative_result"]:
+        verdict = "Negative result: retuned ALS still trails item–item on test NDCG@10"
+    else:
+        verdict = "Retuned ALS does not trail item–item on test NDCG@10"
+    budget = payload["budget"]
+    extra = ""
+    if budget.get("truncated"):
+        extra = (
+            f", and the search stopped after {int(budget['n_trials_scored'])} "
+            f"of {int(budget['n_configs_planned'])} configs"
+        )
+    return [
+        (
+            f"Validation selected {_als_phrase(selected['hyperparams'])} "
+            f"with NDCG@10 {_fmt(float(selected['val_ndcg@10']))}; "
+            f"its sealed test NDCG@10 is {_fmt(float(retuned['ndcg@10']))} "
+            f"{_fmt_ci_cell(retuned_ci)}."
+        ),
+        (
+            "On this code the old ALS config scores "
+            f"{_fmt(float(old['ndcg@10']))} {_fmt_ci_cell(old_ci)} "
+            "and item–item scores "
+            f"{_fmt(float(item_item['ndcg@10']))} {_fmt_ci_cell(item_ci)}; "
+            "the paired retuned-minus-old difference is "
+            f"{_pair_text(paired['retuned_minus_old_als'])} "
+            "and the paired retuned-minus-item–item difference is "
+            f"{_pair_text(paired['retuned_minus_item_item'])}."
+        ),
+        f"{verdict}, and the selected config {_edge_clause(selected)}{extra}.",
+    ]
+
+
+def _retune_table_cell(value: float | None) -> str:
+    if value is None:
+        return "—"
+    return _fmt(float(value))
+
+
+def _extension_label(trial_hp: dict, winner_hp: dict) -> str:
+    """The axis this one-step trial moved, read from the two hyperparameter dicts."""
+    keys = ("factors", "regularization", "iterations", "alpha", "confidence")
+    changed = [key for key in keys if trial_hp.get(key) != winner_hp.get(key)]
+    if not changed:
+        changed = [key for key in trial_hp if trial_hp.get(key) != winner_hp.get(key)]
+    return ", ".join(f"{key} {_plain_num(trial_hp[key])}" for key in changed)
+
+
+def _edge_extension_sentence(
+    budget: dict,
+    trials: list,
+    winner_hp: dict,
+    winner_val: float,
+) -> str:
+    """Name each scored edge step. Counts and values come from the JSON."""
+    n = int(budget["n_edge_extensions"])
+    if not trials:
+        return f"Edge-extension trials scored: {n}."
+    labels = ", ".join(
+        _extension_label(trial["hyperparams"], winner_hp) for trial in trials
+    )
+    lower = all(float(trial["val_ndcg@10"]) < float(winner_val) for trial in trials)
+    comparison = "all lower on validation" if lower else "not all lower on validation"
+    return (
+        "Edge-extension trials scored after the base grid, under the ADR-0018 "
+        f"one-step rule: {n} ({labels}; {comparison})."
+    )
+
+
+def _edge_extension_trials(payload: dict, path: Path) -> list:
+    """Trials on the payload, else the tuning file for the committed results path."""
+    if "edge_extension_trials" in payload:
+        return list(payload["edge_extension_trials"])
+    default = (RESULTS_DIR / "als-retune" / "ml-1m.json").resolve()
+    if path.resolve() != default:
+        return []
+    tuning_path = RESULTS_DIR / "tuning" / "als_retune_ml-1m.json"
+    if not tuning_path.is_file():
+        return []
+    tuning = json.loads(tuning_path.read_text(encoding="utf-8"))
+    return list(tuning.get("edge_extension_trials") or [])
+
+
+def render_als_retune(path: Path | None = None) -> str:
+    """ALS retune panel (ADR-0018). Empty when the results file is absent.
+
+    An empty return leaves the earlier README panels byte-identical.
+    """
+    path = RESULTS_DIR / "als-retune" / "ml-1m.json" if path is None else path
+    if not path.is_file():
+        return ""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    budget = payload["budget"]
+    models = payload["models"]
+    selected = payload["selected"]
+    edge_sentence = _edge_extension_sentence(
+        budget,
+        _edge_extension_trials(payload, path),
+        selected["hyperparams"],
+        float(selected["val_ndcg@10"]),
+    )
+    lines = [
+        "### Implicit ALS retune (`ml-1m`)",
+        "",
+        "From `results/als-retune/ml-1m.json`, with the grid in "
+        "`results/tuning/als_retune_ml-1m.json`. "
+        "Selection is validation NDCG@10 on the existing split. "
+        "Test is scored once. The old ALS config is the committed winner, "
+        "refit under the current top-n rule (ADR-0018).",
+        "",
+    ]
+    lines.extend(als_retune_reading(payload))
+    lines.append("")
+    cut = budget.get("cut")
+    cut_text = f" Budget cut: {cut}." if cut else ""
+    lines.append(
+        f"Validation configs in the locked grid: {int(budget['n_configs'])}. "
+        f"EASE had {int(budget['ease_configs'])} and RP3beta had "
+        f"{int(budget['rp3beta_configs'])} in the committed ml-1m tuning file. "
+        f"{edge_sentence}"
+        f"{cut_text}"
+    )
+    lines.append("")
+    lines.append(
+        "| model | validation NDCG@10 | test NDCG@10 | 95% CI | committed test NDCG@10 |"
+    )
+    lines.append("| --- | --- | --- | --- | --- |")
+    rows = (
+        ("old ALS", "als_old"),
+        ("retuned ALS", "als_retuned"),
+        ("item–item cosine", "item_item_cosine"),
+    )
+    for label, key in rows:
+        block = models[key]
+        metrics = block["metrics"]
+        ci = metrics["confidence_intervals"]["ndcg@10"]
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    label,
+                    _retune_table_cell(block.get("val_ndcg@10")),
+                    _fmt(float(metrics["ndcg@10"])),
+                    _fmt_ci_cell(ci),
+                    _retune_table_cell(block.get("published_test_ndcg@10")),
+                ]
+            )
+            + " |"
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
 def build_section(results: list[tuple[str, dict]]) -> str:
     parts = [BEGIN, ""]
     for filename, payload in results:
@@ -2396,6 +2614,9 @@ def build_section(results: list[tuple[str, dict]]) -> str:
     beyond = render_beyond_accuracy()
     if beyond:
         parts.append(beyond)
+    als_retune = render_als_retune()
+    if als_retune:
+        parts.append(als_retune)
     parts.append(END)
     return "\n".join(parts) + "\n"
 

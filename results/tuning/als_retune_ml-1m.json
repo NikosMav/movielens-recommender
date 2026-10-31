@@ -1,0 +1,2847 @@
+{
+  "adr": "0018",
+  "base_grid_edges": [
+    {
+      "parameter": "factors",
+      "side": "low",
+      "value": 64
+    },
+    {
+      "parameter": "regularization",
+      "side": "high",
+      "value": 1.0
+    },
+    {
+      "parameter": "iterations",
+      "side": "high",
+      "value": 30
+    }
+  ],
+  "best_hyperparams": {
+    "confidence": "tfidf",
+    "factors": 64,
+    "iterations": 30,
+    "regularization": 1.0
+  },
+  "best_val_score": 0.079694,
+  "budget": {
+    "cut": null,
+    "ease_configs": 8,
+    "n_configs": 144,
+    "original_als_configs": 12,
+    "projection_sec": 330.079,
+    "rp3beta_configs": 125,
+    "truncated": false
+  },
+  "dataset": "ml-1m",
+  "dataset_sha256": "a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20",
+  "edge_extension_trials": [
+    {
+      "fit_sec": 1.169,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 32,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.693,
+      "val_ndcg@10": 0.077147
+    },
+    {
+      "fit_sec": 1.288,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 10.0
+      },
+      "score_sec": 1.716,
+      "val_ndcg@10": 0.078915
+    },
+    {
+      "fit_sec": 2.233,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 64,
+        "iterations": 60,
+        "regularization": 1.0
+      },
+      "score_sec": 1.649,
+      "val_ndcg@10": 0.079327
+    }
+  ],
+  "grid": [
+    {
+      "alpha": 10.0,
+      "confidence": "linear",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "linear",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "linear",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "linear",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "linear",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "linear",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "linear",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "linear",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "linear",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "linear",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "linear",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "linear",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "linear",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "linear",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "linear",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "linear",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "linear",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "linear",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "linear",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "linear",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "linear",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "linear",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "linear",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "linear",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "linear",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "linear",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "linear",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "linear",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "linear",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "linear",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "linear",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "linear",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "linear",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "linear",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "linear",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "linear",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "linear",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "linear",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "linear",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "linear",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "linear",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "linear",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "linear",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "linear",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "linear",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "linear",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "linear",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "linear",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "linear",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "linear",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "linear",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "linear",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "linear",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "linear",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "log",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "log",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "log",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "log",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "log",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "log",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "log",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "log",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "log",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "log",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "log",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "log",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "log",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "log",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "log",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "log",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "log",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "log",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "log",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "log",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "log",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "log",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "log",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "log",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "log",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "log",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "log",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "log",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "log",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "log",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "log",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "log",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "log",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "log",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "log",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "log",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "log",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "log",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "log",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "log",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "log",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "log",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "log",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "log",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "log",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "log",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "log",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "log",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "log",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "log",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "log",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 10.0,
+      "confidence": "log",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 20.0,
+      "confidence": "log",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "alpha": 40.0,
+      "confidence": "log",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "bm25_b": 0.8,
+      "bm25_k1": 100.0,
+      "confidence": "bm25",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "bm25_b": 0.8,
+      "bm25_k1": 100.0,
+      "confidence": "bm25",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "bm25_b": 0.8,
+      "bm25_k1": 100.0,
+      "confidence": "bm25",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "bm25_b": 0.8,
+      "bm25_k1": 100.0,
+      "confidence": "bm25",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "bm25_b": 0.8,
+      "bm25_k1": 100.0,
+      "confidence": "bm25",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "bm25_b": 0.8,
+      "bm25_k1": 100.0,
+      "confidence": "bm25",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "bm25_b": 0.8,
+      "bm25_k1": 100.0,
+      "confidence": "bm25",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "bm25_b": 0.8,
+      "bm25_k1": 100.0,
+      "confidence": "bm25",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "bm25_b": 0.8,
+      "bm25_k1": 100.0,
+      "confidence": "bm25",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "bm25_b": 0.8,
+      "bm25_k1": 100.0,
+      "confidence": "bm25",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "bm25_b": 0.8,
+      "bm25_k1": 100.0,
+      "confidence": "bm25",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "bm25_b": 0.8,
+      "bm25_k1": 100.0,
+      "confidence": "bm25",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "bm25_b": 0.8,
+      "bm25_k1": 100.0,
+      "confidence": "bm25",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "bm25_b": 0.8,
+      "bm25_k1": 100.0,
+      "confidence": "bm25",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "bm25_b": 0.8,
+      "bm25_k1": 100.0,
+      "confidence": "bm25",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "bm25_b": 0.8,
+      "bm25_k1": 100.0,
+      "confidence": "bm25",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "bm25_b": 0.8,
+      "bm25_k1": 100.0,
+      "confidence": "bm25",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "bm25_b": 0.8,
+      "bm25_k1": 100.0,
+      "confidence": "bm25",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "confidence": "tfidf",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "confidence": "tfidf",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "confidence": "tfidf",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "confidence": "tfidf",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "confidence": "tfidf",
+      "factors": 64,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "confidence": "tfidf",
+      "factors": 64,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "confidence": "tfidf",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "confidence": "tfidf",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "confidence": "tfidf",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "confidence": "tfidf",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "confidence": "tfidf",
+      "factors": 128,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "confidence": "tfidf",
+      "factors": 128,
+      "iterations": 30,
+      "regularization": 1.0
+    },
+    {
+      "confidence": "tfidf",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 0.01
+    },
+    {
+      "confidence": "tfidf",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 0.01
+    },
+    {
+      "confidence": "tfidf",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 0.1
+    },
+    {
+      "confidence": "tfidf",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 0.1
+    },
+    {
+      "confidence": "tfidf",
+      "factors": 256,
+      "iterations": 15,
+      "regularization": 1.0
+    },
+    {
+      "confidence": "tfidf",
+      "factors": 256,
+      "iterations": 30,
+      "regularization": 1.0
+    }
+  ],
+  "grid_edges": [],
+  "model": "als",
+  "old_config": {
+    "alpha": 20.0,
+    "confidence": "linear",
+    "factors": 128,
+    "iterations": 15,
+    "regularization": 0.1
+  },
+  "old_config_val_ndcg@10": 0.064625,
+  "primary_metric": "ndcg@10",
+  "protocol": "fit on fit-train, select by validation NDCG@10, test scored once",
+  "split": {
+    "config": {
+      "min_ratings": 5,
+      "relevance_threshold": 4.0,
+      "test_fraction": 0.2,
+      "val_fraction": 0.1
+    },
+    "n_full_train": 802553,
+    "n_full_train_items": 3667,
+    "n_full_train_users": 6040,
+    "n_test": 197656,
+    "n_test_users": 6040,
+    "n_train": 724973,
+    "n_train_items": 3655,
+    "n_train_users": 6040,
+    "n_users_dropped": 0,
+    "n_users_kept": 6040,
+    "n_val": 77580,
+    "n_val_users": 6040
+  },
+  "status": "complete",
+  "trials": [
+    {
+      "fit_sec": 1.071,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "linear",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.808,
+      "val_ndcg@10": 0.066161
+    },
+    {
+      "fit_sec": 0.841,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "linear",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.788,
+      "val_ndcg@10": 0.059571
+    },
+    {
+      "fit_sec": 0.818,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "linear",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.733,
+      "val_ndcg@10": 0.051283
+    },
+    {
+      "fit_sec": 1.86,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "linear",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.679,
+      "val_ndcg@10": 0.066707
+    },
+    {
+      "fit_sec": 1.242,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "linear",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.669,
+      "val_ndcg@10": 0.059186
+    },
+    {
+      "fit_sec": 1.26,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "linear",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.684,
+      "val_ndcg@10": 0.052198
+    },
+    {
+      "fit_sec": 0.819,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "linear",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.71,
+      "val_ndcg@10": 0.066964
+    },
+    {
+      "fit_sec": 0.822,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "linear",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.715,
+      "val_ndcg@10": 0.059296
+    },
+    {
+      "fit_sec": 0.849,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "linear",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.824,
+      "val_ndcg@10": 0.052228
+    },
+    {
+      "fit_sec": 1.382,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "linear",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.685,
+      "val_ndcg@10": 0.066624
+    },
+    {
+      "fit_sec": 1.239,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "linear",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.692,
+      "val_ndcg@10": 0.059202
+    },
+    {
+      "fit_sec": 1.287,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "linear",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.662,
+      "val_ndcg@10": 0.051187
+    },
+    {
+      "fit_sec": 0.824,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "linear",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.645,
+      "val_ndcg@10": 0.06575
+    },
+    {
+      "fit_sec": 0.81,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "linear",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.662,
+      "val_ndcg@10": 0.058492
+    },
+    {
+      "fit_sec": 0.819,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "linear",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.738,
+      "val_ndcg@10": 0.051092
+    },
+    {
+      "fit_sec": 1.357,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "linear",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.724,
+      "val_ndcg@10": 0.065203
+    },
+    {
+      "fit_sec": 1.382,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "linear",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.696,
+      "val_ndcg@10": 0.059018
+    },
+    {
+      "fit_sec": 1.364,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "linear",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.671,
+      "val_ndcg@10": 0.050514
+    },
+    {
+      "fit_sec": 1.061,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "linear",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.753,
+      "val_ndcg@10": 0.06828
+    },
+    {
+      "fit_sec": 1.083,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "linear",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.765,
+      "val_ndcg@10": 0.063338
+    },
+    {
+      "fit_sec": 1.045,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "linear",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.763,
+      "val_ndcg@10": 0.058502
+    },
+    {
+      "fit_sec": 1.865,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "linear",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.771,
+      "val_ndcg@10": 0.06777
+    },
+    {
+      "fit_sec": 1.779,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "linear",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.787,
+      "val_ndcg@10": 0.064345
+    },
+    {
+      "fit_sec": 1.806,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "linear",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.802,
+      "val_ndcg@10": 0.06139
+    },
+    {
+      "fit_sec": 1.065,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "linear",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.776,
+      "val_ndcg@10": 0.068596
+    },
+    {
+      "fit_sec": 1.068,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "linear",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.956,
+      "val_ndcg@10": 0.064625
+    },
+    {
+      "fit_sec": 1.053,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "linear",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.704,
+      "val_ndcg@10": 0.059192
+    },
+    {
+      "fit_sec": 1.705,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "linear",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.696,
+      "val_ndcg@10": 0.069351
+    },
+    {
+      "fit_sec": 1.695,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "linear",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.699,
+      "val_ndcg@10": 0.065446
+    },
+    {
+      "fit_sec": 1.714,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "linear",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.707,
+      "val_ndcg@10": 0.060519
+    },
+    {
+      "fit_sec": 1.193,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "linear",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.814,
+      "val_ndcg@10": 0.068696
+    },
+    {
+      "fit_sec": 1.16,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "linear",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.721,
+      "val_ndcg@10": 0.063933
+    },
+    {
+      "fit_sec": 1.087,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "linear",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.696,
+      "val_ndcg@10": 0.06209
+    },
+    {
+      "fit_sec": 1.741,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "linear",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.696,
+      "val_ndcg@10": 0.068701
+    },
+    {
+      "fit_sec": 1.777,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "linear",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.683,
+      "val_ndcg@10": 0.065321
+    },
+    {
+      "fit_sec": 1.816,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "linear",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.71,
+      "val_ndcg@10": 0.061472
+    },
+    {
+      "fit_sec": 1.55,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "linear",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.759,
+      "val_ndcg@10": 0.063488
+    },
+    {
+      "fit_sec": 1.558,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "linear",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.76,
+      "val_ndcg@10": 0.062435
+    },
+    {
+      "fit_sec": 1.627,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "linear",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.906,
+      "val_ndcg@10": 0.059176
+    },
+    {
+      "fit_sec": 2.83,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "linear",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.749,
+      "val_ndcg@10": 0.061701
+    },
+    {
+      "fit_sec": 2.705,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "linear",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.894,
+      "val_ndcg@10": 0.061781
+    },
+    {
+      "fit_sec": 2.705,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "linear",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.807,
+      "val_ndcg@10": 0.061422
+    },
+    {
+      "fit_sec": 1.482,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "linear",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.762,
+      "val_ndcg@10": 0.066216
+    },
+    {
+      "fit_sec": 1.519,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "linear",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.739,
+      "val_ndcg@10": 0.065612
+    },
+    {
+      "fit_sec": 1.48,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "linear",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.714,
+      "val_ndcg@10": 0.063661
+    },
+    {
+      "fit_sec": 2.593,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "linear",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.831,
+      "val_ndcg@10": 0.063333
+    },
+    {
+      "fit_sec": 2.621,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "linear",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.738,
+      "val_ndcg@10": 0.064023
+    },
+    {
+      "fit_sec": 2.614,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "linear",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.739,
+      "val_ndcg@10": 0.063601
+    },
+    {
+      "fit_sec": 1.476,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "linear",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.724,
+      "val_ndcg@10": 0.066877
+    },
+    {
+      "fit_sec": 1.508,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "linear",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.766,
+      "val_ndcg@10": 0.066659
+    },
+    {
+      "fit_sec": 1.538,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "linear",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.787,
+      "val_ndcg@10": 0.066086
+    },
+    {
+      "fit_sec": 2.594,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "linear",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.726,
+      "val_ndcg@10": 0.064155
+    },
+    {
+      "fit_sec": 2.658,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "linear",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.731,
+      "val_ndcg@10": 0.064788
+    },
+    {
+      "fit_sec": 2.593,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "linear",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.72,
+      "val_ndcg@10": 0.065279
+    },
+    {
+      "fit_sec": 0.813,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "log",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.668,
+      "val_ndcg@10": 0.073843
+    },
+    {
+      "fit_sec": 0.836,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "log",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.665,
+      "val_ndcg@10": 0.068798
+    },
+    {
+      "fit_sec": 0.823,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "log",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.659,
+      "val_ndcg@10": 0.062837
+    },
+    {
+      "fit_sec": 1.729,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "log",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.667,
+      "val_ndcg@10": 0.07493
+    },
+    {
+      "fit_sec": 1.41,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "log",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.658,
+      "val_ndcg@10": 0.06842
+    },
+    {
+      "fit_sec": 1.282,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "log",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.666,
+      "val_ndcg@10": 0.062453
+    },
+    {
+      "fit_sec": 0.827,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "log",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.666,
+      "val_ndcg@10": 0.07444
+    },
+    {
+      "fit_sec": 0.82,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "log",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.699,
+      "val_ndcg@10": 0.069264
+    },
+    {
+      "fit_sec": 0.853,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "log",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.727,
+      "val_ndcg@10": 0.062532
+    },
+    {
+      "fit_sec": 1.332,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "log",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.666,
+      "val_ndcg@10": 0.074766
+    },
+    {
+      "fit_sec": 1.306,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "log",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.662,
+      "val_ndcg@10": 0.068218
+    },
+    {
+      "fit_sec": 1.321,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "log",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.639,
+      "val_ndcg@10": 0.062693
+    },
+    {
+      "fit_sec": 0.881,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "log",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.742,
+      "val_ndcg@10": 0.073576
+    },
+    {
+      "fit_sec": 0.875,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "log",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.656,
+      "val_ndcg@10": 0.06803
+    },
+    {
+      "fit_sec": 0.833,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "log",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.66,
+      "val_ndcg@10": 0.061186
+    },
+    {
+      "fit_sec": 1.283,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "log",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.649,
+      "val_ndcg@10": 0.074114
+    },
+    {
+      "fit_sec": 1.29,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "log",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.656,
+      "val_ndcg@10": 0.067642
+    },
+    {
+      "fit_sec": 1.299,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "log",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.666,
+      "val_ndcg@10": 0.061137
+    },
+    {
+      "fit_sec": 1.029,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "log",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.684,
+      "val_ndcg@10": 0.071778
+    },
+    {
+      "fit_sec": 1.005,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "log",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.682,
+      "val_ndcg@10": 0.069786
+    },
+    {
+      "fit_sec": 1.019,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "log",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.672,
+      "val_ndcg@10": 0.065076
+    },
+    {
+      "fit_sec": 1.636,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "log",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.704,
+      "val_ndcg@10": 0.070842
+    },
+    {
+      "fit_sec": 1.716,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "log",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.697,
+      "val_ndcg@10": 0.06825
+    },
+    {
+      "fit_sec": 1.651,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "log",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.677,
+      "val_ndcg@10": 0.065632
+    },
+    {
+      "fit_sec": 1.032,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "log",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.685,
+      "val_ndcg@10": 0.072308
+    },
+    {
+      "fit_sec": 1.023,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "log",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.676,
+      "val_ndcg@10": 0.070355
+    },
+    {
+      "fit_sec": 0.995,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "log",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.668,
+      "val_ndcg@10": 0.066261
+    },
+    {
+      "fit_sec": 1.728,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "log",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.688,
+      "val_ndcg@10": 0.071865
+    },
+    {
+      "fit_sec": 1.65,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "log",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.73,
+      "val_ndcg@10": 0.070064
+    },
+    {
+      "fit_sec": 1.661,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "log",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.714,
+      "val_ndcg@10": 0.067509
+    },
+    {
+      "fit_sec": 1.032,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "log",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.733,
+      "val_ndcg@10": 0.072046
+    },
+    {
+      "fit_sec": 1.003,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "log",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.677,
+      "val_ndcg@10": 0.070602
+    },
+    {
+      "fit_sec": 1.052,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "log",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.696,
+      "val_ndcg@10": 0.065506
+    },
+    {
+      "fit_sec": 1.731,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "log",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.682,
+      "val_ndcg@10": 0.071479
+    },
+    {
+      "fit_sec": 1.71,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "log",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.681,
+      "val_ndcg@10": 0.069875
+    },
+    {
+      "fit_sec": 1.655,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "log",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.702,
+      "val_ndcg@10": 0.066882
+    },
+    {
+      "fit_sec": 1.504,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "log",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.793,
+      "val_ndcg@10": 0.06461
+    },
+    {
+      "fit_sec": 1.532,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "log",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.743,
+      "val_ndcg@10": 0.063693
+    },
+    {
+      "fit_sec": 1.526,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "log",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.814,
+      "val_ndcg@10": 0.062813
+    },
+    {
+      "fit_sec": 2.682,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "log",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.774,
+      "val_ndcg@10": 0.064202
+    },
+    {
+      "fit_sec": 2.687,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "log",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.781,
+      "val_ndcg@10": 0.061735
+    },
+    {
+      "fit_sec": 2.61,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "log",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.784,
+      "val_ndcg@10": 0.062134
+    },
+    {
+      "fit_sec": 1.587,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "log",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.739,
+      "val_ndcg@10": 0.066079
+    },
+    {
+      "fit_sec": 1.486,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "log",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.739,
+      "val_ndcg@10": 0.065315
+    },
+    {
+      "fit_sec": 1.52,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "log",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.732,
+      "val_ndcg@10": 0.065785
+    },
+    {
+      "fit_sec": 2.716,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "log",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.732,
+      "val_ndcg@10": 0.064799
+    },
+    {
+      "fit_sec": 2.571,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "log",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.741,
+      "val_ndcg@10": 0.063881
+    },
+    {
+      "fit_sec": 2.567,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "log",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.744,
+      "val_ndcg@10": 0.063695
+    },
+    {
+      "fit_sec": 1.547,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "log",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.735,
+      "val_ndcg@10": 0.066329
+    },
+    {
+      "fit_sec": 1.46,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "log",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.725,
+      "val_ndcg@10": 0.066387
+    },
+    {
+      "fit_sec": 1.453,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "log",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.715,
+      "val_ndcg@10": 0.066671
+    },
+    {
+      "fit_sec": 2.532,
+      "hyperparams": {
+        "alpha": 10.0,
+        "confidence": "log",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.711,
+      "val_ndcg@10": 0.064286
+    },
+    {
+      "fit_sec": 2.643,
+      "hyperparams": {
+        "alpha": 20.0,
+        "confidence": "log",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.719,
+      "val_ndcg@10": 0.064294
+    },
+    {
+      "fit_sec": 2.582,
+      "hyperparams": {
+        "alpha": 40.0,
+        "confidence": "log",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.72,
+      "val_ndcg@10": 0.064428
+    },
+    {
+      "fit_sec": 0.825,
+      "hyperparams": {
+        "bm25_b": 0.8,
+        "bm25_k1": 100.0,
+        "confidence": "bm25",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.646,
+      "val_ndcg@10": 0.073788
+    },
+    {
+      "fit_sec": 1.279,
+      "hyperparams": {
+        "bm25_b": 0.8,
+        "bm25_k1": 100.0,
+        "confidence": "bm25",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.683,
+      "val_ndcg@10": 0.07456
+    },
+    {
+      "fit_sec": 0.793,
+      "hyperparams": {
+        "bm25_b": 0.8,
+        "bm25_k1": 100.0,
+        "confidence": "bm25",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.659,
+      "val_ndcg@10": 0.074412
+    },
+    {
+      "fit_sec": 1.239,
+      "hyperparams": {
+        "bm25_b": 0.8,
+        "bm25_k1": 100.0,
+        "confidence": "bm25",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.66,
+      "val_ndcg@10": 0.074205
+    },
+    {
+      "fit_sec": 0.82,
+      "hyperparams": {
+        "bm25_b": 0.8,
+        "bm25_k1": 100.0,
+        "confidence": "bm25",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.655,
+      "val_ndcg@10": 0.073864
+    },
+    {
+      "fit_sec": 1.288,
+      "hyperparams": {
+        "bm25_b": 0.8,
+        "bm25_k1": 100.0,
+        "confidence": "bm25",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.778,
+      "val_ndcg@10": 0.073934
+    },
+    {
+      "fit_sec": 1.05,
+      "hyperparams": {
+        "bm25_b": 0.8,
+        "bm25_k1": 100.0,
+        "confidence": "bm25",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.728,
+      "val_ndcg@10": 0.072539
+    },
+    {
+      "fit_sec": 2.189,
+      "hyperparams": {
+        "bm25_b": 0.8,
+        "bm25_k1": 100.0,
+        "confidence": "bm25",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.69,
+      "val_ndcg@10": 0.072691
+    },
+    {
+      "fit_sec": 1.26,
+      "hyperparams": {
+        "bm25_b": 0.8,
+        "bm25_k1": 100.0,
+        "confidence": "bm25",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.684,
+      "val_ndcg@10": 0.073364
+    },
+    {
+      "fit_sec": 2.021,
+      "hyperparams": {
+        "bm25_b": 0.8,
+        "bm25_k1": 100.0,
+        "confidence": "bm25",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.691,
+      "val_ndcg@10": 0.072592
+    },
+    {
+      "fit_sec": 1.041,
+      "hyperparams": {
+        "bm25_b": 0.8,
+        "bm25_k1": 100.0,
+        "confidence": "bm25",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.784,
+      "val_ndcg@10": 0.072724
+    },
+    {
+      "fit_sec": 1.696,
+      "hyperparams": {
+        "bm25_b": 0.8,
+        "bm25_k1": 100.0,
+        "confidence": "bm25",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.669,
+      "val_ndcg@10": 0.072232
+    },
+    {
+      "fit_sec": 1.509,
+      "hyperparams": {
+        "bm25_b": 0.8,
+        "bm25_k1": 100.0,
+        "confidence": "bm25",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.725,
+      "val_ndcg@10": 0.064672
+    },
+    {
+      "fit_sec": 2.649,
+      "hyperparams": {
+        "bm25_b": 0.8,
+        "bm25_k1": 100.0,
+        "confidence": "bm25",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.738,
+      "val_ndcg@10": 0.064358
+    },
+    {
+      "fit_sec": 1.502,
+      "hyperparams": {
+        "bm25_b": 0.8,
+        "bm25_k1": 100.0,
+        "confidence": "bm25",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.718,
+      "val_ndcg@10": 0.064438
+    },
+    {
+      "fit_sec": 2.655,
+      "hyperparams": {
+        "bm25_b": 0.8,
+        "bm25_k1": 100.0,
+        "confidence": "bm25",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.732,
+      "val_ndcg@10": 0.063941
+    },
+    {
+      "fit_sec": 1.507,
+      "hyperparams": {
+        "bm25_b": 0.8,
+        "bm25_k1": 100.0,
+        "confidence": "bm25",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.724,
+      "val_ndcg@10": 0.065402
+    },
+    {
+      "fit_sec": 2.658,
+      "hyperparams": {
+        "bm25_b": 0.8,
+        "bm25_k1": 100.0,
+        "confidence": "bm25",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.759,
+      "val_ndcg@10": 0.064277
+    },
+    {
+      "fit_sec": 0.853,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.672,
+      "val_ndcg@10": 0.077688
+    },
+    {
+      "fit_sec": 1.289,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.651,
+      "val_ndcg@10": 0.078447
+    },
+    {
+      "fit_sec": 0.826,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.662,
+      "val_ndcg@10": 0.07817
+    },
+    {
+      "fit_sec": 1.297,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.669,
+      "val_ndcg@10": 0.077828
+    },
+    {
+      "fit_sec": 0.832,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 64,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.662,
+      "val_ndcg@10": 0.07776
+    },
+    {
+      "fit_sec": 1.3,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 64,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.66,
+      "val_ndcg@10": 0.079694
+    },
+    {
+      "fit_sec": 1.021,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.7,
+      "val_ndcg@10": 0.074641
+    },
+    {
+      "fit_sec": 1.676,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.682,
+      "val_ndcg@10": 0.075755
+    },
+    {
+      "fit_sec": 1.071,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.684,
+      "val_ndcg@10": 0.075125
+    },
+    {
+      "fit_sec": 1.718,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.698,
+      "val_ndcg@10": 0.075649
+    },
+    {
+      "fit_sec": 1.267,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 128,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 1.683,
+      "val_ndcg@10": 0.075509
+    },
+    {
+      "fit_sec": 1.645,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 128,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.704,
+      "val_ndcg@10": 0.076204
+    },
+    {
+      "fit_sec": 1.498,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 0.01
+      },
+      "score_sec": 1.742,
+      "val_ndcg@10": 0.068801
+    },
+    {
+      "fit_sec": 2.672,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 0.01
+      },
+      "score_sec": 1.735,
+      "val_ndcg@10": 0.067497
+    },
+    {
+      "fit_sec": 1.534,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 0.1
+      },
+      "score_sec": 1.722,
+      "val_ndcg@10": 0.068838
+    },
+    {
+      "fit_sec": 2.734,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 0.1
+      },
+      "score_sec": 1.734,
+      "val_ndcg@10": 0.067116
+    },
+    {
+      "fit_sec": 1.546,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 256,
+        "iterations": 15,
+        "regularization": 1.0
+      },
+      "score_sec": 2.057,
+      "val_ndcg@10": 0.067809
+    },
+    {
+      "fit_sec": 2.757,
+      "hyperparams": {
+        "confidence": "tfidf",
+        "factors": 256,
+        "iterations": 30,
+        "regularization": 1.0
+      },
+      "score_sec": 1.806,
+      "val_ndcg@10": 0.066782
+    }
+  ],
+  "winner_harness_val_ndcg@10": 0.079694
+}
