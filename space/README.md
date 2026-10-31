@@ -23,20 +23,22 @@ The GroupLens ml-1m README says the dataset may be used for research under these
 
 ## Weights
 
-This folder does not contain model parameters. At startup the app downloads one archive from `WEIGHTS_URL` in `runtime.py` and checks `WEIGHTS_SHA256`. The archive holds item–item and EASE similarity, the two-tower state dict, LightGBM trees, and the item-id column order. It has no rating rows and no user ids. The page then downloads ml-1m from GroupLens and rebuilds the tables those parameters need. It does not train.
+Model parameters live in `space-weights.tar.gz` next to `app.py`. At startup the app checks `WEIGHTS_SHA256` in `runtime.py` and extracts the archive into `weights/`. The archive holds item–item and EASE similarity, the two-tower state dict, LightGBM trees, and the item-id column order. It has no rating rows and no user ids. The page then downloads ml-1m from GroupLens and rebuilds the tables those parameters need. It does not train.
 
-If the weight download or the checksum fails, the page shows `make space-snapshot` and stops. It does not download MovieLens in that case.
+If that file is missing or the checksum fails, the page shows `make space-snapshot` and stops. It does not download MovieLens in that case. When the file is absent, the app may also try `hf_hub_download` from this public Space (`repo_type=space`) with no token.
 
-`make space-snapshot`, from a checkout of [NikosMav/movielens-recommender](https://github.com/NikosMav/movielens-recommender) with the `rank`, `deep`, and `ui` extras, is how that archive is built. It writes gitignored `space/weights/` and does not rewrite `results/`. Pushing this folder does not require that command and does not require the extras.
+`make space-snapshot`, from a checkout of [NikosMav/movielens-recommender](https://github.com/NikosMav/movielens-recommender) with the `rank`, `deep`, and `ui` extras, writes gitignored `space/weights/` and does not rewrite `results/`. Pack `production/` and `cold_start/` into `space-weights.tar.gz`. The person who pushes this folder copies that archive in. They do not need the extras and they do not need MovieLens data.
 
 ## Push this folder
 
-Create a public Docker Space named `NikosMav/movielens-recommender` in the browser and choose the free CPU (`cpu-basic`). Hardware is set there. A `hardware` key in this file is ignored. The built-in Streamlit SDK was deprecated on 2025-04-30, so this Space uses `sdk: docker` and `app_port: 8501`. The `Dockerfile` listens on 8501 and does not copy weights.
+Create a public Docker Space named `NikosMav/movielens-recommender` in the browser and choose the free CPU (`cpu-basic`). Hardware is set there. A `hardware` key in this file is ignored. The built-in Streamlit SDK was deprecated on 2025-04-30, so this Space uses `sdk: docker` and `app_port: 8501`. The `Dockerfile` listens on 8501, copies `space-weights.tar.gz`, and does not copy `weights/`.
 
-Push **this directory** as that Space's repository root. Authenticate with your Hugging Face account when Git asks. There is no deploy script and no token in this repo.
+From the GitHub repo root, copy the archive into this directory, then push **this directory** as the Space repository root. `space/.gitattributes` stores `*.tar.gz` in Git LFS. Authenticate with your Hugging Face account when Git asks. There is no deploy script and no token in this repo.
 
 ```bash
+cp space-weights.tar.gz space/space-weights.tar.gz
 cd space
+git lfs install
 git init -b main
 git add .
 git commit -m "MovieLens recommender Space"
@@ -44,7 +46,7 @@ git remote add origin https://huggingface.co/spaces/NikosMav/movielens-recommend
 git push -u origin main
 ```
 
-`space/.gitignore` ignores a local download (`data/`), rebuilt runtime tables (`.runtime/`), and `weights/`. If the Hub already created a starter commit, pull that commit into this repo before the push.
+`space/.gitignore` ignores a local download (`data/`), rebuilt runtime tables (`.runtime/`), and the extracted `weights/` directory. It does not ignore `space-weights.tar.gz`. The GitHub repo ignores that archive so the file is not stored there. If the Hub already created a starter commit, pull that commit into this repo before the push.
 
 The link stays pending until that push: https://huggingface.co/spaces/NikosMav/movielens-recommender
 

@@ -8,8 +8,10 @@ models/
 artifacts/
 
 # Space parameter files and a local GroupLens download (ADR-0020).
-# space/.gitignore also ignores weights/, so a push of that folder omits them.
+# weights/ is ignored here and in space/.gitignore (extracted files).
+# The archive is ignored only in this repo. The Space push adds it with Git LFS.
 space/weights/
+space/space-weights.tar.gz
 space/data/
 space/.runtime/
 

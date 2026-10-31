@@ -1,5 +1,6 @@
 # Hugging Face Space image. The build context is this directory as the
-# repository root. Model parameters are not copied; the app downloads them.
+# repository root. The parameter archive sits next to app.py. weights/ is
+# extracted at startup and is not copied.
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -16,7 +17,7 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install -r requirements.txt
 
-COPY app.py runtime.py ./
+COPY app.py runtime.py space-weights.tar.gz ./
 
 EXPOSE 8501
 
