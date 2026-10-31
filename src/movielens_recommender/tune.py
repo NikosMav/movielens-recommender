@@ -112,7 +112,10 @@ def tune_als(
             factors=int(hp["factors"]),
             regularization=float(hp["regularization"]),
             iterations=int(hp["iterations"]),
-            alpha=float(hp["alpha"]),
+            alpha=float(hp.get("alpha", 40.0)),
+            confidence=str(hp.get("confidence", "linear")),
+            bm25_k1=float(hp.get("bm25_k1", 100.0)),
+            bm25_b=float(hp.get("bm25_b", 0.8)),
             confidence_threshold=relevance_threshold,
             random_state=seed,
         ).fit(split.train)
@@ -326,6 +329,9 @@ def build_model(
             regularization=float(hyperparams.get("regularization", 0.01)),
             iterations=int(hyperparams.get("iterations", 15)),
             alpha=float(hyperparams.get("alpha", 40.0)),
+            confidence=str(hyperparams.get("confidence", "linear")),
+            bm25_k1=float(hyperparams.get("bm25_k1", 100.0)),
+            bm25_b=float(hyperparams.get("bm25_b", 0.8)),
             confidence_threshold=relevance_threshold,
             random_state=seed,
         ).fit(train)
