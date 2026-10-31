@@ -7,6 +7,12 @@ models/
 # Serving snapshot for the Streamlit demo (recreate: movielens-recommender build-artifacts)
 artifacts/
 
+# Space parameter files and a local GroupLens download (ADR-0020).
+# space/.gitignore does not ignore weights/, so a push of that folder can include them.
+space/weights/
+space/data/
+space/.runtime/
+
 # Python
 __pycache__/
 *.py[cod]

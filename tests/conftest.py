@@ -65,6 +65,46 @@ def _ratings_movies_users() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     return ratings, movies, users
 
 
+def _cold_ratings_movies() -> tuple[pd.DataFrame, pd.DataFrame]:
+    """The 8×8 matrix the cold-start snapshot fixture fits. Not a time split."""
+    rows = []
+    for user_id in range(1, 9):
+        for step in range(8):
+            rows.append(
+                {
+                    "user_id": user_id,
+                    "item_id": step + 1,
+                    "rating": float((user_id + step) % 5 + 1),
+                    "timestamp": step + 1,
+                }
+            )
+    ratings = pd.DataFrame(rows)
+    movies = pd.DataFrame(
+        [
+            {
+                "item_id": item_id,
+                "title": f"Movie {item_id} (199{item_id})",
+                "genres": GENRES[item_id % len(GENRES)],
+                "year": 1990 + item_id,
+            }
+            for item_id in range(1, 9)
+        ]
+    )
+    return ratings, movies
+
+
+@pytest.fixture(scope="session")
+def serving_tables():
+    """Ratings, movies, and users that ``artifact_dir`` was fit on."""
+    return _ratings_movies_users()
+
+
+@pytest.fixture(scope="session")
+def cold_tables():
+    """Ratings and movies that ``cold_artifact_dir`` was fit on."""
+    return _cold_ratings_movies()
+
+
 def _config():
     from movielens_recommender.config import (
         EvalYAML,
@@ -174,29 +214,7 @@ def cold_artifact_dir(tmp_path_factory):
     from movielens_recommender.serving.cold import save_cold_start_bundle
     from movielens_recommender.two_tower.train import fit_two_tower_recommender
 
-    rows = []
-    for user_id in range(1, 9):
-        for step in range(8):
-            rows.append(
-                {
-                    "user_id": user_id,
-                    "item_id": step + 1,
-                    "rating": float((user_id + step) % 5 + 1),
-                    "timestamp": step + 1,
-                }
-            )
-    ratings = pd.DataFrame(rows)
-    movies = pd.DataFrame(
-        [
-            {
-                "item_id": item_id,
-                "title": f"Movie {item_id} (199{item_id})",
-                "genres": GENRES[item_id % len(GENRES)],
-                "year": 1990 + item_id,
-            }
-            for item_id in range(1, 9)
-        ]
-    )
+    ratings, movies = _cold_ratings_movies()
     item_item = ItemItemCosineRecommender(min_common=1, k_neighbors=0, shrinkage=0.0).fit(
         ratings
     )

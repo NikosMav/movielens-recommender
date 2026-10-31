@@ -27,7 +27,7 @@ jobs:
           pip install -e ".[dev,deep,rank,ui,api]"
 
       - name: Ruff lint
-        run: ruff check src tests scripts app
+        run: ruff check src tests scripts app space
 
       - name: Pytest (no dataset download)
         run: pytest -q
