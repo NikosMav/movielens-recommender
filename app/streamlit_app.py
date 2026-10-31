@@ -12,9 +12,16 @@ snapshot (default ``<production>/cold_start``).
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 import streamlit as st
+
+# Same display rule as space/runtime.py. The card payload is unchanged.
+_DEMO_TEXT = re.compile(
+    r"demo_|group_|\b(?:gender|occupation|zip|region|male|female)\b|\bage\b",
+    re.IGNORECASE,
+)
 
 DEFAULT_ARTIFACTS = Path("artifacts/ml-1m")
 RESULTS_URL = "https://github.com/NikosMav/movielens-recommender/blob/main/README.md#results"
@@ -55,6 +62,20 @@ def _label(summary: dict) -> str:
     return f"{summary['user_id']} · {summary['n_ratings']} ratings · {genres}"
 
 
+def _visible_reasons(reasons: list[str]) -> list[str]:
+    return [text for text in reasons if not _DEMO_TEXT.search(text)]
+
+
+def _visible_details(details: list[dict]) -> list[dict]:
+    kept = []
+    for row in details:
+        feature = str(row.get("feature", ""))
+        if feature.startswith(("demo_", "group_")) or _DEMO_TEXT.search(feature):
+            continue
+        kept.append(row)
+    return kept
+
+
 def _show_list(cards: list[dict], *, explain: bool) -> None:
     if not cards:
         st.caption("No recommendations for this user.")
@@ -68,7 +89,7 @@ def _show_list(cards: list[dict], *, explain: bool) -> None:
         st.caption(bits)
         if explain:
             with st.expander("Why this result?"):
-                reasons = card.get("reasons") or []
+                reasons = _visible_reasons(list(card.get("reasons") or []))
                 if reasons:
                     for text in reasons:
                         st.markdown(text)
@@ -79,7 +100,7 @@ def _show_list(cards: list[dict], *, explain: bool) -> None:
                         "Contributions to this title's ranker score. "
                         "They explain the score, not why the person would like the film."
                     )
-                    for row in card.get("details") or []:
+                    for row in _visible_details(list(card.get("details") or [])):
                         st.text(f"{row['feature']}: {row['contribution']:+.4f}")
                     bias = card.get("bias")
                     if bias is not None:

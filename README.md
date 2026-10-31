@@ -1,5 +1,7 @@
 # movielens-recommender
 
+[![Hugging Face Space (pending deploy)](https://img.shields.io/badge/Hugging%20Face%20Space-pending%20deploy-yellow)](https://huggingface.co/spaces/NikosMav/movielens-recommender)
+
 A movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings, with an evaluation protocol strict enough that negative results are reported as such.
 
 It covers the path from data to a demo: download and cleaning, a per-user time split, an evaluation harness with bootstrap confidence intervals, classic baselines, a two-tower retrieval model, a LightGBM LambdaRank re-ranker, a Streamlit app that explains each recommendation in plain language and also serves people with no MovieLens history, an HTTP API with batch scoring, monitoring, and a Docker image, and a time-ordered replay that tests when the models need retraining. The same harness runs on ml-latest-small, ml-1m, and MovieLens 32M.
@@ -10,6 +12,7 @@ It covers the path from data to a demo: download and cleaning, a per-user time s
 
 - [Findings so far](#findings-so-far)
 - [Quickstart](#quickstart)
+- [Hugging Face Space](#hugging-face-space)
 - [Serve over HTTP, batch, and Docker](#serve-over-http-batch-and-docker)
 - [Project layout](#project-layout)
 - [Roadmap](#roadmap)
@@ -64,6 +67,14 @@ The page has two modes:
 - **New user.** Search titles and rate at least three (about five is a good start). The page says which method produced the list for that profile size. It does not ask for gender, age, occupation, or ZIP, and it does not save the profile (ADR-0012).
 
 ![New user: about five ratings and an open explanation](docs/demo/streamlit-new-user.png)
+
+## Hugging Face Space
+
+The same two modes can run as a public Space at [NikosMav/movielens-recommender](https://huggingface.co/spaces/NikosMav/movielens-recommender). That link is pending until the Space is pushed. The badge above says so. Nothing in this repo creates the Space or reads a Hugging Face token (ADR-0020).
+
+`space/` is the Space repository (`sdk: docker`, port 8501). It holds the Streamlit page, the Dockerfile, pinned requirements, and the code that rebuilds feature tables at startup. It does not hold MovieLens files or model weights. On startup the Space downloads a checksummed parameter archive from the URL pinned in `space/runtime.py`, then downloads ml-1m from GroupLens. It does not train. If the weight download fails, the page shows `make space-snapshot`. Push the contents of `space/` as the Space root; the steps are in [`space/README.md`](space/README.md).
+
+The page does not show gender, age, occupation, ZIP, or region as reasons.
 
 ## Serve over HTTP, batch, and Docker
 
@@ -123,6 +134,7 @@ Measured latency and batch time are in the [serving panel](#serving-latency-and-
 | `src/movielens_recommender/ops/` | Drift signals and the time-ordered refresh replay (S6) |
 | `Dockerfile` | API image; holds no MovieLens data or snapshot |
 | `app/streamlit_app.py` | The demo page |
+| `space/` | Self-contained Hugging Face Space (page, requirements, startup rebuild). `space/weights/` is gitignored |
 | `configs/` | Run configs: `default.yaml` (ml-latest-small), `ml-1m.yaml`, `ml-32m.yaml` |
 | `scripts/` | Results-table generator, EDA, and one-off experiment runners |
 | `results/` | Committed experiment logs: metrics, intervals, tuning trials, budgets |
@@ -263,7 +275,7 @@ The code was written by AI coding agents working from a staged plan, with an ADR
 
 ## License and data terms
 
-The code is MIT ([LICENSE](LICENSE)). The MovieLens data is not included: the scripts download it, and it stays under the [GroupLens terms of use](https://grouplens.org/datasets/movielens/) for every dataset used here, ml-32M included.
+The code is MIT ([LICENSE](LICENSE)). The MovieLens data is not included: the scripts download it, and it stays under the [GroupLens terms of use](https://grouplens.org/datasets/movielens/) for every dataset used here, ml-32M included. The Hugging Face Space downloads ml-1m the same way and does not commit it (ADR-0020).
 
 ## Results
 
