@@ -68,9 +68,19 @@ def test_space_readme_and_requirements_pin():
     dockerfile = (SPACE / "Dockerfile").read_text(encoding="utf-8")
     assert "COPY weights" not in dockerfile
     assert "8501" in dockerfile
-    assert "weights/" in (SPACE / ".gitignore").read_text(encoding="utf-8")
+    space_ignore = (SPACE / ".gitignore").read_text(encoding="utf-8")
+    assert "weights/" in space_ignore
+    assert "tar.gz" not in space_ignore
+    repo_ignore = (SPACE.parent / ".gitignore").read_text(encoding="utf-8")
+    assert "space/space-weights.tar.gz" in repo_ignore
+    attributes = (SPACE / ".gitattributes").read_text(encoding="utf-8")
+    assert attributes == "*.tar.gz filter=lfs diff=lfs merge=lfs -text\n"
+    assert "COPY app.py runtime.py space-weights.tar.gz" in dockerfile
     runtime_source = (SPACE / "runtime.py").read_text(encoding="utf-8")
-    assert runtime_source.count("WEIGHTS_URL = (") == 1
+    assert "WEIGHTS_URL" not in runtime_source
+    assert "releases/download" not in runtime_source
+    assert "HF_TOKEN" not in runtime_source
+    assert "token=False" in runtime_source
     assert (
         "f6cbc0d77d435834493b85835215211874307d827ac2910121894bb56be7dbfd"
         in runtime_source
@@ -117,46 +127,73 @@ def _tar_bytes(files: dict[str, bytes]) -> bytes:
     return blob.getvalue()
 
 
-class _BytesResponse:
-    def __init__(self, payload: bytes) -> None:
-        self._payload = payload
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *_args) -> bool:
-        return False
-
-    def read(self) -> bytes:
-        return self._payload
-
-
-def test_fetch_space_weights_checks_sha256(tmp_path, monkeypatch):
+def test_install_space_weights_found(tmp_path, monkeypatch):
     pytest.importorskip("torch")
     runtime = _load_runtime()
     payload = _tar_bytes({"production/manifest.json": b'{"weights_only": true}\n'})
-    digest = hashlib.sha256(payload).hexdigest()
+    root = tmp_path / "space"
+    root.mkdir()
+    (root / runtime.WEIGHTS_ARCHIVE_NAME).write_bytes(payload)
 
-    def _open(url, timeout=120):
-        assert url == "https://example.test/weights.tar.gz"
-        assert timeout == 120
-        return _BytesResponse(payload)
+    def _hub():
+        raise AssertionError("a local archive must not call the Hub")
 
-    monkeypatch.setattr(runtime, "urlopen", _open)
-    dest = runtime.fetch_space_weights(
-        tmp_path / "ok",
-        url="https://example.test/weights.tar.gz",
-        sha256=digest,
-    )
-    assert dest is not None
-    assert (dest / "production" / "manifest.json").is_file()
-    rejected = runtime.fetch_space_weights(
-        tmp_path / "bad",
-        url="https://example.test/weights.tar.gz",
-        sha256="0" * 64,
-    )
-    assert rejected is None
-    assert not (tmp_path / "bad").exists()
+    monkeypatch.setattr(runtime, "_hub_weight_bytes", _hub)
+    dest = runtime.install_space_weights(root, sha256=hashlib.sha256(payload).hexdigest())
+    assert dest == root / "weights"
+    assert (dest / "production" / "manifest.json").read_bytes() == b'{"weights_only": true}\n'
+
+
+def test_install_space_weights_missing(tmp_path, monkeypatch):
+    pytest.importorskip("torch")
+    runtime = _load_runtime()
+    root = tmp_path / "space"
+    root.mkdir()
+    calls = {"n": 0}
+
+    def _hub():
+        calls["n"] += 1
+        return None
+
+    monkeypatch.setattr(runtime, "_hub_weight_bytes", _hub)
+    assert runtime.install_space_weights(root) is None
+    assert calls["n"] == 1
+    assert not (root / "weights").exists()
+
+
+def test_install_space_weights_bad_checksum(tmp_path, monkeypatch):
+    pytest.importorskip("torch")
+    runtime = _load_runtime()
+    payload = _tar_bytes({"production/manifest.json": b'{"weights_only": true}\n'})
+    root = tmp_path / "space"
+    root.mkdir()
+    (root / runtime.WEIGHTS_ARCHIVE_NAME).write_bytes(payload)
+
+    def _hub():
+        raise AssertionError("a bad checksum must not call the Hub")
+
+    monkeypatch.setattr(runtime, "_hub_weight_bytes", _hub)
+    assert runtime.install_space_weights(root) is None
+    assert not (root / "weights").exists()
+
+
+def test_hub_weight_fallback_sends_no_token(monkeypatch):
+    runtime = _load_runtime()
+    monkeypatch.delenv("MOVIELENS_ALLOW_DOWNLOAD", raising=False)
+    captured: dict[str, object] = {}
+
+    def _fake(**kwargs):
+        captured.update(kwargs)
+        raise OSError("offline")
+
+    fake = type(sys)("huggingface_hub")
+    fake.hf_hub_download = _fake
+    monkeypatch.setitem(sys.modules, "huggingface_hub", fake)
+    assert runtime._hub_weight_bytes() is None
+    assert captured["token"] is False
+    assert captured["repo_type"] == "space"
+    assert captured["repo_id"] == "NikosMav/movielens-recommender"
+    assert captured["filename"] == "space-weights.tar.gz"
 
 
 def test_visible_reasons_drop_demographic_text_only():

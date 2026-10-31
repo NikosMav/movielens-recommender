@@ -72,7 +72,7 @@ The page has two modes:
 
 The same two modes can run as a public Space at [NikosMav/movielens-recommender](https://huggingface.co/spaces/NikosMav/movielens-recommender). That link is pending until the Space is pushed. The badge above says so. Nothing in this repo creates the Space or reads a Hugging Face token (ADR-0020).
 
-`space/` is the Space repository (`sdk: docker`, port 8501). It holds the Streamlit page, the Dockerfile, pinned requirements, and the code that rebuilds feature tables at startup. It does not hold MovieLens files or model weights. On startup the Space downloads a checksummed parameter archive from the URL pinned in `space/runtime.py`, then downloads ml-1m from GroupLens. It does not train. If the weight download fails, the page shows `make space-snapshot`. Push the contents of `space/` as the Space root; the steps are in [`space/README.md`](space/README.md).
+`space/` is the Space repository (`sdk: docker`, port 8501). It holds the Streamlit page, the Dockerfile, pinned requirements, and the code that rebuilds feature tables at startup. It does not hold MovieLens files. Model parameters are `space-weights.tar.gz` next to `app.py`, stored with Git LFS in the Space repo and gitignored in this repo. On startup the Space checks that file's SHA-256, extracts it into `weights/`, then downloads ml-1m from GroupLens. It does not train. If the archive is missing or the checksum fails, the page shows `make space-snapshot`. Copy the archive into `space/`, then `git lfs install`, add, and push. The steps are in [`space/README.md`](space/README.md).
 
 The page does not show gender, age, occupation, ZIP, or region as reasons.
 

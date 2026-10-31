@@ -12,11 +12,11 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import re
 import tarfile
 from pathlib import Path
 from typing import Any
-from urllib.request import urlopen
 
 import numpy as np
 import pandas as pd
@@ -45,11 +45,10 @@ from movielens_recommender.two_tower.recommender import TwoTowerRecommender
 
 SPACE_WEIGHTS_VERSION = 1
 
-# One URL. The archive is not in git. SHA-256 is of the gzip bytes.
-WEIGHTS_URL = (
-    "https://github.com/NikosMav/movielens-recommender/releases/download/"
-    "space-weights-v1/space-weights.tar.gz"
-)
+# Gzip of production/ and cold_start/, sitting next to app.py in the Space root.
+# This GitHub repo gitignores the file. The Space repo stores it with Git LFS.
+WEIGHTS_ARCHIVE_NAME = "space-weights.tar.gz"
+SPACE_REPO_ID = "NikosMav/movielens-recommender"
 WEIGHTS_SHA256 = "f6cbc0d77d435834493b85835215211874307d827ac2910121894bb56be7dbfd"
 
 # Files a full serving snapshot writes that must not be uploaded with the Space.
@@ -579,26 +578,24 @@ def _read_json(path: Path) -> dict[str, Any]:
     return payload
 
 
-def fetch_space_weights(
-    dest: Path | str,
-    *,
-    url: str = WEIGHTS_URL,
-    sha256: str = WEIGHTS_SHA256,
-    timeout: float = 120,
-) -> Path | None:
-    """Download the weight archive, check SHA-256, and extract it.
+def install_space_weights(root: Path | str, *, sha256: str | None = None) -> Path | None:
+    """Read ``space-weights.tar.gz`` next to the app, check SHA-256, extract into ``weights/``.
 
-    Returns the directory that contains ``production/`` and ``cold_start/``,
-    or ``None`` when the download, checksum, or archive is unusable.
+    Returns that directory, or ``None`` when the archive is missing or the
+    checksum fails. A missing local file may be fetched from the public Space
+    repo with ``hf_hub_download`` and no token.
     """
-    dest = Path(dest)
+    root = Path(root)
+    dest = root / "weights"
+    expected = WEIGHTS_SHA256 if sha256 is None else sha256
     try:
-        with urlopen(url, timeout=timeout) as response:  # noqa: S310 — pinned URL
-            payload = response.read()
-        digest = hashlib.sha256(payload).hexdigest()
-        if digest != sha256:
+        payload = _weight_archive_bytes(root / WEIGHTS_ARCHIVE_NAME)
+        if payload is None or hashlib.sha256(payload).hexdigest() != expected:
             return None
         if dest.exists() and any(dest.iterdir()):
+            if (dest / "production" / "manifest.json").is_file():
+                assert_weights_only(dest)
+                return dest
             raise ValueError(f"weight destination is not empty: {dest}")
         dest.mkdir(parents=True, exist_ok=True)
         _extract_weight_archive(payload, dest)
@@ -608,6 +605,36 @@ def fetch_space_weights(
     if not (dest / "production" / "manifest.json").is_file():
         return None
     return dest
+
+
+def _weight_archive_bytes(archive: Path) -> bytes | None:
+    if archive.is_file():
+        return archive.read_bytes()
+    return _hub_weight_bytes()
+
+
+def _hub_weight_bytes() -> bytes | None:
+    """Download the archive from the public Space. No token is sent.
+
+    Tests set ``MOVIELENS_ALLOW_DOWNLOAD=0`` so this returns before any network
+    call. The Space process does not set that variable.
+    """
+    if os.environ.get("MOVIELENS_ALLOW_DOWNLOAD") == "0":
+        return None
+    try:
+        from huggingface_hub import hf_hub_download
+    except ImportError:
+        return None
+    try:
+        path = hf_hub_download(
+            repo_id=SPACE_REPO_ID,
+            filename=WEIGHTS_ARCHIVE_NAME,
+            repo_type="space",
+            token=False,
+        )
+        return Path(path).read_bytes()
+    except Exception:
+        return None
 
 
 def _extract_weight_archive(payload: bytes, dest: Path) -> None:

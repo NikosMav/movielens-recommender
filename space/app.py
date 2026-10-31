@@ -2,7 +2,8 @@
 
 Push this directory as the Space repository root. ``MOVIELENS_ARTIFACTS`` and
 ``MOVIELENS_COLD_ARTIFACTS`` point at full snapshots (the test path). Otherwise
-the page rebuilds those snapshots from ``weights/`` after downloading ml-1m.
+the page reads ``space-weights.tar.gz`` beside this file, checks its SHA-256,
+extracts it into ``weights/``, and rebuilds the snapshots after downloading ml-1m.
 """
 
 from __future__ import annotations
@@ -121,14 +122,16 @@ def _show_list(cards: list[dict], *, explain: bool) -> None:
 
 def _missing(prod: Path, cold: Path) -> None:
     st.markdown(
-        "No model parameters were found. From a checkout of the GitHub repo, "
+        "No model parameters were found. `space-weights.tar.gz` is missing "
+        "or its SHA-256 does not match. From a checkout of the GitHub repo, "
         "with the `rank`, `deep`, and `ui` extras installed:"
     )
     st.code("make space-snapshot", language="bash")
     st.markdown(
-        "That writes `space/weights/`. Include that directory when pushing "
-        "`space/` as the Hugging Face Space root. The Space then downloads "
-        "ml-1m from GroupLens on startup. It does not train."
+        "Pack that `weights/` directory as `space-weights.tar.gz`, copy it "
+        "next to `app.py`, then `git lfs install`, add, and push `space/` "
+        "as the Hugging Face Space root. The Space extracts the archive "
+        "into `weights/` and downloads ml-1m from GroupLens. It does not train."
     )
     st.caption(f"Looked in `{prod}` and `{cold}`.")
 
@@ -292,13 +295,10 @@ def _new_user(path: Path) -> None:
 
 
 def _downloaded_weights() -> Path | None:
-    """Use a local ``weights/`` directory, otherwise the pinned archive."""
-    local = _weights_root()
-    if (local / "production" / "manifest.json").is_file():
-        return local
-    from runtime import fetch_space_weights
+    """Extract ``space-weights.tar.gz`` from the Space root into ``weights/``."""
+    from runtime import install_space_weights
 
-    return fetch_space_weights(_runtime_root() / "downloaded-weights")
+    return install_space_weights(_SPACE_DIR)
 
 
 def _resolve() -> tuple[Path, Path] | None:
