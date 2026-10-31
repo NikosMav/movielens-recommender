@@ -204,7 +204,7 @@ This prevents within-user leakage but not cross-user, global temporal leakage: o
 | Diagnostics | Catalog coverage@k, mean train popularity of recommended items |
 | Segments | NDCG@10 by user-activity tercile, and by head/tail item (head = top 20% of train items by popularity) |
 
-Metrics are averaged over eligible test users, with 95% bootstrap intervals over users (1000 resamples, seed from config). Catalog coverage is a point estimate only, because a user-level bootstrap is not valid for a set-union statistic (ADR-0003). Item-segment metrics restrict both relevant and recommended items to the segment.
+Metrics are averaged over eligible test users, with 95% bootstrap intervals over users (1000 resamples, seed from config). Catalog coverage is a point estimate only, because a user-level bootstrap is not valid for a set-union statistic (ADR-0003). Item-segment metrics restrict both relevant and recommended items to the segment. Novelty, intra-list diversity, and long-tail share are defined in [ADR-0017](docs/adr/0017-beyond-accuracy.md) and reported for ml-1m in the Results section.
 
 ## Models
 
@@ -235,6 +235,7 @@ movielens-recommender run --config configs/default.yaml   # ml-latest-small
 movielens-recommender run --config configs/ml-1m.yaml
 movielens-recommender run --config configs/ml-32m.yaml    # long; budget in ADR-0011
 movielens-recommender drift-study --config configs/ml-1m.yaml   # S6 replay, about 3 min
+python scripts/run_beyond_accuracy.py                     # ADR-0017, ml-1m only
 python scripts/make_results_table.py                      # regenerate the Results section
 ```
 
@@ -1092,5 +1093,33 @@ Mean NDCG@10 over the test periods. Threshold chosen on item-item: tau=0.6 (qual
 
 Sampling-noise floor of the item divergence: 0.3693. Paired periodic-minus-frozen intervals that exclude 0: 3 of 39 (the first period is the same model).
 Spearman correlation of each drift signal with the retraining gain: most popular item divergence -0.62, new item share -0.60, new user share +0.37; item-item item divergence +0.04, new item share +0.08, new user share -0.25; EASE item divergence +0.26, new item share +0.40, new user share -0.53.
+
+### Beyond accuracy (`ml-1m`, ADR-0017)
+
+From `results/beyond-accuracy/ml-1m.json`. Definitions: [`docs/adr/0017-beyond-accuracy.md`](docs/adr/0017-beyond-accuracy.md). k=10, eval users=5958. Bootstrap: 1000 resamples, alpha=0.05, seed=42. Coverage@10 is a point estimate. Novelty, intra-list diversity, mean popularity, long-tail share, and NDCG@10 are user means with that bootstrap. Two-tower and LambdaRank lists are seed 42 only. Their committed NDCG@10 is that seed's test number in results/ml-1m.json. The headline NDCG@10 for those two is the mean over three seeds and is stored beside it.
+
+| model | NDCG@10 | Coverage@10 | Novelty@10 | Intra-list diversity@10 | Mean popularity@10 | Long-tail share@10 | NDCG matches committed |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| most_popular | 0.0895 [0.0857, 0.0935] | 0.0325 | 8.4476 [8.4436, 8.4519] | 0.6321 [0.6299, 0.6344] | 2325.9361 [2319.9340, 2331.5737] | 0.0000 [0.0000, 0.0000] | yes |
+| item_item_cosine | 0.1201 [0.1158, 0.1242] | 0.1274 | 8.8996 [8.8910, 8.9077] | 0.6288 [0.6257, 0.6321] | 1794.5672 [1786.4853, 1803.2589] | 0.0031 [0.0022, 0.0040] | yes |
+| als_tuned | 0.0906 [0.0874, 0.0940] | 0.4541 | 9.8391 [9.8212, 9.8573] | 0.6518 [0.6482, 0.6552] | 1118.0085 [1106.0058, 1129.8557] | 0.1117 [0.1076, 0.1156] | yes |
+| ease | 0.1184 [0.1142, 0.1226] | 0.2100 | 9.1409 [9.1306, 9.1524] | 0.6301 [0.6264, 0.6336] | 1575.2565 [1565.4193, 1584.1931] | 0.0059 [0.0049, 0.0069] | yes |
+| rp3beta | 0.1138 [0.1095, 0.1178] | 0.1756 | 8.9648 [8.9537, 8.9758] | 0.6119 [0.6084, 0.6157] | 1750.1566 [1740.9753, 1759.7112] | 0.0072 [0.0057, 0.0088] | yes |
+| two_tower | 0.1191 [0.1150, 0.1230] | 0.4669 | 9.8603 [9.8386, 9.8841] | 0.6160 [0.6119, 0.6197] | 1175.1585 [1164.3297, 1186.3043] | 0.1040 [0.0999, 0.1084] | yes |
+| lambdarank | 0.1293 [0.1248, 0.1333] | 0.3870 | 9.5047 [9.4908, 9.5193] | 0.6424 [0.6385, 0.6461] | 1315.4293 [1305.6593, 1325.1133] | 0.0459 [0.0430, 0.0489] | no |
+
+`lambdarank` leads NDCG@10 at 0.1293 [0.1248, 0.1333], and `two_tower` has the highest novelty point estimate at 9.8603 [9.8386, 9.8841]; its interval overlaps `als_tuned`. `two_tower` trades accuracy for novelty: its NDCG@10 is 0.1191 [0.1150, 0.1230] against `lambdarank` at 0.1293 [0.1248, 0.1333], with coverage 0.4669 versus 0.3870. `most_popular` is the most popularity-biased list (mean popularity 2325.9361 [2319.9340, 2331.5737], long-tail share 0.0000 [0.0000, 0.0000]).
+
+Recomputed NDCG@10 matches the committed value to 4 decimals for 6 of 7 models.
+It does not match for lambdarank: 0.129253 versus committed seed-42 0.128786 (0.1293 versus 0.1288). Early stopping picked 126 trees versus 95 committed; hyperparameters and procedure unchanged.
+Headline NDCG@10 in `results/ml-1m.json` differs at 4 decimals for `two_tower` list 0.1191 versus headline 0.1192; `lambdarank` list 0.1293 versus headline 0.1273.
+
+Host: Linux 6.12.94+, x86_64, 4 CPUs, Python 3.12.3, SIMD AVX2, AVX512F, AVX512_ICL, AVX512_SKX, FMA3, SSE42.
+
+ml-32M is future work. This panel is ml-1m only.
+
+Beyond-accuracy runtime: 143.3350s.
+
+Rebuild the lists with `python scripts/run_beyond_accuracy.py`.
 
 <!-- END RESULTS TABLE -->

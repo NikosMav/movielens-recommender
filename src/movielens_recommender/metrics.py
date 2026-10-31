@@ -112,6 +112,166 @@ def mean_popularity(
     return float(np.mean(user_means))
 
 
+def per_user_popularity(
+    recommendations: Mapping[int, Sequence[int]],
+    item_popularity: Mapping[int, float],
+    k: int,
+) -> list[float]:
+    """Per-user mean train popularity of the top-k list, in dict order.
+
+    Unknown items contribute 0. An empty list scores 0. The mean of this list
+    is :func:`mean_popularity`.
+    """
+    if k <= 0:
+        raise ValueError("k must be positive")
+    values: list[float] = []
+    for recs in recommendations.values():
+        top = [int(i) for i in list(recs)[:k]]
+        if not top:
+            values.append(0.0)
+            continue
+        values.append(float(np.mean([float(item_popularity.get(i, 0.0)) for i in top])))
+    return values
+
+
+def self_information(item_popularity: Mapping[int, float]) -> dict[int, float]:
+    """``-log2(count(i) / total)`` for items with a positive train count.
+
+    ``total`` is the sum of the positive counts. That is the self-information
+    of the item's share of train interactions. Non-positive counts are omitted
+    because ``-log2(0)`` is undefined.
+    """
+    counts = {int(i): float(c) for i, c in item_popularity.items() if float(c) > 0.0}
+    total = float(sum(counts.values()))
+    if total <= 0.0:
+        raise ValueError("item popularity must contain a positive count")
+    return {item: float(-math.log2(count / total)) for item, count in counts.items()}
+
+
+def per_user_novelty(
+    recommendations: Mapping[int, Sequence[int]],
+    item_popularity: Mapping[int, float],
+    k: int,
+) -> list[float]:
+    """Per-user mean self-information of the top-k list, in dict order.
+
+    Items with no positive train count are left out of that user's average.
+    If none of the top-k items have a positive count, or the list is empty,
+    the user scores 0.
+    """
+    if k <= 0:
+        raise ValueError("k must be positive")
+    info = self_information(item_popularity)
+    values: list[float] = []
+    for recs in recommendations.values():
+        top = [int(i) for i in list(recs)[:k]]
+        known = [info[i] for i in top if i in info]
+        if not known:
+            values.append(0.0)
+            continue
+        values.append(float(np.mean(known)))
+    return values
+
+
+def novelty_at_k(
+    recommendations: Mapping[int, Sequence[int]],
+    item_popularity: Mapping[int, float],
+    k: int,
+) -> float:
+    """Mean over users of mean top-k self-information. Empty input is 0."""
+    values = per_user_novelty(recommendations, item_popularity, k)
+    if not values:
+        return 0.0
+    return float(np.mean(values))
+
+
+def _list_intra_diversity(ids: Sequence[int], vectors: Mapping[int, np.ndarray]) -> float:
+    """``1 - mean pairwise cosine`` over positions ``i < j``. Fewer than 2 items is 0.
+
+    A zero-norm vector has cosine 0 with every item, including another zero vector.
+    """
+    if len(ids) < 2:
+        return 0.0
+    rows: list[np.ndarray] = []
+    for item in ids:
+        if item not in vectors:
+            raise KeyError(f"no item vector for {item}")
+        rows.append(np.asarray(vectors[item], dtype=np.float64).ravel())
+    mat = np.vstack(rows)
+    norms = np.linalg.norm(mat, axis=1)
+    upper = np.triu_indices(len(rows), k=1)
+    denom = np.outer(norms, norms)[upper]
+    dots = (mat @ mat.T)[upper]
+    sims = np.zeros(dots.shape, dtype=np.float64)
+    np.divide(dots, denom, out=sims, where=denom > 0.0)
+    return float(1.0 - sims.mean())
+
+
+def per_user_intra_list_diversity(
+    recommendations: Mapping[int, Sequence[int]],
+    item_vectors: Mapping[int, np.ndarray],
+    k: int,
+) -> list[float]:
+    """Per-user intra-list diversity of the top-k list, in dict order.
+
+    Diversity is 1 minus the mean pairwise cosine similarity of the item
+    vectors. Lists with fewer than two items score 0.
+    """
+    if k <= 0:
+        raise ValueError("k must be positive")
+    values: list[float] = []
+    for recs in recommendations.values():
+        top = [int(i) for i in list(recs)[:k]]
+        values.append(_list_intra_diversity(top, item_vectors))
+    return values
+
+
+def intra_list_diversity(
+    recommendations: Mapping[int, Sequence[int]],
+    item_vectors: Mapping[int, np.ndarray],
+    k: int,
+) -> float:
+    """Mean over users of top-k intra-list diversity. Empty input is 0."""
+    values = per_user_intra_list_diversity(recommendations, item_vectors, k)
+    if not values:
+        return 0.0
+    return float(np.mean(values))
+
+
+def per_user_long_tail_share(
+    recommendations: Mapping[int, Sequence[int]],
+    tail_items: Iterable[int],
+    k: int,
+) -> list[float]:
+    """Per-user fraction of the top-k list that lies in ``tail_items``.
+
+    An empty list scores 0. Dict order is preserved.
+    """
+    if k <= 0:
+        raise ValueError("k must be positive")
+    tail = {int(i) for i in tail_items}
+    values: list[float] = []
+    for recs in recommendations.values():
+        top = [int(i) for i in list(recs)[:k]]
+        if not top:
+            values.append(0.0)
+            continue
+        values.append(sum(1 for item in top if item in tail) / len(top))
+    return values
+
+
+def long_tail_share(
+    recommendations: Mapping[int, Sequence[int]],
+    tail_items: Iterable[int],
+    k: int,
+) -> float:
+    """Mean over users of the top-k long-tail share. Empty input is 0."""
+    values = per_user_long_tail_share(recommendations, tail_items, k)
+    if not values:
+        return 0.0
+    return float(np.mean(values))
+
+
 def paired_bootstrap_delta_ci(
     left: Sequence[float],
     right: Sequence[float],

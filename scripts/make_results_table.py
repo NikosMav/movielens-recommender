@@ -2151,6 +2151,226 @@ def render_ops() -> str:
     return "\n".join(lines)
 
 
+def _beyond_cell(block: dict, key: str) -> str:
+    """Point estimate, with the user-bootstrap interval when the JSON has one."""
+    value = _fmt(float(block[key]))
+    bounds = (block.get("confidence_intervals") or {}).get(key)
+    if not bounds:
+        return value
+    return f"{value} [{_fmt(float(bounds['low']))}, {_fmt(float(bounds['high']))}]"
+
+
+def _beyond_reading(payload: dict) -> str:
+    """Three sentences. Every number is formatted from the JSON."""
+    models = payload["models"]
+    order = list(payload["model_order"])
+
+    def _value(name: str, key: str) -> float:
+        return float(models[name][key])
+
+    def _leader(key: str) -> str:
+        # Higher value wins. A tie keeps the earlier name in model_order.
+        return max(order, key=lambda name: (_value(name, key), -order.index(name)))
+
+    ndcg_leader = _leader("ndcg@10")
+    novelty_leader = _leader("novelty@10")
+    popularity_leader = _leader("mean_popularity@10")
+    overlap = _novelty_overlaps(models, order, novelty_leader)
+    overlap_clause = ""
+    if overlap:
+        named = " and ".join(f"`{name}`" for name in overlap)
+        overlap_clause = f"; its interval overlaps {named}"
+    first = (
+        f"`{ndcg_leader}` leads NDCG@10 at {_beyond_cell(models[ndcg_leader], 'ndcg@10')}, "
+        f"and `{novelty_leader}` has the highest novelty point estimate at "
+        f"{_beyond_cell(models[novelty_leader], 'novelty@10')}{overlap_clause}."
+    )
+    if ndcg_leader == novelty_leader:
+        second = (
+            "The same model leads both, so this panel does not show an "
+            "accuracy-for-novelty swap at the top. "
+            f"Its catalog coverage is {_fmt(_value(ndcg_leader, 'coverage@10'))} "
+            "and its long-tail share is "
+            f"{_beyond_cell(models[ndcg_leader], 'long_tail_share@10')}."
+        )
+    else:
+        second = (
+            f"`{novelty_leader}` trades accuracy for novelty: its NDCG@10 is "
+            f"{_beyond_cell(models[novelty_leader], 'ndcg@10')} "
+            f"against `{ndcg_leader}` at {_beyond_cell(models[ndcg_leader], 'ndcg@10')}, "
+            f"with coverage {_fmt(_value(novelty_leader, 'coverage@10'))} "
+            f"versus {_fmt(_value(ndcg_leader, 'coverage@10'))}."
+        )
+    third = (
+        f"`{popularity_leader}` is the most popularity-biased list "
+        "(mean popularity "
+        f"{_beyond_cell(models[popularity_leader], 'mean_popularity@10')}, "
+        "long-tail share "
+        f"{_beyond_cell(models[popularity_leader], 'long_tail_share@10')})."
+    )
+    return " ".join((first, second, third))
+
+
+def _novelty_overlaps(models: dict, order: list[str], leader: str) -> list[str]:
+    """Other models whose novelty interval overlaps the leader's."""
+    bounds = models[leader]["confidence_intervals"]["novelty@10"]
+    low, high = float(bounds["low"]), float(bounds["high"])
+    overlapped = []
+    for name in order:
+        if name == leader:
+            continue
+        other = models[name]["confidence_intervals"]["novelty@10"]
+        other_low, other_high = float(other["low"]), float(other["high"])
+        if other_low <= high and low <= other_high:
+            overlapped.append(name)
+    return overlapped
+
+
+def _lambdarank_mismatch(block: dict) -> str:
+    """Seed-42 NDCG miss, with both tree counts read from the JSON."""
+    hp = block["hyperparameters"]
+    got = float(block["ndcg@10"])
+    committed = float(block["ndcg@10_committed"])
+    trees = int(hp["best_iteration"])
+    committed_trees = int(hp["committed_best_iteration"])
+    return (
+        f"It does not match for lambdarank: {_fmt6(got)} versus committed seed-42 "
+        f"{_fmt6(committed)} ({_fmt(got)} versus {_fmt(committed)}). "
+        f"Early stopping picked {trees} trees versus {committed_trees} committed; "
+        "hyperparameters and procedure unchanged."
+    )
+
+
+def _beyond_match_lines(payload: dict) -> list[str]:
+    models = payload["models"]
+    order = list(payload["model_order"])
+    matched = [
+        name
+        for name in order
+        if models[name]["ndcg@10_matches_committed_at_4_decimals"]
+    ]
+    missed = [name for name in order if name not in matched]
+    if not missed:
+        lines = [
+            "Recomputed NDCG@10 matches the committed value to 4 decimals "
+            f"for all {len(order)} models."
+        ]
+    else:
+        others = [name for name in missed if name != "lambdarank"]
+        bits = [
+            f"`{name}` {_fmt(float(models[name]['ndcg@10']))} versus committed "
+            f"{_fmt(float(models[name]['ndcg@10_committed']))}"
+            for name in others
+        ]
+        lead = (
+            "Recomputed NDCG@10 matches the committed value to 4 decimals "
+            f"for {len(matched)} of {len(order)} models."
+        )
+        if bits and "lambdarank" not in missed:
+            lines = [lead + " It does not match for " + "; ".join(bits) + "."]
+        elif bits:
+            lines = [
+                lead + " It does not match for " + "; ".join(bits) + ".",
+                _lambdarank_mismatch(models["lambdarank"]),
+            ]
+        else:
+            lines = [lead, _lambdarank_mismatch(models["lambdarank"])]
+    headline_miss = [
+        name
+        for name in order
+        if not models[name]["ndcg@10_matches_headline_at_4_decimals"]
+    ]
+    if headline_miss:
+        bits = [
+            f"`{name}` list {_fmt(float(models[name]['ndcg@10']))} versus headline "
+            f"{_fmt(float(models[name]['ndcg@10_headline']))}"
+            for name in headline_miss
+        ]
+        lines.append(
+            "Headline NDCG@10 in `results/ml-1m.json` differs at 4 decimals for "
+            + "; ".join(bits)
+            + "."
+        )
+    return lines
+
+
+def render_beyond_accuracy_payload(payload: dict) -> str:
+    """ADR-0017 panel. Every number is read from the beyond-accuracy JSON."""
+    host = payload.get("host") or {}
+    simd = host.get("numpy_simd") or []
+    boot = payload.get("bootstrap") or {}
+    lines = [
+        "### Beyond accuracy (`ml-1m`, ADR-0017)",
+        "",
+        (
+            f"From `results/beyond-accuracy/{payload['dataset']}.json`. "
+            f"Definitions: [`{payload['adr']}`]({payload['adr']}). "
+            f"k={payload['k']}, eval users={payload['n_eval_users']}. "
+            f"Bootstrap: {boot.get('n_bootstrap')} resamples, "
+            f"alpha={boot.get('alpha')}, seed={boot.get('seed')}. "
+            "Coverage@10 is a point estimate. Novelty, intra-list diversity, "
+            "mean popularity, long-tail share, and NDCG@10 are user means "
+            f"with that bootstrap. {payload.get('ndcg_comparison_note', '')}"
+        ).rstrip(),
+        "",
+        (
+            "| model | NDCG@10 | Coverage@10 | Novelty@10 | Intra-list diversity@10 | "
+            "Mean popularity@10 | Long-tail share@10 | NDCG matches committed |"
+        ),
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    models = payload["models"]
+    for name in payload["model_order"]:
+        block = models[name]
+        matched = "yes" if block["ndcg@10_matches_committed_at_4_decimals"] else "no"
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    name,
+                    _beyond_cell(block, "ndcg@10"),
+                    _beyond_cell(block, "coverage@10"),
+                    _beyond_cell(block, "novelty@10"),
+                    _beyond_cell(block, "intra_list_diversity@10"),
+                    _beyond_cell(block, "mean_popularity@10"),
+                    _beyond_cell(block, "long_tail_share@10"),
+                    matched,
+                ]
+            )
+            + " |"
+        )
+    lines.append("")
+    lines.append(_beyond_reading(payload))
+    lines.append("")
+    lines.extend(_beyond_match_lines(payload))
+    lines.append("")
+    lines.append(
+        f"Host: {host.get('os')} {host.get('os_release')}, {host.get('machine')}, "
+        f"{host.get('cpu_count')} CPUs, Python {host.get('python')}, "
+        f"SIMD {', '.join(simd) if simd else 'none'}."
+    )
+    lines.append("")
+    lines.append(str(payload.get("future_work", "")).strip())
+    lines.append("")
+    if payload.get("runtime_sec") is not None:
+        lines.append(f"Beyond-accuracy runtime: {_fmt(float(payload['runtime_sec']))}s.")
+        lines.append("")
+    command = payload.get("reproduction_command")
+    if command:
+        lines.append(f"Rebuild the lists with `{command}`.")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def render_beyond_accuracy(path: Path | None = None) -> str:
+    """Empty when the JSON is absent, so earlier panels stay put."""
+    path = RESULTS_DIR / "beyond-accuracy" / "ml-1m.json" if path is None else path
+    if not path.is_file():
+        return ""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return render_beyond_accuracy_payload(payload)
+
+
 def build_section(results: list[tuple[str, dict]]) -> str:
     parts = [BEGIN, ""]
     for filename, payload in results:
@@ -2173,6 +2393,9 @@ def build_section(results: list[tuple[str, dict]]) -> str:
     ops = render_ops()
     if ops:
         parts.append(ops)
+    beyond = render_beyond_accuracy()
+    if beyond:
+        parts.append(beyond)
     parts.append(END)
     return "\n".join(parts) + "\n"
 
