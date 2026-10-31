@@ -74,8 +74,9 @@ def test_space_readme_and_requirements_pin():
     assert "COPY app.py runtime.py space-weights.tar.gz" in dockerfile
     runtime_source = (SPACE / "runtime.py").read_text(encoding="utf-8")
     assert runtime_source.count("WEIGHTS_URL = (") == 1
-    assert "releases/download/" in runtime_source
-    assert "space-weights-v1/space-weights.tar.gz" in runtime_source
+    assert "huggingface.co/NikosMav/movielens-recommender-weights/" in runtime_source
+    assert "resolve/main/space-weights.tar.gz" in runtime_source
+    assert "releases/download/" not in runtime_source
     assert "hf_hub_download" not in runtime_source
     assert "HF_TOKEN" not in runtime_source
     assert (
@@ -164,11 +165,13 @@ def test_install_space_weights_missing(tmp_path, monkeypatch):
     root = tmp_path / "space"
     root.mkdir()
     monkeypatch.delenv("MOVIELENS_ALLOW_DOWNLOAD", raising=False)
+    monkeypatch.delenv("WEIGHTS_URL", raising=False)
     calls = {"n": 0}
 
     def _open(url, timeout=120):
         calls["n"] += 1
         assert url == runtime.WEIGHTS_URL
+        assert url == runtime.resolved_weights_url()
         assert timeout == 120
         raise OSError("weight archive is unavailable")
 
@@ -205,6 +208,7 @@ def test_install_space_weights_downloads_checked_archive(tmp_path, monkeypatch):
     root = tmp_path / "space"
     root.mkdir()
     monkeypatch.delenv("MOVIELENS_ALLOW_DOWNLOAD", raising=False)
+    monkeypatch.delenv("WEIGHTS_URL", raising=False)
 
     def _open(url, timeout=120):
         assert url == runtime.WEIGHTS_URL
@@ -219,6 +223,31 @@ def test_install_space_weights_downloads_checked_archive(tmp_path, monkeypatch):
     rejected = runtime.install_space_weights(tmp_path / "other", sha256="0" * 64)
     assert rejected is None
     assert not (tmp_path / "other" / ".runtime" / "cache" / runtime.WEIGHTS_ARCHIVE_NAME).exists()
+
+
+def test_weights_url_env_overrides_secret_and_default(tmp_path, monkeypatch):
+    pytest.importorskip("torch")
+    runtime = _load_runtime()
+    monkeypatch.delenv("MOVIELENS_ALLOW_DOWNLOAD", raising=False)
+    monkeypatch.delenv("WEIGHTS_URL", raising=False)
+    monkeypatch.setattr(runtime, "_weights_url_secret", lambda: "https://secret.example/w.tar.gz")
+    assert runtime.resolved_weights_url() == "https://secret.example/w.tar.gz"
+    monkeypatch.setenv("WEIGHTS_URL", "https://env.example/space-weights.tar.gz")
+    seen: dict[str, str] = {}
+
+    def _open(url, timeout=120):
+        seen["url"] = url
+        assert timeout == 120
+        raise OSError("stop")
+
+    monkeypatch.setattr(runtime, "urlopen", _open)
+    root = tmp_path / "space"
+    root.mkdir()
+    assert runtime.install_space_weights(root) is None
+    assert seen["url"] == "https://env.example/space-weights.tar.gz"
+    assert runtime.WEIGHTS_SHA256 == (
+        "f6cbc0d77d435834493b85835215211874307d827ac2910121894bb56be7dbfd"
+    )
 
 
 def test_visible_reasons_drop_demographic_text_only():

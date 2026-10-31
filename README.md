@@ -76,7 +76,7 @@ The entrypoint is `space/app.py`. Community Cloud runs `streamlit run` with the 
 
 On [share.streamlit.io](https://share.streamlit.io/), create an app from `NikosMav/movielens-recommender`, branch `main`, main file path `space/app.py`.
 
-The app looks first for `space/space-weights.tar.gz`. That file is gitignored. If it is absent, the app downloads release tag `space-weights-v1`, asset `space-weights.tar.gz`, into `space/.runtime/cache/` and checks `WEIGHTS_SHA256` (`f6cbc0d77d435834493b85835215211874307d827ac2910121894bb56be7dbfd`). If the file is missing or the checksum fails, the page shows `make space-snapshot` and does not download MovieLens. On success it downloads ml-1m from GroupLens and does not train. The page does not show gender, age, occupation, ZIP, or region as reasons.
+The app looks first for `space/space-weights.tar.gz`. That file is gitignored. If it is absent, the app downloads `https://huggingface.co/NikosMav/movielens-recommender-weights/resolve/main/space-weights.tar.gz` into `space/.runtime/cache/` and checks `WEIGHTS_SHA256` (`f6cbc0d77d435834493b85835215211874307d827ac2910121894bb56be7dbfd`). A `WEIGHTS_URL` environment variable overrides that address, and so does a Streamlit secret named `WEIGHTS_URL` when the environment variable is unset. If the file is missing or the checksum fails, the page shows `make space-snapshot` and does not download MovieLens. On success it downloads ml-1m from GroupLens and does not train. The page does not show gender, age, occupation, ZIP, or region as reasons.
 
 ## Serve over HTTP, batch, and Docker
 
