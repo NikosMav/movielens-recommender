@@ -1,0 +1,23 @@
+{
+  "adr": "0019",
+  "host": {
+    "cpu_count": 4,
+    "machine": "x86_64",
+    "numpy_simd": [
+      "AVX2",
+      "AVX512F",
+      "AVX512_ICL",
+      "AVX512_SKX",
+      "FMA3",
+      "SSE42"
+    ],
+    "os": "Linux",
+    "os_release": "6.12.94+",
+    "processor": "x86_64",
+    "python": "3.12.3"
+  },
+  "oom_200": false,
+  "ranking_metrics_recorded": false,
+  "t200_sec": 13.577,
+  "t50_sec": 1.915
+}

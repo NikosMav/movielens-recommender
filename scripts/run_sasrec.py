@@ -213,13 +213,14 @@ def _train_trial(
     cfg: dict[str, Any],
     *,
     relevance: float,
+    seed: int = PRIMARY_SEED,
     shuffle_seed: int | None = None,
     n_epochs: int | None = None,
 ) -> tuple[SASRecRecommender, Any]:
     recommender, _data, result = train_sasrec(
         frame,
         hyperparams=cfg,
-        seed=PRIMARY_SEED,
+        seed=int(seed),
         relevance_threshold=relevance,
         val_frame=val,
         val_template=template,
@@ -562,6 +563,7 @@ def run_test(split: SplitResult, tuning: dict[str, Any], relevance: float) -> di
             None,
             cfg,
             relevance=relevance,
+            seed=seed,
             n_epochs=int(selected["best_epoch"]),
         )
         if seed == PRIMARY_SEED:

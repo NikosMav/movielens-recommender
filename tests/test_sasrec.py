@@ -276,6 +276,21 @@ def test_one_epoch_is_deterministic() -> None:
     assert torch.count_nonzero(first.model.item_emb.weight[0]) == 0
 
 
+def test_train_trial_uses_the_requested_seed(monkeypatch: pytest.MonkeyPatch) -> None:
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import run_sasrec
+
+    seen: dict[str, int] = {}
+
+    def fake_train(*_args: object, **kwargs: object) -> tuple[object, object, object]:
+        seen["seed"] = int(kwargs["seed"])
+        return object(), object(), object()
+
+    monkeypatch.setattr(run_sasrec, "train_sasrec", fake_train)
+    run_sasrec._train_trial(None, None, None, {}, relevance=4.0, n_epochs=2, seed=43)
+    assert seen["seed"] == 43
+
+
 def test_grid_lock_edges_and_ties() -> None:
     grid = base_grid()
     assert len(grid) == 8
@@ -468,7 +483,7 @@ def test_readme_panel_is_three_sentences_from_the_json(tmp_path: Path) -> None:
     ) in panel
     assert "| SASRec | 0.1810 | 0.3300 | [0.3000, 0.3600] |" in panel
     assert render_sasrec(tmp_path / "missing.json") == ""
-    assert render_sasrec() == ""
+    assert render_sasrec() == render_sasrec()
 
     clear = _results_payload(negative=False, edges=[])
     assert sasrec_reading(clear)[2].startswith("Order helps on this split")

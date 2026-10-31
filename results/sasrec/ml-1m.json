@@ -1,0 +1,595 @@
+{
+  "adr": "0019",
+  "budget": {
+    "cap_sec": 10800,
+    "comparison_reserve_sec": 1800,
+    "cut": null,
+    "ease_configs": 8,
+    "edge_reserve_sec": 1018.275,
+    "fits": true,
+    "grid_sec": 1394.28,
+    "max_epochs": 30,
+    "n_configs": 8,
+    "n_edge_extensions": 2,
+    "n_trials_scored": 8,
+    "oom_200": false,
+    "probe_ranking_metrics_recorded": false,
+    "projected_sec": 5841.795,
+    "shuffle_reserve_sec": 407.31,
+    "t200_sec": 13.577,
+    "t50_sec": 1.915,
+    "test_reserve_sec": 1221.93,
+    "test_seeds": [
+      42,
+      43,
+      44
+    ],
+    "truncated": false,
+    "two_tower_grid_configs": 8
+  },
+  "dataset": "ml-1m",
+  "decision": {
+    "negative_result": false,
+    "order_helps": true,
+    "rule": "negative when the real-minus-shuffled test NDCG@10 interval includes 0 or lies at or below 0"
+  },
+  "edge_extension_trials": [
+    {
+      "hyperparams": {
+        "batch_size": 128,
+        "d_model": 64,
+        "dropout": 0.5,
+        "learning_rate": 0.001,
+        "loss": "full_softmax",
+        "max_epochs": 30,
+        "max_seq_len": 50,
+        "n_heads": 1,
+        "n_layers": 3,
+        "patience": 3,
+        "weight_decay": 0.0
+      },
+      "val_ndcg@10": 0.050455
+    },
+    {
+      "hyperparams": {
+        "batch_size": 128,
+        "d_model": 64,
+        "dropout": 0.8,
+        "learning_rate": 0.001,
+        "loss": "full_softmax",
+        "max_epochs": 30,
+        "max_seq_len": 50,
+        "n_heads": 1,
+        "n_layers": 2,
+        "patience": 3,
+        "weight_decay": 0.0
+      },
+      "val_ndcg@10": 0.048116
+    }
+  ],
+  "host": {
+    "cpu_count": 4,
+    "machine": "x86_64",
+    "numpy_simd": [
+      "AVX2",
+      "AVX512F",
+      "AVX512_ICL",
+      "AVX512_SKX",
+      "FMA3",
+      "SSE42"
+    ],
+    "os": "Linux",
+    "os_release": "6.12.94+",
+    "processor": "x86_64",
+    "python": "3.12.3"
+  },
+  "library_versions": {
+    "implicit": "0.7.3",
+    "lightgbm": "4.6.0",
+    "movielens-recommender": "0.1.0",
+    "numpy": "2.2.6",
+    "pandas": "2.2.3",
+    "pyyaml": "6.0.3",
+    "scipy": "1.15.3",
+    "torch": "2.6.0+cpu"
+  },
+  "models": {
+    "lambdarank": {
+      "best_iteration": 126,
+      "candidate_set": "two_tower",
+      "demographics": "off",
+      "metrics": {
+        "cold_start": {
+          "n_cold_items_in_test": 39,
+          "n_eval_users": 5958,
+          "n_relevant_dropped_cold_item": 18,
+          "n_train_items": 3667,
+          "n_train_users": 6040,
+          "n_users_excluded_no_warm_relevant": 82
+        },
+        "confidence_intervals": {
+          "mean_popularity@10": {
+            "high": 1325.113254,
+            "low": 1305.659319,
+            "mean": 1315.429305
+          },
+          "mean_popularity@20": {
+            "high": 1236.143738,
+            "low": 1219.858936,
+            "mean": 1227.963335
+          },
+          "ndcg@10": {
+            "high": 0.133291,
+            "low": 0.124798,
+            "mean": 0.129253
+          },
+          "ndcg@20": {
+            "high": 0.148906,
+            "low": 0.141114,
+            "mean": 0.145026
+          },
+          "precision@10": {
+            "high": 0.108511,
+            "low": 0.101913,
+            "mean": 0.105337
+          },
+          "precision@20": {
+            "high": 0.095276,
+            "low": 0.090282,
+            "mean": 0.092682
+          },
+          "recall@10": {
+            "high": 0.098108,
+            "low": 0.09062,
+            "mean": 0.094374
+          },
+          "recall@20": {
+            "high": 0.165757,
+            "low": 0.156062,
+            "mean": 0.16086
+          }
+        },
+        "coverage@10": 0.386965,
+        "coverage@20": 0.45105,
+        "mean_popularity@10": 1315.429305,
+        "mean_popularity@20": 1227.963335,
+        "n_eval_users": 5958.0,
+        "ndcg@10": 0.129253,
+        "ndcg@20": 0.145026,
+        "precision@10": 0.105337,
+        "precision@20": 0.092682,
+        "recall@10": 0.094374,
+        "recall@20": 0.16086,
+        "uncertainty_policy": {
+          "bootstrap_over_users": [
+            "precision@k",
+            "recall@k",
+            "ndcg@k",
+            "mean_popularity@k"
+          ],
+          "coverage_ci_policy": "point_estimate_only",
+          "coverage_ci_rationale": "Coverage is |union of top-k lists| / |catalog|. User bootstrap with replacement reduces unique users and biases the union downward, so CIs would not contain the full-sample estimate.",
+          "point_estimate_only": [
+            "coverage@k"
+          ]
+        }
+      },
+      "ndcg@10": 0.129253,
+      "ndcg@10_ci": {
+        "high": 0.133291,
+        "low": 0.124798,
+        "mean": 0.129253
+      },
+      "seed": 42
+    },
+    "sasrec": {
+      "metrics": {
+        "cold_start": {
+          "n_cold_items_in_test": 39,
+          "n_eval_users": 5958,
+          "n_relevant_dropped_cold_item": 18,
+          "n_train_items": 3667,
+          "n_train_users": 6040,
+          "n_users_excluded_no_warm_relevant": 82
+        },
+        "confidence_intervals": {
+          "mean_popularity@10": {
+            "high": 2225.132994,
+            "low": 2214.509306,
+            "mean": 2220.061279
+          },
+          "mean_popularity@20": {
+            "high": 2041.705372,
+            "low": 2029.582819,
+            "mean": 2035.696333
+          },
+          "ndcg@10": {
+            "high": 0.096719,
+            "low": 0.088943,
+            "mean": 0.092941
+          },
+          "ndcg@20": {
+            "high": 0.100383,
+            "low": 0.093518,
+            "mean": 0.096953
+          },
+          "precision@10": {
+            "high": 0.084022,
+            "low": 0.077224,
+            "mean": 0.080681
+          },
+          "precision@20": {
+            "high": 0.07187,
+            "low": 0.066859,
+            "mean": 0.069386
+          },
+          "recall@10": {
+            "high": 0.053615,
+            "low": 0.048724,
+            "mean": 0.051264
+          },
+          "recall@20": {
+            "high": 0.091244,
+            "low": 0.084772,
+            "mean": 0.088036
+          }
+        },
+        "coverage@10": 0.032724,
+        "coverage@20": 0.049632,
+        "mean_popularity@10": 2220.061279,
+        "mean_popularity@20": 2035.696333,
+        "n_eval_users": 5958.0,
+        "ndcg@10": 0.092941,
+        "ndcg@20": 0.096953,
+        "precision@10": 0.080681,
+        "precision@20": 0.069386,
+        "recall@10": 0.051264,
+        "recall@20": 0.088036,
+        "uncertainty_policy": {
+          "bootstrap_over_users": [
+            "precision@k",
+            "recall@k",
+            "ndcg@k",
+            "mean_popularity@k"
+          ],
+          "coverage_ci_policy": "point_estimate_only",
+          "coverage_ci_rationale": "Coverage is |union of top-k lists| / |catalog|. User bootstrap with replacement reduces unique users and biases the union downward, so CIs would not contain the full-sample estimate.",
+          "point_estimate_only": [
+            "coverage@k"
+          ]
+        }
+      },
+      "ndcg@10_mean": 0.092397,
+      "ndcg@10_std": 0.001382,
+      "per_seed": [
+        {
+          "epochs_trained": 30,
+          "ndcg@10": 0.092941,
+          "seed": 42,
+          "wall_sec": 101.374
+        },
+        {
+          "epochs_trained": 30,
+          "ndcg@10": 0.090499,
+          "seed": 43,
+          "wall_sec": 85.197
+        },
+        {
+          "epochs_trained": 30,
+          "ndcg@10": 0.09375,
+          "seed": 44,
+          "wall_sec": 89.022
+        }
+      ],
+      "primary_ndcg@10_ci": {
+        "high": 0.096719,
+        "low": 0.088943,
+        "mean": 0.092941
+      }
+    },
+    "sasrec_shuffled": {
+      "epochs_trained": 30,
+      "metrics": {
+        "cold_start": {
+          "n_cold_items_in_test": 39,
+          "n_eval_users": 5958,
+          "n_relevant_dropped_cold_item": 18,
+          "n_train_items": 3667,
+          "n_train_users": 6040,
+          "n_users_excluded_no_warm_relevant": 82
+        },
+        "confidence_intervals": {
+          "mean_popularity@10": {
+            "high": 2242.351506,
+            "low": 2231.298881,
+            "mean": 2237.01049
+          },
+          "mean_popularity@20": {
+            "high": 2040.679848,
+            "low": 2028.781358,
+            "mean": 2034.8667
+          },
+          "ndcg@10": {
+            "high": 0.092985,
+            "low": 0.085248,
+            "mean": 0.089212
+          },
+          "ndcg@20": {
+            "high": 0.097155,
+            "low": 0.090046,
+            "mean": 0.093534
+          },
+          "precision@10": {
+            "high": 0.082243,
+            "low": 0.075427,
+            "mean": 0.078835
+          },
+          "precision@20": {
+            "high": 0.070712,
+            "low": 0.065626,
+            "mean": 0.068261
+          },
+          "recall@10": {
+            "high": 0.051371,
+            "low": 0.046388,
+            "mean": 0.048855
+          },
+          "recall@20": {
+            "high": 0.089479,
+            "low": 0.082834,
+            "mean": 0.086197
+          }
+        },
+        "coverage@10": 0.032452,
+        "coverage@20": 0.050995,
+        "mean_popularity@10": 2237.01049,
+        "mean_popularity@20": 2034.8667,
+        "n_eval_users": 5958.0,
+        "ndcg@10": 0.089212,
+        "ndcg@20": 0.093534,
+        "precision@10": 0.078835,
+        "precision@20": 0.068261,
+        "recall@10": 0.048855,
+        "recall@20": 0.086197,
+        "uncertainty_policy": {
+          "bootstrap_over_users": [
+            "precision@k",
+            "recall@k",
+            "ndcg@k",
+            "mean_popularity@k"
+          ],
+          "coverage_ci_policy": "point_estimate_only",
+          "coverage_ci_rationale": "Coverage is |union of top-k lists| / |catalog|. User bootstrap with replacement reduces unique users and biases the union downward, so CIs would not contain the full-sample estimate.",
+          "point_estimate_only": [
+            "coverage@k"
+          ]
+        }
+      },
+      "ndcg@10": 0.089212,
+      "ndcg@10_ci": {
+        "high": 0.092985,
+        "low": 0.085248,
+        "mean": 0.089212
+      },
+      "seed": 42,
+      "shuffle_seed": 42,
+      "wall_sec": 84.322
+    },
+    "two_tower": {
+      "epochs": 6,
+      "loss": "in_batch",
+      "metrics": {
+        "cold_start": {
+          "n_cold_items_in_test": 39,
+          "n_eval_users": 5958,
+          "n_relevant_dropped_cold_item": 18,
+          "n_train_items": 3667,
+          "n_train_users": 6040,
+          "n_users_excluded_no_warm_relevant": 82
+        },
+        "confidence_intervals": {
+          "mean_popularity@10": {
+            "high": 1186.304303,
+            "low": 1164.329702,
+            "mean": 1175.158459
+          },
+          "mean_popularity@20": {
+            "high": 1129.270291,
+            "low": 1109.953544,
+            "mean": 1119.510834
+          },
+          "ndcg@10": {
+            "high": 0.123048,
+            "low": 0.114975,
+            "mean": 0.119078
+          },
+          "ndcg@20": {
+            "high": 0.139755,
+            "low": 0.132481,
+            "mean": 0.136014
+          },
+          "precision@10": {
+            "high": 0.100588,
+            "low": 0.094107,
+            "mean": 0.097231
+          },
+          "precision@20": {
+            "high": 0.089779,
+            "low": 0.084817,
+            "mean": 0.087177
+          },
+          "recall@10": {
+            "high": 0.093501,
+            "low": 0.085691,
+            "mean": 0.089708
+          },
+          "recall@20": {
+            "high": 0.158127,
+            "low": 0.148675,
+            "mean": 0.153521
+          }
+        },
+        "coverage@10": 0.466867,
+        "coverage@20": 0.563676,
+        "mean_popularity@10": 1175.158459,
+        "mean_popularity@20": 1119.510834,
+        "n_eval_users": 5958.0,
+        "ndcg@10": 0.119078,
+        "ndcg@20": 0.136014,
+        "precision@10": 0.097231,
+        "precision@20": 0.087177,
+        "recall@10": 0.089708,
+        "recall@20": 0.153521,
+        "uncertainty_policy": {
+          "bootstrap_over_users": [
+            "precision@k",
+            "recall@k",
+            "ndcg@k",
+            "mean_popularity@k"
+          ],
+          "coverage_ci_policy": "point_estimate_only",
+          "coverage_ci_rationale": "Coverage is |union of top-k lists| / |catalog|. User bootstrap with replacement reduces unique users and biases the union downward, so CIs would not contain the full-sample estimate.",
+          "point_estimate_only": [
+            "coverage@k"
+          ]
+        }
+      },
+      "ndcg@10": 0.119078,
+      "ndcg@10_ci": {
+        "high": 0.123048,
+        "low": 0.114975,
+        "mean": 0.119078
+      },
+      "seed": 42,
+      "train_wall_sec": 37.017
+    }
+  },
+  "paired": {
+    "real_minus_shuffled": {
+      "excludes_zero": true,
+      "high": 0.005154,
+      "low": 0.002385,
+      "mean": 0.003729,
+      "n_users": 5958
+    },
+    "sasrec_minus_lambdarank": {
+      "excludes_zero": true,
+      "high": -0.031898,
+      "low": -0.040796,
+      "mean": -0.036312,
+      "n_users": 5958
+    },
+    "sasrec_minus_two_tower": {
+      "excludes_zero": true,
+      "high": -0.02144,
+      "low": -0.030634,
+      "mean": -0.026136,
+      "n_users": 5958
+    }
+  },
+  "published": {
+    "lambdarank": {
+      "ndcg@10": 0.127264,
+      "primary_seed_ci": {
+        "high": 0.132934,
+        "low": 0.12469,
+        "mean": 0.128786
+      },
+      "primary_seed_ndcg@10": 0.128786
+    },
+    "source": "results/ml-1m.json",
+    "two_tower": {
+      "ndcg@10": 0.119246,
+      "primary_seed_ci": {
+        "high": 0.123048,
+        "low": 0.114975,
+        "mean": 0.119078
+      },
+      "primary_seed_ndcg@10": 0.119078
+    }
+  },
+  "seeds": {
+    "bootstrap": 42,
+    "epoch_shuffle": "seed + epoch * 1000003",
+    "primary": 42,
+    "shuffle": 42,
+    "test": [
+      42,
+      43,
+      44
+    ],
+    "tuning": 42
+  },
+  "selected": {
+    "base_grid_edges": [
+      {
+        "parameter": "max_seq_len",
+        "side": "low",
+        "value": 50
+      },
+      {
+        "parameter": "n_layers",
+        "side": "high",
+        "value": 2
+      },
+      {
+        "parameter": "dropout",
+        "side": "high",
+        "value": 0.5
+      }
+    ],
+    "best_epoch": 30,
+    "grid_edges": [
+      {
+        "parameter": "max_seq_len",
+        "side": "low",
+        "value": 50
+      },
+      {
+        "parameter": "n_layers",
+        "side": "high",
+        "value": 3
+      }
+    ],
+    "hyperparams": {
+      "batch_size": 128,
+      "d_model": 64,
+      "dropout": 0.5,
+      "learning_rate": 0.001,
+      "loss": "full_softmax",
+      "max_epochs": 30,
+      "max_seq_len": 50,
+      "n_heads": 1,
+      "n_layers": 3,
+      "patience": 3,
+      "weight_decay": 0.0
+    },
+    "on_grid_edge": true,
+    "val_ndcg@10": 0.050455,
+    "val_ndcg@10_ci": {
+      "high": 0.05346,
+      "low": 0.047506,
+      "mean": 0.050455
+    }
+  },
+  "split": {
+    "config": {
+      "min_ratings": 5,
+      "relevance_threshold": 4.0,
+      "test_fraction": 0.2,
+      "val_fraction": 0.1
+    },
+    "n_full_train": 802553,
+    "n_full_train_items": 3667,
+    "n_full_train_users": 6040,
+    "n_test": 197656,
+    "n_test_users": 6040,
+    "n_train": 724973,
+    "n_train_items": 3655,
+    "n_train_users": 6040,
+    "n_users_dropped": 0,
+    "n_users_kept": 6040,
+    "n_val": 77580,
+    "n_val_users": 6040
+  }
+}
