@@ -49,8 +49,8 @@ SPACE_WEIGHTS_VERSION = 1
 # Gzip of production/ and cold_start/. This GitHub repo gitignores the file.
 WEIGHTS_ARCHIVE_NAME = "space-weights.tar.gz"
 WEIGHTS_URL = (
-    "https://github.com/NikosMav/movielens-recommender/releases/download/"
-    "space-weights-v1/space-weights.tar.gz"
+    "https://huggingface.co/NikosMav/movielens-recommender-weights/"
+    "resolve/main/space-weights.tar.gz"
 )
 WEIGHTS_SHA256 = "f6cbc0d77d435834493b85835215211874307d827ac2910121894bb56be7dbfd"
 
@@ -586,9 +586,9 @@ def _read_json(path: Path) -> dict[str, Any]:
 def install_space_weights(root: Path | str, *, sha256: str | None = None) -> Path | None:
     """Read ``space-weights.tar.gz`` beside the app, or download it, then extract.
 
-    The local file wins. Otherwise the bytes come from ``WEIGHTS_URL`` and are
-    stored under ``.runtime/cache/``. Returns ``weights/``, or ``None`` when
-    the archive is missing or the checksum fails.
+    The local file wins. Otherwise the bytes come from :func:`resolved_weights_url`
+    and are stored under ``.runtime/cache/``. Returns ``weights/``, or ``None``
+    when the archive is missing or the checksum fails.
     """
     root = Path(root)
     dest = root / "weights"
@@ -619,8 +619,39 @@ def _weight_archive_bytes(archive: Path, cache: Path, expected: str) -> bytes | 
     return _download_weights(cache, expected)
 
 
+def resolved_weights_url() -> str:
+    """URL to download when ``space-weights.tar.gz`` is not beside the app.
+
+    ``WEIGHTS_URL`` in the environment wins, then the Streamlit secret of the
+    same name, then the default constant. The SHA-256 check does not change.
+    """
+    override = os.environ.get("WEIGHTS_URL", "").strip()
+    if override:
+        return override
+    secret = _weights_url_secret()
+    if secret:
+        return secret
+    return WEIGHTS_URL
+
+
+def _weights_url_secret() -> str | None:
+    """Read ``WEIGHTS_URL`` from Streamlit secrets, or ``None`` when unset.
+
+    A missing secrets file raises. That is the normal case outside Community
+    Cloud, so any failure here falls through to the default URL.
+    """
+    try:
+        import streamlit as st
+
+        value = st.secrets["WEIGHTS_URL"]
+    except Exception:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
 def _download_weights(cache: Path, expected: str) -> bytes | None:
-    """Download ``WEIGHTS_URL`` into ``cache`` after the SHA-256 matches.
+    """Download the resolved weight URL into ``cache`` after the SHA-256 matches.
 
     Tests set ``MOVIELENS_ALLOW_DOWNLOAD=0`` so this returns before any network
     call. A checksum mismatch is not written to the cache.
@@ -632,7 +663,7 @@ def _download_weights(cache: Path, expected: str) -> bytes | None:
         if hashlib.sha256(cached).hexdigest() == expected:
             return cached
     try:
-        with urlopen(WEIGHTS_URL, timeout=120) as response:  # noqa: S310 — pinned URL
+        with urlopen(resolved_weights_url(), timeout=120) as response:  # noqa: S310
             payload = response.read()
     except Exception:
         return None
