@@ -262,6 +262,8 @@ def test_readme_panel_is_generated_from_the_payload():
     assert "`item_item_cosine`" in reading
     assert "0.5000" in reading
     assert "`als_tuned`" in reading
+    assert "has the highest novelty point estimate" in reading
+    assert "leads novelty" not in reading
     assert "8.0000" in reading
     assert "`most_popular`" in reading
     assert "100.0000" in reading
@@ -274,3 +276,58 @@ def test_readme_panel_is_generated_from_the_payload():
     assert "does not match" in text
     assert "0.2000 versus committed 0.2200" in text
     assert "versus headline 0.1900" in text
+    assert "overlaps" not in reading
+
+
+def test_readme_panel_states_novelty_overlap_and_ranker_trees():
+    root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(root / "scripts"))
+    from make_results_table import render_beyond_accuracy_payload
+
+    payload = _panel_payload()
+    payload["model_order"] = ["als_tuned", "two_tower", "lambdarank"]
+    als = payload["models"]["als_tuned"]
+    als["novelty@10"] = 9.84
+    als["confidence_intervals"]["novelty@10"] = {"mean": 9.84, "low": 9.82, "high": 9.86}
+    als["ndcg@10_matches_committed_at_4_decimals"] = True
+    two = {
+        **als,
+        "ndcg@10": 0.119078,
+        "novelty@10": 9.860291,
+        "coverage@10": 0.4,
+        "ndcg@10_committed": 0.119078,
+        "ndcg@10_headline": 0.119246,
+        "ndcg@10_matches_committed_at_4_decimals": True,
+        "ndcg@10_matches_headline_at_4_decimals": False,
+        "confidence_intervals": {
+            **als["confidence_intervals"],
+            "novelty@10": {"mean": 9.860291, "low": 9.8386, "high": 9.8841},
+            "ndcg@10": {"mean": 0.119078, "low": 0.115, "high": 0.123},
+        },
+    }
+    ranker = {
+        **als,
+        "ndcg@10": 0.129253,
+        "novelty@10": 9.5,
+        "ndcg@10_committed": 0.128786,
+        "ndcg@10_headline": 0.127264,
+        "ndcg@10_matches_committed_at_4_decimals": False,
+        "ndcg@10_matches_headline_at_4_decimals": False,
+        "hyperparameters": {"best_iteration": 126, "committed_best_iteration": 95},
+        "confidence_intervals": {
+            **als["confidence_intervals"],
+            "novelty@10": {"mean": 9.5, "low": 9.49, "high": 9.51},
+            "ndcg@10": {"mean": 0.129253, "low": 0.1248, "high": 0.1333},
+        },
+    }
+    payload["models"] = {"als_tuned": als, "two_tower": two, "lambdarank": ranker}
+    text = render_beyond_accuracy_payload(payload)
+    reading = next(block for block in text.split("\n\n") if "leads NDCG@10" in block)
+    assert "leads novelty" not in reading
+    assert "`two_tower` has the highest novelty point estimate" in reading
+    assert "its interval overlaps `als_tuned`" in reading
+    assert (
+        "It does not match for lambdarank: 0.129253 versus committed seed-42 "
+        "0.128786 (0.1293 versus 0.1288). Early stopping picked 126 trees versus "
+        "95 committed; hyperparameters and procedure unchanged."
+    ) in text

@@ -1108,9 +1108,10 @@ From `results/beyond-accuracy/ml-1m.json`. Definitions: [`docs/adr/0017-beyond-a
 | two_tower | 0.1191 [0.1150, 0.1230] | 0.4669 | 9.8603 [9.8386, 9.8841] | 0.6160 [0.6119, 0.6197] | 1175.1585 [1164.3297, 1186.3043] | 0.1040 [0.0999, 0.1084] | yes |
 | lambdarank | 0.1293 [0.1248, 0.1333] | 0.3870 | 9.5047 [9.4908, 9.5193] | 0.6424 [0.6385, 0.6461] | 1315.4293 [1305.6593, 1325.1133] | 0.0459 [0.0430, 0.0489] | no |
 
-`lambdarank` leads NDCG@10 at 0.1293 [0.1248, 0.1333], and `two_tower` leads novelty at 9.8603 [9.8386, 9.8841]. `two_tower` trades accuracy for novelty: its NDCG@10 is 0.1191 [0.1150, 0.1230] against `lambdarank` at 0.1293 [0.1248, 0.1333], with coverage 0.4669 versus 0.3870. `most_popular` is the most popularity-biased list (mean popularity 2325.9361 [2319.9340, 2331.5737], long-tail share 0.0000 [0.0000, 0.0000]).
+`lambdarank` leads NDCG@10 at 0.1293 [0.1248, 0.1333], and `two_tower` has the highest novelty point estimate at 9.8603 [9.8386, 9.8841]; its interval overlaps `als_tuned`. `two_tower` trades accuracy for novelty: its NDCG@10 is 0.1191 [0.1150, 0.1230] against `lambdarank` at 0.1293 [0.1248, 0.1333], with coverage 0.4669 versus 0.3870. `most_popular` is the most popularity-biased list (mean popularity 2325.9361 [2319.9340, 2331.5737], long-tail share 0.0000 [0.0000, 0.0000]).
 
-Recomputed NDCG@10 matches the committed value to 4 decimals for 6 of 7 models. It does not match for `lambdarank` 0.1293 versus committed 0.1288.
+Recomputed NDCG@10 matches the committed value to 4 decimals for 6 of 7 models.
+It does not match for lambdarank: 0.129253 versus committed seed-42 0.128786 (0.1293 versus 0.1288). Early stopping picked 126 trees versus 95 committed; hyperparameters and procedure unchanged.
 Headline NDCG@10 in `results/ml-1m.json` differs at 4 decimals for `two_tower` list 0.1191 versus headline 0.1192; `lambdarank` list 0.1293 versus headline 0.1273.
 
 Host: Linux 6.12.94+, x86_64, 4 CPUs, Python 3.12.3, SIMD AVX2, AVX512F, AVX512_ICL, AVX512_SKX, FMA3, SSE42.

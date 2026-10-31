@@ -2175,10 +2175,15 @@ def _beyond_reading(payload: dict) -> str:
     ndcg_leader = _leader("ndcg@10")
     novelty_leader = _leader("novelty@10")
     popularity_leader = _leader("mean_popularity@10")
+    overlap = _novelty_overlaps(models, order, novelty_leader)
+    overlap_clause = ""
+    if overlap:
+        named = " and ".join(f"`{name}`" for name in overlap)
+        overlap_clause = f"; its interval overlaps {named}"
     first = (
         f"`{ndcg_leader}` leads NDCG@10 at {_beyond_cell(models[ndcg_leader], 'ndcg@10')}, "
-        f"and `{novelty_leader}` leads novelty at "
-        f"{_beyond_cell(models[novelty_leader], 'novelty@10')}."
+        f"and `{novelty_leader}` has the highest novelty point estimate at "
+        f"{_beyond_cell(models[novelty_leader], 'novelty@10')}{overlap_clause}."
     )
     if ndcg_leader == novelty_leader:
         second = (
@@ -2206,6 +2211,36 @@ def _beyond_reading(payload: dict) -> str:
     return " ".join((first, second, third))
 
 
+def _novelty_overlaps(models: dict, order: list[str], leader: str) -> list[str]:
+    """Other models whose novelty interval overlaps the leader's."""
+    bounds = models[leader]["confidence_intervals"]["novelty@10"]
+    low, high = float(bounds["low"]), float(bounds["high"])
+    overlapped = []
+    for name in order:
+        if name == leader:
+            continue
+        other = models[name]["confidence_intervals"]["novelty@10"]
+        other_low, other_high = float(other["low"]), float(other["high"])
+        if other_low <= high and low <= other_high:
+            overlapped.append(name)
+    return overlapped
+
+
+def _lambdarank_mismatch(block: dict) -> str:
+    """Seed-42 NDCG miss, with both tree counts read from the JSON."""
+    hp = block["hyperparameters"]
+    got = float(block["ndcg@10"])
+    committed = float(block["ndcg@10_committed"])
+    trees = int(hp["best_iteration"])
+    committed_trees = int(hp["committed_best_iteration"])
+    return (
+        f"It does not match for lambdarank: {_fmt6(got)} versus committed seed-42 "
+        f"{_fmt6(committed)} ({_fmt(got)} versus {_fmt(committed)}). "
+        f"Early stopping picked {trees} trees versus {committed_trees} committed; "
+        "hyperparameters and procedure unchanged."
+    )
+
+
 def _beyond_match_lines(payload: dict) -> list[str]:
     models = payload["models"]
     order = list(payload["model_order"])
@@ -2221,17 +2256,25 @@ def _beyond_match_lines(payload: dict) -> list[str]:
             f"for all {len(order)} models."
         ]
     else:
+        others = [name for name in missed if name != "lambdarank"]
         bits = [
             f"`{name}` {_fmt(float(models[name]['ndcg@10']))} versus committed "
             f"{_fmt(float(models[name]['ndcg@10_committed']))}"
-            for name in missed
+            for name in others
         ]
-        lines = [
+        lead = (
             "Recomputed NDCG@10 matches the committed value to 4 decimals "
-            f"for {len(matched)} of {len(order)} models. It does not match for "
-            + "; ".join(bits)
-            + "."
-        ]
+            f"for {len(matched)} of {len(order)} models."
+        )
+        if bits and "lambdarank" not in missed:
+            lines = [lead + " It does not match for " + "; ".join(bits) + "."]
+        elif bits:
+            lines = [
+                lead + " It does not match for " + "; ".join(bits) + ".",
+                _lambdarank_mismatch(models["lambdarank"]),
+            ]
+        else:
+            lines = [lead, _lambdarank_mismatch(models["lambdarank"])]
     headline_miss = [
         name
         for name in order
