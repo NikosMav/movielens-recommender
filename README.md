@@ -1130,7 +1130,7 @@ Validation selected tfidf confidence, factors 64, regularization 1, iterations 3
 On this code the old ALS config scores 0.0906 [0.0874, 0.0940] and item–item scores 0.1201 [0.1158, 0.1242]; the paired retuned-minus-old difference is 0.0232 [0.0197, 0.0267] (excludes 0: yes) and the paired retuned-minus-item–item difference is -0.0063 [-0.0104, -0.0021] (excludes 0: yes).
 Negative result: retuned ALS still trails item–item on test NDCG@10, and the selected config sits on no edge of the values scored, after one step past the low factors edge (64), the high regularization edge (1) and the high iterations edge (30).
 
-Validation configs in the locked grid: 144. EASE had 8 and RP3beta had 125 in the committed ml-1m tuning file. Edge-extension trials scored: 3.
+Validation configs in the locked grid: 144. EASE had 8 and RP3beta had 125 in the committed ml-1m tuning file. Edge-extension trials scored after the base grid, under the ADR-0018 one-step rule: 3 (factors 32, regularization 10, iterations 60; all lower on validation).
 
 | model | validation NDCG@10 | test NDCG@10 | 95% CI | committed test NDCG@10 |
 | --- | --- | --- | --- | --- |

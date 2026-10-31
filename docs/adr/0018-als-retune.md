@@ -4,6 +4,8 @@
 
 Accepted. This is ADR-0018, the next number on main at `a1db6a0`, after ADR-0017 (beyond accuracy). The search space, the validation protocol, the budget rule, and the decision rule below are fixed before any retune validation score. A timing probe may shrink the grid before that search; it records no ranking metric. The outcome section is filled only after `results/als-retune/ml-1m.json` exists.
 
+Note: this ADR, the code and the results landed in a single commit, so the git history does not show the rules preceded the scores; the rules were written before the retune validation scores were computed.
+
 ## Context
 
 The committed ml-1m ALS model (`results/tuning/ml-1m.json`, 12 configs) has test NDCG@10 0.09062, which the README renders as 0.0906. Item–item cosine on the same split is 0.120135 (0.1201). EASE and the two-tower sit between them. The committed ALS winner is on three edges of that small grid: `factors=128` (high of `{32, 64, 128}`), `regularization=0.1` (high of `{0.01, 0.1}`), and `alpha=20` (low of `{20, 40}`). Iterations were fixed at 15. Confidence was only `1 + alpha * rating` on ratings of at least 4.
@@ -35,7 +37,7 @@ That leaves the gap ambiguous. It may be implicit ALS on this split, or it may b
 
 | axis | values | why these |
 | --- | --- | --- |
-| factors | 64, 128, 256 | 128 won the committed grid. 256 is one factor of two past it. 32 lost in every committed cell and is dropped. 64 stays |
+| factors | 64, 128, 256 | 128 won the committed grid. 256 is one factor of two past it. 32 lost in every committed cell and is dropped from the base grid; reachable only as the pre-registered edge step. 64 stays |
 | regularization | 0.01, 0.1, 1.0 | 0.1 won. 1.0 is one factor of ten past it, the same ratio as 0.01 → 0.1 |
 | alpha (`linear`, `log` only) | 10, 20, 40 | 20 won. 10 is one factor of two below it, the same ratio as 40 → 20. 40 stays |
 | iterations | 15, 30 | 15 was fixed before. 30 is twice that |

@@ -362,7 +362,41 @@ def test_readme_panel_is_three_sentences_from_the_json(tmp_path: Path):
         assert sentence in panel
     assert "Validation configs in the locked grid: 144." in panel
     assert "EASE had 8 and RP3beta had 125" in panel
+    assert "Edge-extension trials scored: 1." in panel
     assert render_als_retune(tmp_path / "missing.json") == ""
+
+    stepped_payload = _results_payload(negative=True, edges=[])
+    stepped_payload["budget"]["n_edge_extensions"] = 2
+    stepped_payload["edge_extension_trials"] = [
+        {
+            "hyperparams": {
+                "confidence": "linear",
+                "factors": 16,
+                "iterations": 30,
+                "regularization": 0.1,
+                "alpha": 10.0,
+            },
+            "val_ndcg@10": 0.05,
+        },
+        {
+            "hyperparams": {
+                "confidence": "linear",
+                "factors": 256,
+                "iterations": 30,
+                "regularization": 5.0,
+                "alpha": 10.0,
+            },
+            "val_ndcg@10": 0.06,
+        },
+    ]
+    stepped_path = tmp_path / "with-edges.json"
+    stepped_path.write_text(json.dumps(stepped_payload), encoding="utf-8")
+    stepped_panel = render_als_retune(stepped_path)
+    assert (
+        "Edge-extension trials scored after the base grid, under the ADR-0018 "
+        "one-step rule: 2 (factors 16, regularization 5; all lower on validation)."
+        in stepped_panel
+    )
 
     clear = _results_payload(negative=False, edges=[])
     assert "does not trail" in als_retune_reading(clear)[2]

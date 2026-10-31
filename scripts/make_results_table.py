@@ -2475,6 +2475,50 @@ def _retune_table_cell(value: float | None) -> str:
     return _fmt(float(value))
 
 
+def _extension_label(trial_hp: dict, winner_hp: dict) -> str:
+    """The axis this one-step trial moved, read from the two hyperparameter dicts."""
+    keys = ("factors", "regularization", "iterations", "alpha", "confidence")
+    changed = [key for key in keys if trial_hp.get(key) != winner_hp.get(key)]
+    if not changed:
+        changed = [key for key in trial_hp if trial_hp.get(key) != winner_hp.get(key)]
+    return ", ".join(f"{key} {_plain_num(trial_hp[key])}" for key in changed)
+
+
+def _edge_extension_sentence(
+    budget: dict,
+    trials: list,
+    winner_hp: dict,
+    winner_val: float,
+) -> str:
+    """Name each scored edge step. Counts and values come from the JSON."""
+    n = int(budget["n_edge_extensions"])
+    if not trials:
+        return f"Edge-extension trials scored: {n}."
+    labels = ", ".join(
+        _extension_label(trial["hyperparams"], winner_hp) for trial in trials
+    )
+    lower = all(float(trial["val_ndcg@10"]) < float(winner_val) for trial in trials)
+    comparison = "all lower on validation" if lower else "not all lower on validation"
+    return (
+        "Edge-extension trials scored after the base grid, under the ADR-0018 "
+        f"one-step rule: {n} ({labels}; {comparison})."
+    )
+
+
+def _edge_extension_trials(payload: dict, path: Path) -> list:
+    """Trials on the payload, else the tuning file for the committed results path."""
+    if "edge_extension_trials" in payload:
+        return list(payload["edge_extension_trials"])
+    default = (RESULTS_DIR / "als-retune" / "ml-1m.json").resolve()
+    if path.resolve() != default:
+        return []
+    tuning_path = RESULTS_DIR / "tuning" / "als_retune_ml-1m.json"
+    if not tuning_path.is_file():
+        return []
+    tuning = json.loads(tuning_path.read_text(encoding="utf-8"))
+    return list(tuning.get("edge_extension_trials") or [])
+
+
 def render_als_retune(path: Path | None = None) -> str:
     """ALS retune panel (ADR-0018). Empty when the results file is absent.
 
@@ -2486,6 +2530,13 @@ def render_als_retune(path: Path | None = None) -> str:
     payload = json.loads(path.read_text(encoding="utf-8"))
     budget = payload["budget"]
     models = payload["models"]
+    selected = payload["selected"]
+    edge_sentence = _edge_extension_sentence(
+        budget,
+        _edge_extension_trials(payload, path),
+        selected["hyperparams"],
+        float(selected["val_ndcg@10"]),
+    )
     lines = [
         "### Implicit ALS retune (`ml-1m`)",
         "",
@@ -2504,7 +2555,7 @@ def render_als_retune(path: Path | None = None) -> str:
         f"Validation configs in the locked grid: {int(budget['n_configs'])}. "
         f"EASE had {int(budget['ease_configs'])} and RP3beta had "
         f"{int(budget['rp3beta_configs'])} in the committed ml-1m tuning file. "
-        f"Edge-extension trials scored: {int(budget['n_edge_extensions'])}."
+        f"{edge_sentence}"
         f"{cut_text}"
     )
     lines.append("")
