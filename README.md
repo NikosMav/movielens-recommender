@@ -1138,4 +1138,26 @@ Validation configs in the locked grid: 144. EASE had 8 and RP3beta had 125 in th
 | retuned ALS | 0.0797 | 0.1138 | [0.1099, 0.1181] | — |
 | item–item cosine | — | 0.1201 | [0.1158, 0.1242] | 0.1201 |
 
+### SASRec (`ml-1m`)
+
+From `results/sasrec/ml-1m.json`, with the grid in `results/tuning/sasrec_ml-1m.json`. Selection is validation NDCG@10 on the existing split. Test is scored once. The shuffled model keeps the selected hyperparameters and permutes each window (ADR-0019). The SASRec test column is the mean across test seeds, and its interval is the primary seed.
+
+Validation selected max_seq_len 50, n_layers 3, dropout 0.5, d_model 64, n_heads 1 at best epoch 30, equal to max_epochs (30), so the model may be under-trained at this budget, with NDCG@10 0.0505 [0.0475, 0.0535]; its sealed test NDCG@10 is 0.0924 across seeds (std 0.0014), and the primary seed is 0.0929 [0.0889, 0.0967].
+The shuffled-order model scores 0.0892 [0.0852, 0.0930]; the paired real-minus-shuffled difference is 0.0037 [0.0024, 0.0052] (excludes 0: yes); on this run the two-tower scores 0.1191 [0.1150, 0.1230] and LambdaRank scores 0.1293 [0.1248, 0.1333] (best iteration 126); the paired SASRec-minus-two-tower difference is -0.0261 [-0.0306, -0.0214] (excludes 0: yes) and the paired SASRec-minus-LambdaRank difference is -0.0363 [-0.0408, -0.0319] (excludes 0: yes); published headline NDCG@10 is 0.1192 for the two-tower and 0.1273 for LambdaRank.
+SASRec's coverage@10 of 0.0327 is close to most-popular's 0.0325, and its test NDCG@10 of 0.0924 is near most-popular's 0.0895.
+Order helps on this split by a small margin: +0.0037 NDCG@10, about 4% relative.
+The low max_seq_len edge (50) stays unresolved: ADR-0019 does not extend it, and max_seq_len 200 was scored and lost (best validation NDCG@10 0.0496). The selected config sits on the high n_layers edge (3), and no second step was allowed.
+Test NDCG is higher than validation for every model on this split, because the test slice is twice the size (test fraction 0.2, validation fraction 0.1) and the test model is refit on full train.
+
+Validation configs in the locked grid: 8. The two-tower grid had 8 and EASE had 8. Edge-extension trials scored after the base grid, under the ADR-0019 one-step rule: 2 (the n_layers step scored higher (validation NDCG@10 0.0505) and replaced the leader; the dropout step scored lower (validation NDCG@10 0.0481)).
+
+Seeds: tuning 42, test 42, 43 and 44, shuffle 42, bootstrap 42.
+
+| model | validation NDCG@10 | test NDCG@10 | 95% CI |
+| --- | --- | --- | --- |
+| SASRec | 0.0505 | 0.0924 | [0.0889, 0.0967] |
+| SASRec shuffled | — | 0.0892 | [0.0852, 0.0930] |
+| two-tower | — | 0.1191 | [0.1150, 0.1230] |
+| LambdaRank | — | 0.1293 | [0.1248, 0.1333] |
+
 <!-- END RESULTS TABLE -->
