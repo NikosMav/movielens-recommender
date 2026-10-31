@@ -1,9 +1,10 @@
-"""MovieLens demo for a Hugging Face Space. Loads parameters; it does not train.
+"""MovieLens demo for Streamlit Community Cloud. Loads parameters; it does not train.
 
-Push this directory as the Space repository root. ``MOVIELENS_ARTIFACTS`` and
+The entrypoint is this file. ``MOVIELENS_ARTIFACTS`` and
 ``MOVIELENS_COLD_ARTIFACTS`` point at full snapshots (the test path). Otherwise
-the page reads ``space-weights.tar.gz`` beside this file, checks its SHA-256,
-extracts it into ``weights/``, and rebuilds the snapshots after downloading ml-1m.
+the page reads ``space-weights.tar.gz`` beside this file, or downloads the
+pinned release archive, checks its SHA-256, extracts it into ``weights/``, and
+rebuilds the snapshots after downloading ml-1m.
 """
 
 from __future__ import annotations
@@ -62,7 +63,9 @@ def _usable_snapshot(path: Path) -> bool:
 @st.cache_resource(show_spinner="Loading the fitted model…")
 def _load(path_str: str):
     from movielens_recommender.serving.bundle import load_bundle, user_summaries
+    from runtime import use_sparse_item_item_loader
 
+    use_sparse_item_item_loader()
     bundle = load_bundle(path_str)
     return bundle, user_summaries(bundle)
 
@@ -70,7 +73,9 @@ def _load(path_str: str):
 @st.cache_resource(show_spinner="Loading the new-user model…")
 def _load_cold(path_str: str):
     from movielens_recommender.serving.cold import load_cold_start_bundle
+    from runtime import use_sparse_item_item_loader
 
+    use_sparse_item_item_loader()
     return load_cold_start_bundle(path_str)
 
 
@@ -128,10 +133,10 @@ def _missing(prod: Path, cold: Path) -> None:
     )
     st.code("make space-snapshot", language="bash")
     st.markdown(
-        "Pack that `weights/` directory as `space-weights.tar.gz`, copy it "
-        "next to `app.py`, then `git lfs install`, add, and push `space/` "
-        "as the Hugging Face Space root. The Space extracts the archive "
-        "into `weights/` and downloads ml-1m from GroupLens. It does not train."
+        "Pack that `weights/` directory as `space-weights.tar.gz` and place it "
+        "next to `app.py`, or publish that archive at the pinned release URL. "
+        "The app extracts it into `weights/` and downloads ml-1m from GroupLens. "
+        "It does not train."
     )
     st.caption(f"Looked in `{prod}` and `{cold}`.")
 
