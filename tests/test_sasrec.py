@@ -478,12 +478,37 @@ def test_readme_panel_is_three_sentences_from_the_json(tmp_path: Path) -> None:
     assert "Seeds: tuning 42, test 42, 43 and 44, shuffle 42, bootstrap 42." in panel
     assert (
         "Edge-extension trials scored after the base grid, under the ADR-0019 "
-        "one-step rule: 1 (max_seq_len 50, n_layers 2, dropout 0.8 "
-        "(validation NDCG@10 0.0500); all lower on validation)."
+        "one-step rule: 1 (the dropout step scored lower "
+        "(validation NDCG@10 0.0500))."
     ) in panel
     assert "| SASRec | 0.1810 | 0.3300 | [0.3000, 0.3600] |" in panel
     assert render_sasrec(tmp_path / "missing.json") == ""
-    assert render_sasrec() == render_sasrec()
+    rendered = render_sasrec()
+    results_path = ROOT / "results" / "sasrec" / "ml-1m.json"
+    if not results_path.is_file():
+        assert rendered == ""
+    else:
+        assert rendered.strip()
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        start = readme.index("### SASRec (`ml-1m`)")
+        end = readme.index("<!-- END RESULTS TABLE -->", start)
+        assert rendered.strip() == readme[start:end].strip()
+        committed = json.loads(results_path.read_text(encoding="utf-8"))
+        headline = json.loads((ROOT / "results" / "ml-1m.json").read_text(encoding="utf-8"))
+        delta = float(committed["paired"]["real_minus_shuffled"]["mean"])
+        shuffled_ndcg = float(committed["models"]["sasrec_shuffled"]["ndcg@10"])
+        relative = int(round(100.0 * delta / shuffled_ndcg))
+        assert f"+{_fmt(delta)} NDCG@10, about {relative}% relative" in rendered
+        popular = headline["metrics"]["most_popular"]
+        sasrec = committed["models"]["sasrec"]
+        assert f"coverage@10 of {_fmt(float(sasrec['metrics']['coverage@10']))}" in rendered
+        assert f"most-popular's {_fmt(float(popular['coverage@10']))}" in rendered
+        assert f"most-popular's {_fmt(float(popular['ndcg@10']))}" in rendered
+        assert "stays unresolved" in rendered
+        assert "replaced the leader" in rendered
+        assert "the dropout step scored lower" in rendered
+        assert "under-trained" in rendered
+        assert "twice the size" in rendered
 
     clear = _results_payload(negative=False, edges=[])
     assert sasrec_reading(clear)[2].startswith("Order helps on this split")

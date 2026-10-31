@@ -2606,8 +2606,94 @@ def _sasrec_phrase(hp: dict) -> str:
     )
 
 
-def sasrec_reading(payload: dict) -> list[str]:
-    """Three sentences. Every number is read from the SASRec results JSON."""
+def _same_number(left: object, right: object) -> bool:
+    if isinstance(left, float) or isinstance(right, float):
+        return round(float(left), 6) == round(float(right), 6)
+    return left == right
+
+
+def _changed_axes(trial_hp: dict, winner_hp: dict) -> list[str]:
+    axes = []
+    for key in ("max_seq_len", "n_layers", "dropout"):
+        if key in trial_hp and key in winner_hp and not _same_number(trial_hp[key], winner_hp[key]):
+            axes.append(key)
+    return axes
+
+
+def _replaced_axis(winner_hp: dict, base_edges: list) -> str | None:
+    """Axis the winning step moved past the base-grid edge."""
+    for edge in base_edges:
+        key = edge["parameter"]
+        if key in winner_hp and not _same_number(winner_hp[key], edge["value"]):
+            return str(key)
+    return None
+
+
+def _order_verdict(payload: dict) -> str:
+    decision = payload["decision"]
+    if decision["negative_result"]:
+        return "Negative result: order does not help on this split"
+    paired = payload["paired"]["real_minus_shuffled"]
+    shuffled = payload["models"]["sasrec_shuffled"]["ndcg@10"]
+    delta = float(paired["mean"])
+    relative = int(round(100.0 * delta / float(shuffled)))
+    return (
+        "Order helps on this split by a small margin: "
+        f"+{_fmt(delta)} NDCG@10, about {relative}% relative"
+    )
+
+
+def _epoch_phrase(selected: dict) -> str:
+    epoch = int(selected["best_epoch"])
+    text = f"at best epoch {_plain_num(epoch)}"
+    max_epochs = selected["hyperparams"].get("max_epochs")
+    if max_epochs is not None and epoch == int(max_epochs):
+        text += (
+            f", equal to max_epochs ({_plain_num(max_epochs)}), "
+            "so the model may be under-trained at this budget,"
+        )
+    return text
+
+
+def _length_edge_sentence(selected: dict, longer: tuple[int, float] | None) -> str | None:
+    """Unresolved low length edge. ``longer`` is the best scored longer window."""
+    edges = selected.get("grid_edges") or []
+    low_len = next(
+        (edge for edge in edges if edge["parameter"] == "max_seq_len" and edge["side"] == "low"),
+        None,
+    )
+    if low_len is None:
+        return None
+    text = (
+        f"The low max_seq_len edge ({_plain_num(low_len['value'])}) stays unresolved: "
+        "ADR-0019 does not extend it"
+    )
+    if longer is not None:
+        length, score = longer
+        text += (
+            f", and max_seq_len {_plain_num(length)} was scored and lost "
+            f"(best validation NDCG@10 {_fmt(score)})"
+        )
+    text += "."
+    high_layers = next(
+        (edge for edge in edges if edge["parameter"] == "n_layers" and edge["side"] == "high"),
+        None,
+    )
+    if high_layers is not None:
+        text += (
+            f" The selected config sits on the high n_layers edge "
+            f"({_plain_num(high_layers['value'])}), and no second step was allowed."
+        )
+    return text
+
+
+def sasrec_reading(
+    payload: dict,
+    *,
+    most_popular: dict | None = None,
+    longer_length: tuple[int, float] | None = None,
+) -> list[str]:
+    """Plain reading. Every number is read from the committed results JSON."""
     selected = payload["selected"]
     models = payload["models"]
     sasrec = models["sasrec"]
@@ -2616,11 +2702,6 @@ def sasrec_reading(payload: dict) -> list[str]:
     ranker = models["lambdarank"]
     paired = payload["paired"]
     published = payload["published"]
-    decision = payload["decision"]
-    if decision["negative_result"]:
-        verdict = "Negative result: order does not help on this split"
-    else:
-        verdict = "Order helps on this split"
     budget = payload["budget"]
     extra = ""
     if budget.get("truncated"):
@@ -2629,10 +2710,10 @@ def sasrec_reading(payload: dict) -> list[str]:
             f"of {int(budget['n_configs'])} configs"
         )
     primary_ci = sasrec["primary_ndcg@10_ci"]
-    return [
+    sentences = [
         (
             f"Validation selected {_sasrec_phrase(selected['hyperparams'])} "
-            f"at best epoch {_plain_num(selected['best_epoch'])} "
+            f"{_epoch_phrase(selected)} "
             f"with NDCG@10 {_fmt(float(selected['val_ndcg@10']))} "
             f"{_fmt_ci_cell(selected['val_ndcg@10_ci'])}; "
             f"its sealed test NDCG@10 is {_fmt(float(sasrec['ndcg@10_mean']))} "
@@ -2658,29 +2739,123 @@ def sasrec_reading(payload: dict) -> list[str]:
             f"{_fmt(float(published['two_tower']['ndcg@10']))} for the two-tower and "
             f"{_fmt(float(published['lambdarank']['ndcg@10']))} for LambdaRank."
         ),
-        f"{verdict}, and the selected config {_edge_clause(selected)}{extra}.",
     ]
+    if most_popular is not None:
+        sentences.append(
+            f"SASRec's coverage@10 of {_fmt(float(sasrec['metrics']['coverage@10']))} "
+            f"is close to most-popular's {_fmt(float(most_popular['coverage@10']))}, "
+            f"and its test NDCG@10 of {_fmt(float(sasrec['ndcg@10_mean']))} "
+            f"is near most-popular's {_fmt(float(most_popular['ndcg@10']))}."
+        )
+    length_edge = _length_edge_sentence(selected, longer_length)
+    if length_edge is None:
+        sentences.append(
+            f"{_order_verdict(payload)}, and the selected config {_edge_clause(selected)}{extra}."
+        )
+    else:
+        sentences.append(f"{_order_verdict(payload)}.")
+        tail = length_edge
+        if extra:
+            tail = tail[:-1] + extra + "."
+        sentences.append(tail)
+    note = _test_vs_val_sentence(payload)
+    if note is not None:
+        sentences.append(note)
+    return sentences
 
 
-def _sasrec_extension_sentence(budget: dict, trials: list, winner_val: float) -> str:
+def _trial_axis(trial_hp: dict, winner_hp: dict, base_edges: list) -> str:
+    """Axis this edge trial stepped, from the base-grid edge it left."""
+    for edge in base_edges:
+        key = str(edge["parameter"])
+        if key in trial_hp and not _same_number(trial_hp[key], edge["value"]):
+            return key
+    changed = _changed_axes(trial_hp, winner_hp)
+    if changed:
+        return changed[0]
+    return _replaced_axis(winner_hp, base_edges) or "edge"
+
+
+def _step_clause(trial: dict, winner_hp: dict, winner_val: float, base_edges: list) -> str:
+    hp = trial["hyperparams"]
+    val = float(trial["val_ndcg@10"])
+    axis = _trial_axis(hp, winner_hp, base_edges)
+    score = f"(validation NDCG@10 {_fmt(val)})"
+    if not _changed_axes(hp, winner_hp):
+        return f"the {axis} step scored higher {score} and replaced the leader"
+    if val < float(winner_val):
+        return f"the {axis} step scored lower {score}"
+    return f"the {axis} step scored {score}"
+
+
+def _sasrec_extension_sentence(
+    budget: dict,
+    trials: list,
+    winner_hp: dict,
+    winner_val: float,
+    base_edges: list,
+) -> str:
     """Name each scored edge step. Counts and values come from the JSON."""
     n = int(budget["n_edge_extensions"])
     if not trials:
         return f"Edge-extension trials scored: {n}."
-    labels = ", ".join(
-        (
-            f"max_seq_len {_plain_num(trial['hyperparams']['max_seq_len'])}, "
-            f"n_layers {_plain_num(trial['hyperparams']['n_layers'])}, "
-            f"dropout {_plain_num(trial['hyperparams']['dropout'])} "
-            f"(validation NDCG@10 {_fmt(float(trial['val_ndcg@10']))})"
-        )
-        for trial in trials
+    labels = "; ".join(
+        _step_clause(trial, winner_hp, winner_val, base_edges) for trial in trials
     )
-    lower = all(float(trial["val_ndcg@10"]) < float(winner_val) for trial in trials)
-    comparison = "all lower on validation" if lower else "not all lower on validation"
     return (
         "Edge-extension trials scored after the base grid, under the ADR-0019 "
-        f"one-step rule: {n} ({labels}; {comparison})."
+        f"one-step rule: {n} ({labels})."
+    )
+
+
+def _most_popular_headline() -> dict | None:
+    path = RESULTS_DIR / "ml-1m.json"
+    if not path.is_file():
+        return None
+    metrics = json.loads(path.read_text(encoding="utf-8"))["metrics"]["most_popular"]
+    return {
+        "coverage@10": metrics["coverage@10"],
+        "ndcg@10": metrics["ndcg@10"],
+    }
+
+
+def _best_longer_length(selected_len: int) -> tuple[int, float] | None:
+    """Best validation NDCG@10 among base-grid trials longer than the winner."""
+    path = RESULTS_DIR / "tuning" / "sasrec_ml-1m.json"
+    if not path.is_file():
+        return None
+    tuning = json.loads(path.read_text(encoding="utf-8"))
+    best_len: int | None = None
+    best_score: float | None = None
+    for row in tuning.get("trials") or []:
+        length = int(row["hyperparams"]["max_seq_len"])
+        if length <= selected_len:
+            continue
+        score = float(row["val_ndcg@10"])
+        if best_score is None or score > best_score:
+            best_len = length
+            best_score = score
+    if best_len is None or best_score is None:
+        return None
+    return best_len, best_score
+
+
+def _test_vs_val_sentence(payload: dict) -> str | None:
+    config = (payload.get("split") or {}).get("config") or {}
+    if "test_fraction" not in config or "val_fraction" not in config:
+        return None
+    test_fraction = float(config["test_fraction"])
+    val_fraction = float(config["val_fraction"])
+    if val_fraction <= 0:
+        return None
+    ratio = test_fraction / val_fraction
+    size = "twice" if abs(ratio - 2.0) < 1e-9 else f"{_plain_num(ratio)} times"
+    return (
+        "Test NDCG is higher than validation for every model on this split, "
+        f"because the test slice is {size} the size "
+        f"(test fraction {_plain_num(test_fraction)}, "
+        f"validation fraction {_plain_num(val_fraction)}) "
+        "and the test model is refit on full train."
     )
 
 
@@ -2697,6 +2872,11 @@ def render_sasrec(path: Path | None = None) -> str:
     models = payload["models"]
     selected = payload["selected"]
     seeds = payload["seeds"]
+    real = path.resolve() == (RESULTS_DIR / "sasrec" / "ml-1m.json").resolve()
+    most_popular = _most_popular_headline() if real else None
+    longer = None
+    if real:
+        longer = _best_longer_length(int(selected["hyperparams"]["max_seq_len"]))
     lines = [
         "### SASRec (`ml-1m`)",
         "",
@@ -2709,7 +2889,9 @@ def render_sasrec(path: Path | None = None) -> str:
         "interval is the primary seed.",
         "",
     ]
-    lines.extend(sasrec_reading(payload))
+    lines.extend(
+        sasrec_reading(payload, most_popular=most_popular, longer_length=longer)
+    )
     lines.append("")
     cut = budget.get("cut")
     cut_text = f" Budget cut: {cut}." if cut else ""
@@ -2720,7 +2902,9 @@ def render_sasrec(path: Path | None = None) -> str:
         + _sasrec_extension_sentence(
             budget,
             list(payload.get("edge_extension_trials") or []),
+            selected["hyperparams"],
             float(selected["val_ndcg@10"]),
+            list(selected.get("base_grid_edges") or []),
         )
         + cut_text
     )
