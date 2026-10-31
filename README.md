@@ -204,7 +204,7 @@ This prevents within-user leakage but not cross-user, global temporal leakage: o
 | Diagnostics | Catalog coverage@k, mean train popularity of recommended items |
 | Segments | NDCG@10 by user-activity tercile, and by head/tail item (head = top 20% of train items by popularity) |
 
-Metrics are averaged over eligible test users, with 95% bootstrap intervals over users (1000 resamples, seed from config). Catalog coverage is a point estimate only, because a user-level bootstrap is not valid for a set-union statistic (ADR-0003). Item-segment metrics restrict both relevant and recommended items to the segment.
+Metrics are averaged over eligible test users, with 95% bootstrap intervals over users (1000 resamples, seed from config). Catalog coverage is a point estimate only, because a user-level bootstrap is not valid for a set-union statistic (ADR-0003). Item-segment metrics restrict both relevant and recommended items to the segment. Novelty, intra-list diversity, and long-tail share are defined in [ADR-0017](docs/adr/0017-beyond-accuracy.md) and reported for ml-1m in the Results section.
 
 ## Models
 
@@ -235,6 +235,7 @@ movielens-recommender run --config configs/default.yaml   # ml-latest-small
 movielens-recommender run --config configs/ml-1m.yaml
 movielens-recommender run --config configs/ml-32m.yaml    # long; budget in ADR-0011
 movielens-recommender drift-study --config configs/ml-1m.yaml   # S6 replay, about 3 min
+python scripts/run_beyond_accuracy.py                     # ADR-0017, ml-1m only
 python scripts/make_results_table.py                      # regenerate the Results section
 ```
 
