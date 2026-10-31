@@ -540,26 +540,26 @@ def train_two_tower(
                 stale = 0
             else:
                 stale += 1
-            if stale >= patience:
-                history.append(record)
-                if ckpt_path is not None:
-                    _save_epoch_checkpoint(
-                        ckpt_path,
-                        _epoch_payload(
-                            epoch,
-                            model,
-                            opt,
-                            best_state,
-                            best_epoch,
-                            best_val,
-                            stale,
-                            history,
-                            prior_wall,
-                            t0,
-                            finished=True,
-                        ),
-                    )
-                break
+                if stale >= patience:
+                    history.append(record)
+                    if ckpt_path is not None:
+                        _save_epoch_checkpoint(
+                            ckpt_path,
+                            _epoch_payload(
+                                epoch,
+                                model,
+                                opt,
+                                best_state,
+                                best_epoch,
+                                best_val,
+                                stale,
+                                history,
+                                prior_wall,
+                                t0,
+                                finished=True,
+                            ),
+                        )
+                    break
         elif show_progress:
             print(
                 f"    epoch {epoch}/{max_epochs} loss={mean_loss:.4f}",
