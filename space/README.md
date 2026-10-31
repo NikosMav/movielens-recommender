@@ -3,10 +3,8 @@ title: MovieLens recommender
 emoji: 🎬
 colorFrom: blue
 colorTo: indigo
-sdk: streamlit
-sdk_version: 1.65.0
-app_file: app.py
-python_version: "3.12"
+sdk: docker
+app_port: 8501
 license: mit
 short_description: ml-1m ranker and new-user recommendations
 ---
@@ -25,21 +23,17 @@ The GroupLens ml-1m README says the dataset may be used for research under these
 
 ## Weights
 
-`weights/` is not in the GitHub tree. From a checkout of [NikosMav/movielens-recommender](https://github.com/NikosMav/movielens-recommender), with the `rank`, `deep`, and `ui` extras installed:
+This folder does not contain model parameters. At startup the app downloads one archive from `WEIGHTS_URL` in `runtime.py` and checks `WEIGHTS_SHA256`. The archive holds item–item and EASE similarity, the two-tower state dict, LightGBM trees, and the item-id column order. It has no rating rows and no user ids. The page then downloads ml-1m from GroupLens and rebuilds the tables those parameters need. It does not train.
 
-```bash
-make space-snapshot
-```
+If the weight download or the checksum fails, the page shows `make space-snapshot` and stops. It does not download MovieLens in that case.
 
-That writes `space/weights/production/` and `space/weights/cold_start/`. The files are model parameters (similarity matrices, a torch state dict, LightGBM trees) plus the item-id column order. They do not include rating rows or titles. The command prints each file's size in bytes. It does not rewrite `results/`.
-
-Without those files the app starts and shows the build command. It does not download MovieLens and it does not fit a model.
+`make space-snapshot`, from a checkout of [NikosMav/movielens-recommender](https://github.com/NikosMav/movielens-recommender) with the `rank`, `deep`, and `ui` extras, is how that archive is built. It writes gitignored `space/weights/` and does not rewrite `results/`. Pushing this folder does not require that command and does not require the extras.
 
 ## Push this folder
 
-Create a public Streamlit Space named `NikosMav/movielens-recommender` in the browser and choose the free CPU (`cpu-basic`). Hardware is set there. A `hardware` key in this file is ignored.
+Create a public Docker Space named `NikosMav/movielens-recommender` in the browser and choose the free CPU (`cpu-basic`). Hardware is set there. A `hardware` key in this file is ignored. The built-in Streamlit SDK was deprecated on 2025-04-30, so this Space uses `sdk: docker` and `app_port: 8501`. The `Dockerfile` listens on 8501 and does not copy weights.
 
-Then push **this directory** as that Space's repository root, after `make space-snapshot` so `weights/` is included. Authenticate with your Hugging Face account when Git asks. There is no deploy script and no token in this repo.
+Push **this directory** as that Space's repository root. Authenticate with your Hugging Face account when Git asks. There is no deploy script and no token in this repo.
 
 ```bash
 cd space
@@ -50,10 +44,8 @@ git remote add origin https://huggingface.co/spaces/NikosMav/movielens-recommend
 git push -u origin main
 ```
 
-`space/.gitignore` ignores a local download (`data/`) and the rebuilt runtime tables (`.runtime/`). It does not ignore `weights/`. If the Hub already created a starter commit, pull that commit into this repo before the push.
+`space/.gitignore` ignores a local download (`data/`), rebuilt runtime tables (`.runtime/`), and `weights/`. If the Hub already created a starter commit, pull that commit into this repo before the push.
 
 The link stays pending until that push: https://huggingface.co/spaces/NikosMav/movielens-recommender
 
-Hugging Face deprecated the built-in Streamlit SDK on 2025-04-30. This file still sets `sdk: streamlit`, which is the SDK this demo is built for. If the Hub rejects it, the fallback is `sdk: docker` with `app_port: 8501` and the `Dockerfile` in this folder. That image listens on 8501 and its build fails if `weights/` is absent. Do not switch the committed front matter unless the Streamlit SDK is refused.
-
-`requirements.txt` installs the library from GitHub at `23ab9515a3cbc0a18471d0fd36d03ae56b96a641`, plus CPU PyTorch 2.6.0, LightGBM 4.6.0, and Streamlit 1.65.0. `packages.txt` installs `libgomp1` for LightGBM.
+`requirements.txt` installs the library from GitHub at `23ab9515a3cbc0a18471d0fd36d03ae56b96a641`, plus CPU PyTorch 2.6.0, LightGBM 4.6.0, and Streamlit 1.65.0. The image installs `libgomp1` for LightGBM.

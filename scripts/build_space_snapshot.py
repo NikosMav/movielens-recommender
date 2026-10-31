@@ -35,7 +35,8 @@ from movielens_recommender.cold_start_rank import (
     simulated_queries,
 )
 from movielens_recommender.config import load_config
-from movielens_recommender.data import DATASET_SHA256, load_movies, load_ratings
+from movielens_recommender.data import DATASET_SHA256, load_ratings
+from movielens_recommender.movies import load_movies
 from movielens_recommender.ranker.features import build_feature_context
 from movielens_recommender.ranker.train import fit_lambdarank, lgb_params
 from movielens_recommender.serving.build import build_artifacts, git_sha

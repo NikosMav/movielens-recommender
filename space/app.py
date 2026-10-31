@@ -291,6 +291,16 @@ def _new_user(path: Path) -> None:
     _show_list(result["recommendations"], explain=True)
 
 
+def _downloaded_weights() -> Path | None:
+    """Use a local ``weights/`` directory, otherwise the pinned archive."""
+    local = _weights_root()
+    if (local / "production" / "manifest.json").is_file():
+        return local
+    from runtime import fetch_space_weights
+
+    return fetch_space_weights(_runtime_root() / "downloaded-weights")
+
+
 def _resolve() -> tuple[Path, Path] | None:
     prod_env = os.environ.get("MOVIELENS_ARTIFACTS")
     cold_env = os.environ.get("MOVIELENS_COLD_ARTIFACTS")
@@ -298,10 +308,17 @@ def _resolve() -> tuple[Path, Path] | None:
         prod = Path(prod_env)
         cold = Path(cold_env) if cold_env else prod / "cold_start"
         return prod, cold
-    if (_weights_root() / "production" / "manifest.json").is_file():
-        prod_str, cold_str = _materialize(str(_weights_root()), str(_runtime_root()))
-        return Path(prod_str), Path(cold_str)
-    return None
+    try:
+        weights = _downloaded_weights()
+    except Exception:
+        return None
+    if weights is None:
+        return None
+    try:
+        prod_str, cold_str = _materialize(str(weights), str(_runtime_root()))
+    except Exception:
+        return None
+    return Path(prod_str), Path(cold_str)
 
 
 def main() -> None:

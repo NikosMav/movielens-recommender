@@ -1,6 +1,5 @@
-# Fallback only. The committed Space front matter is sdk:streamlit.
-# Build this if the Hub rejects that SDK. The context is space/ as the
-# repository root, and the build fails if weights/ was not included.
+# Hugging Face Space image. The build context is this directory as the
+# repository root. Model parameters are not copied; the app downloads them.
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -18,7 +17,6 @@ COPY requirements.txt ./
 RUN pip install -r requirements.txt
 
 COPY app.py runtime.py ./
-COPY weights/ weights/
 
 EXPOSE 8501
 

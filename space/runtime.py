@@ -9,10 +9,14 @@ are rebuilt from a GroupLens download (or from a caller-supplied frame in tests)
 
 from __future__ import annotations
 
+import hashlib
+import io
 import json
 import re
+import tarfile
 from pathlib import Path
 from typing import Any
+from urllib.request import urlopen
 
 import numpy as np
 import pandas as pd
@@ -40,6 +44,13 @@ from movielens_recommender.two_tower.model import TwoTowerModel
 from movielens_recommender.two_tower.recommender import TwoTowerRecommender
 
 SPACE_WEIGHTS_VERSION = 1
+
+# One URL. The archive is not in git. SHA-256 is of the gzip bytes.
+WEIGHTS_URL = (
+    "https://github.com/NikosMav/movielens-recommender/releases/download/"
+    "space-weights-v1/space-weights.tar.gz"
+)
+WEIGHTS_SHA256 = "f6cbc0d77d435834493b85835215211874307d827ac2910121894bb56be7dbfd"
 
 # Files a full serving snapshot writes that must not be uploaded with the Space.
 OMITTED_FILES: tuple[str, ...] = (
@@ -252,7 +263,8 @@ def materialize_space(
 
 
 def _download_ml1m(data_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, Path]:
-    from movielens_recommender.data import download_dataset, load_movies, load_ratings, load_users
+    from movielens_recommender.data import download_dataset, load_ratings, load_users
+    from movielens_recommender.movies import load_movies
 
     download_dataset("ml-1m", data_dir)
     ratings, _stats = load_ratings("ml-1m", data_dir, clean=True)
@@ -565,3 +577,52 @@ def _read_json(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"{path} is not a JSON object")
     return payload
+
+
+def fetch_space_weights(
+    dest: Path | str,
+    *,
+    url: str = WEIGHTS_URL,
+    sha256: str = WEIGHTS_SHA256,
+    timeout: float = 120,
+) -> Path | None:
+    """Download the weight archive, check SHA-256, and extract it.
+
+    Returns the directory that contains ``production/`` and ``cold_start/``,
+    or ``None`` when the download, checksum, or archive is unusable.
+    """
+    dest = Path(dest)
+    try:
+        with urlopen(url, timeout=timeout) as response:  # noqa: S310 — pinned URL
+            payload = response.read()
+        digest = hashlib.sha256(payload).hexdigest()
+        if digest != sha256:
+            return None
+        if dest.exists() and any(dest.iterdir()):
+            raise ValueError(f"weight destination is not empty: {dest}")
+        dest.mkdir(parents=True, exist_ok=True)
+        _extract_weight_archive(payload, dest)
+        assert_weights_only(dest)
+    except Exception:
+        return None
+    if not (dest / "production" / "manifest.json").is_file():
+        return None
+    return dest
+
+
+def _extract_weight_archive(payload: bytes, dest: Path) -> None:
+    dest_root = dest.resolve()
+    with tarfile.open(fileobj=io.BytesIO(payload), mode="r:gz") as archive:
+        for member in archive.getmembers():
+            if member.issym() or member.islnk():
+                raise ValueError("weight archive contains a link")
+            name = member.name
+            if name.startswith("/") or ".." in Path(name).parts:
+                raise ValueError(f"weight archive path is not safe: {name}")
+            target = (dest_root / name).resolve()
+            if target != dest_root and dest_root not in target.parents:
+                raise ValueError(f"weight archive path escapes the destination: {name}")
+        try:
+            archive.extractall(dest_root, filter="data")
+        except TypeError:
+            archive.extractall(dest_root)

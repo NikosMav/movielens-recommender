@@ -43,27 +43,29 @@ The same README says the archive holds 1,000,209 anonymous ratings of approximat
 
 **Do not bundle MovieLens rows or titles.** Redistribution needs separate permission, and titles plus rating rows are the dataset. The Space does not commit `ratings.dat`, `movies.dat`, `users.dat`, `movies.csv`, rating histories, the user–item matrix, user ids, or per-user feature tables. It does not commit `popular_items.npy`. The GitHub tree ignores `space/weights/` and `space/data/`.
 
-**Download ml-1m at startup.** When weights are present and `MOVIELENS_ARTIFACTS` is not already a full snapshot, the Space calls the same `download_dataset` path as `movielens-recommender download`. The zip is checked against the pinned SHA-256. Histories, the movie table, the user–item CSR, two-tower feature tables, and the ranker feature context are rebuilt from that download and the same deterministic split the snapshot was trained on. Rebuilding those tables is not training.
+**Download ml-1m at startup.** After the parameter archive is in place, and when `MOVIELENS_ARTIFACTS` is not already a full snapshot, the Space calls the same `download_dataset` path as `movielens-recommender download`. The zip is checked against the pinned SHA-256. Histories, the movie table, the user–item CSR, two-tower feature tables, and the ranker feature context are rebuilt from that download and the same deterministic split the snapshot was trained on. Rebuilding those tables is not training.
 
-**Ship only small model-parameter files, and only in the manual Space push.** `make space-snapshot` writes them under `space/weights/`, which this GitHub repo ignores. The operator includes that directory when pushing `space/` as the Space repo root. The files are:
+**Parameter files are not committed and are not in the Space push.** `make space-snapshot` writes them under `space/weights/`. Both the GitHub repo and `space/.gitignore` ignore that directory, so `git init` inside `space/` does not add them. The person who pushes `space/` does not need MovieLens data and does not need the `rank`, `deep`, or `ui` extras. The files are:
 
 - item–item similarity (`item_item_similarity.npz`, `item_item_meta.json`, `item_ids.npy`)
 - two-tower state dict and constructor metadata (`two_tower_model.pt`, `two_tower_meta.json`)
 - LightGBM trees (`ranker.txt`, `ranker_meta.json`)
 - for the new-user model, EASE item similarity (`ease.npz`, `ease_meta.json`)
 
-`item_ids.npy` is the column order of the similarity matrix. It is not a user id list and not a rating row. Similarity matrices are derived from ratings. Refitting them inside the Space would be training, so they are copied and the user–item CSR is rebuilt in the saved item-id order. SciPy CSR sums duplicate coordinates, which is what `ItemItemCosineRecommender.fit` does. The Space does not call `ItemItemCosineRecommender.fit`, `EASERecommender.fit`, `fit_two_tower_recommender`, or `fit_lambdarank`. A popularity ranking, when `serving_by_n` is set, is a count via `MostPopularRecommender.fit` (or the same group-by). That count is computed at startup and is not uploaded.
+`item_ids.npy` is the column order of the similarity matrix. It is not a user id list and not a rating row. The checked tree has no `user_id` or `user_ids` arrays and no rating arrays. Similarity matrices are derived from ratings. Refitting them inside the Space would be training, so they are copied and the user–item CSR is rebuilt in the saved item-id order. SciPy CSR sums duplicate coordinates, which is what `ItemItemCosineRecommender.fit` does. The Space does not call `ItemItemCosineRecommender.fit`, `EASERecommender.fit`, `fit_two_tower_recommender`, or `fit_lambdarank`. A popularity ranking, when `serving_by_n` is set, is a count via `MostPopularRecommender.fit` (or the same group-by). That count is computed at startup and is not in the archive.
 
-**No training in the Space.** The production ranker and the new-user ranker are the ones `make space-snapshot` fits, with hyperparameters read from the committed results. The Space only loads those parameters. If `space/weights/` is absent, the page starts, prints `make space-snapshot`, and does not download and does not fit.
+**Download those parameters from one URL.** `WEIGHTS_URL` and `WEIGHTS_SHA256` in `space/runtime.py` are the only pin. The app downloads that gzip archive, refuses it unless the SHA-256 matches, and extracts it. If the download or the check fails, the page shows `make space-snapshot` and does not download MovieLens and does not fit. The intended URL is `https://github.com/NikosMav/movielens-recommender/releases/download/space-weights-v1/space-weights.tar.gz`. The archive built with the sizes below has SHA-256 `f6cbc0d77d435834493b85835215211874307d827ac2910121894bb56be7dbfd` and is 119,917,467 bytes. That GitHub Release was not created. The `gh` CLI in this environment is logged in as `cursor`, not NikosMav, and `gh api user` returns 403, so this change does not publish the asset. Until someone uploads that exact file to that URL, a pushed Space shows the build command.
 
-**One folder is the Space repo.** `space/` contains `app.py`, `runtime.py`, pinned `requirements.txt`, `README.md` with Hugging Face front matter (`sdk: streamlit`, `sdk_version: 1.65.0`, `app_file: app.py`, `python_version: "3.12"`), and `packages.txt` (`libgomp1` for LightGBM). Requirements install CPU `torch==2.6.0+cpu`, `lightgbm==4.6.0`, `streamlit==1.65.0`, and this package from GitHub at `23ab9515a3cbc0a18471d0fd36d03ae56b96a641`. Hydration and the page live in `space/` and call only APIs that exist at that commit. Pushing the contents of `space/` as the Space root does not need the rest of this repo. `space/.gitignore` ignores `data/`, `.runtime/`, and `__pycache__/`, and does not ignore `weights/`, so a fresh `git init` inside `space/` after `make space-snapshot` includes the parameters and excludes a local download.
+**No training in the Space.** The production ranker and the new-user ranker are the ones `make space-snapshot` fits, with hyperparameters read from the committed results. The Space only loads those parameters.
+
+**One folder is the Space repo.** `space/` contains `app.py`, `runtime.py`, pinned `requirements.txt`, `Dockerfile`, and `README.md`. The front matter is `sdk: docker` and `app_port: 8501`. The built-in Streamlit SDK was deprecated on 2025-04-30, so it is not the committed SDK. The image listens on 8501 and does not copy a `weights/` directory, so the pushed tree builds without parameters present. Requirements install CPU `torch==2.6.0+cpu`, `lightgbm==4.6.0`, `streamlit==1.65.0`, and this package from GitHub at `23ab9515a3cbc0a18471d0fd36d03ae56b96a641`. Hydration and the page live in `space/` and call only APIs that exist at that commit. Pushing the contents of `space/` as the Space root does not need the rest of this repo.
 
 **Hardware.** The free CPU size is `cpu-basic` (2 vCPU, 16 GB RAM), chosen in the Space creation form. A `hardware` key in the README front matter is ignored by Hugging Face, so this repo does not set one.
 
-**Manual push, no token script.** Deploy happens outside this repo and no Hugging Face token is available here. There is no script that reads `HF_TOKEN`. After `make space-snapshot`, create a public Streamlit Space named `NikosMav/movielens-recommender` on free CPU in the browser, then from inside `space/`:
+**Manual push, no token script.** Deploy happens outside this repo and no Hugging Face token is available here. There is no script that reads `HF_TOKEN`. Create a public Docker Space named `NikosMav/movielens-recommender` on free CPU in the browser, then from inside `space/`:
 
 ```bash
-git init
+git init -b main
 git add .
 git commit -m "MovieLens recommender Space"
 git remote add origin https://huggingface.co/spaces/NikosMav/movielens-recommender
@@ -78,9 +80,32 @@ git push -u origin main
 
 The official ml-1m zip at the pinned SHA-256 is 5,917,549 bytes. Uncompressed members: `ratings.dat` 24,594,131 bytes, `movies.dat` 171,308 bytes, `users.dat` 134,368 bytes, `README` 5,577 bytes. These are archive sizes. They are not model-artifact sizes.
 
-The byte size of `space/weights/` was not measured. `make space-snapshot` prints those sizes when it is run. This change does not run it, and the GitHub tree does not contain the fitted files, so no weight-file size is stated here.
+`make space-snapshot` was run on this VM. The parameter files, in bytes, are:
 
-Process start time on a `cpu-basic` Space was not measured. The Space does not exist yet. `results/cold-start/ml-1m.json` field `serving.latency_sec` is 0.152284. That file's `serving` object records a warmed second call of new-user scoring (`warmed` is true). It is not a process start, and it was not measured on `cpu-basic`. Request latencies in `results/serving/ml-1m.json` are also not startup times.
+| File | Bytes |
+| --- | --- |
+| `cold_start/ease.npz` | 102,711,367 |
+| `cold_start/ease_meta.json` | 19 |
+| `cold_start/item_ids.npy` | 29,384 |
+| `cold_start/item_item_meta.json` | 66 |
+| `cold_start/item_item_similarity.npz` | 6,214,039 |
+| `cold_start/manifest.json` | 2,441 |
+| `cold_start/ranker.txt` | 488,876 |
+| `cold_start/ranker_meta.json` | 1,497 |
+| `cold_start/two_tower_meta.json` | 585 |
+| `cold_start/two_tower_model.pt` | 2,337,568 |
+| `production/item_ids.npy` | 29,464 |
+| `production/item_item_meta.json` | 66 |
+| `production/item_item_similarity.npz` | 6,233,196 |
+| `production/manifest.json` | 3,565 |
+| `production/ranker.txt` | 108,750 |
+| `production/ranker_meta.json` | 1,625 |
+| `production/two_tower_meta.json` | 498 |
+| `production/two_tower_model.pt` | 2,494,752 |
+
+The files sum to 120,657,758 bytes. They are not in git. The gzip archive of `production/` and `cold_start/` is 119,917,467 bytes, SHA-256 `f6cbc0d77d435834493b85835215211874307d827ac2910121894bb56be7dbfd`. `cold_start/ease.npz` arrays are `similarity` and `item_ids`. The item–item files are SciPy sparse components (`indices`, `indptr`, `format`, `shape`, `data`). None of those names is a user id or a rating row.
+
+Process start on a `cpu-basic` Space was not measured. The Space does not exist yet. On this VM (4 CPUs, Intel Xeon, `MemTotal` 16,387,280 kB), a fresh Python process took 15.696 seconds of wall time from spawn until it had checked the weight archive, downloaded ml-1m into an empty directory (`ratings.dat` 24,594,131 bytes), rebuilt the tables, loaded both models, and returned five existing-user and five new-user recommendations. The in-process clock from the first line of that script to the return was 15.293 seconds. The weight bytes were read from `http://127.0.0.1:8765/` because the release URL is not published. This is VM time, not a `cpu-basic` measurement. `results/cold-start/ml-1m.json` field `serving.latency_sec` is 0.152284. That file's `serving` object records a warmed second call of new-user scoring (`warmed` is true). It is not a process start. Request latencies in `results/serving/ml-1m.json` are also not startup times.
 
 ## Alternatives considered
 
@@ -90,13 +115,14 @@ Process start time on a `cpu-basic` Space was not measured. The Space does not e
 | Commit titles but not ratings | A title list is still the MovieLens movie file. The safe default is to download it |
 | Refit item–item and EASE inside the Space | That is training on the free CPU, and it is slow. Copying the similarity matrices avoids it. They contain no rating rows and no titles |
 | A deploy script that reads `HF_TOKEN` | The push happens outside this environment. No token is available, and CI must not need one |
-| `sdk: docker` as the committed front matter | The Space is specified as Streamlit. `space/Dockerfile` is only the fallback if the Hub rejects `sdk: streamlit` (the built-in Streamlit SDK was deprecated on 2025-04-30; current Hub docs list `gradio`, `docker`, and `static`). The committed front matter stays `sdk: streamlit`. The Docker build is not added to CI; CI already builds the API image |
-| Bake the download into the Space repo | That redistributes the dataset |
+| `sdk: streamlit` | The built-in Streamlit SDK was deprecated on 2025-04-30. The committed front matter is `sdk: docker` with `app_port: 8501`. The Docker build is not added to CI; CI already builds the API image |
+| Commit `space/weights/` or the gzip archive | The pusher has no data and no extras, and the archive is 119,917,467 bytes of derived parameters. It stays out of git. The download URL is one constant |
+| Bake the MovieLens download into the Space repo | That redistributes the dataset |
 
 ## Consequences
 
-- A push of the committed `space/` tree, without running `make space-snapshot`, starts the app and shows the build command. It cannot recommend until the operator includes `space/weights/`.
-- The first request after a real deploy spends time on the GroupLens download (about 6 MB compressed, about 25 MB of `ratings.dat`) plus the table rebuild. That wall time is not measured here.
+- A push of the committed `space/` tree does not include parameters. The page can recommend only after `WEIGHTS_URL` serves the archive with SHA-256 `f6cbc0d77d435834493b85835215211874307d827ac2910121894bb56be7dbfd`. That release does not exist yet, so a push today shows `make space-snapshot`.
+- On this VM the cold process was ready in 15.696 seconds. That number is not a `cpu-basic` measurement. The GroupLens zip is about 6 MB and `ratings.dat` is 24,594,131 bytes; the parameter archive is the larger download.
 - `space/requirements.txt` pins the library at `23ab9515a3cbc0a18471d0fd36d03ae56b96a641`, the commit that already contains `download_dataset` and the serving loaders. Later library changes are not picked up until that pin moves.
 - The GitHub README links `https://huggingface.co/spaces/NikosMav/movielens-recommender` and marks the badge pending. The URL 404s until the manual push.
 - Demographic feature names can still appear in the in-memory explanation object. They are dropped only at display time.

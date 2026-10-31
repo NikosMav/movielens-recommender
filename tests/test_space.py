@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
+import io
 import json
 import shutil
+import sys
+import tarfile
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -41,10 +46,9 @@ def test_space_readme_and_requirements_pin():
     readme = (SPACE / "README.md").read_text(encoding="utf-8")
     assert readme.startswith("---\n")
     front, _body = readme.split("\n---\n", 1)
-    assert "sdk: streamlit" in front
-    assert "app_file: app.py" in front
-    assert 'python_version: "3.12"' in front
-    assert "sdk_version: 1.65.0" in front
+    assert "sdk: docker" in front
+    assert "app_port: 8501" in front
+    assert "sdk: streamlit" not in front
     description = next(
         line.split(":", 1)[1].strip()
         for line in front.splitlines()
@@ -61,7 +65,16 @@ def test_space_readme_and_requirements_pin():
     assert (SPACE / "app.py").is_file()
     assert (SPACE / "runtime.py").is_file()
     assert (SPACE / "packages.txt").read_text(encoding="utf-8").strip() == "libgomp1"
+    dockerfile = (SPACE / "Dockerfile").read_text(encoding="utf-8")
+    assert "COPY weights" not in dockerfile
+    assert "8501" in dockerfile
+    assert "weights/" in (SPACE / ".gitignore").read_text(encoding="utf-8")
     runtime_source = (SPACE / "runtime.py").read_text(encoding="utf-8")
+    assert runtime_source.count("WEIGHTS_URL = (") == 1
+    assert (
+        "f6cbc0d77d435834493b85835215211874307d827ac2910121894bb56be7dbfd"
+        in runtime_source
+    )
     assert "fit_two_tower_recommender" not in runtime_source
     assert "fit_lambdarank" not in runtime_source
     for path in SPACE.rglob("*"):
@@ -92,6 +105,58 @@ def test_load_round2_choices_is_read_only():
         str(key): value for key, value in payload["round2"]["serving_by_n"].items()
     }
     assert set(choices["serving_by_n"].values()) == {"cold_start_ranker"}
+
+
+def _tar_bytes(files: dict[str, bytes]) -> bytes:
+    blob = io.BytesIO()
+    with tarfile.open(fileobj=blob, mode="w:gz") as archive:
+        for name, payload in files.items():
+            info = tarfile.TarInfo(name)
+            info.size = len(payload)
+            archive.addfile(info, io.BytesIO(payload))
+    return blob.getvalue()
+
+
+class _BytesResponse:
+    def __init__(self, payload: bytes) -> None:
+        self._payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args) -> bool:
+        return False
+
+    def read(self) -> bytes:
+        return self._payload
+
+
+def test_fetch_space_weights_checks_sha256(tmp_path, monkeypatch):
+    pytest.importorskip("torch")
+    runtime = _load_runtime()
+    payload = _tar_bytes({"production/manifest.json": b'{"weights_only": true}\n'})
+    digest = hashlib.sha256(payload).hexdigest()
+
+    def _open(url, timeout=120):
+        assert url == "https://example.test/weights.tar.gz"
+        assert timeout == 120
+        return _BytesResponse(payload)
+
+    monkeypatch.setattr(runtime, "urlopen", _open)
+    dest = runtime.fetch_space_weights(
+        tmp_path / "ok",
+        url="https://example.test/weights.tar.gz",
+        sha256=digest,
+    )
+    assert dest is not None
+    assert (dest / "production" / "manifest.json").is_file()
+    rejected = runtime.fetch_space_weights(
+        tmp_path / "bad",
+        url="https://example.test/weights.tar.gz",
+        sha256="0" * 64,
+    )
+    assert rejected is None
+    assert not (tmp_path / "bad").exists()
 
 
 def test_visible_reasons_drop_demographic_text_only():
@@ -245,7 +310,12 @@ def test_copied_space_app_starts_from_synthetic_snapshots(
         calls["n"] += 1
         raise AssertionError("the isolated app must not download MovieLens")
 
+    def _refuse_weights(*_args, **_kwargs):
+        raise AssertionError("a full snapshot must not download the weight archive")
+
     monkeypatch.setattr(data, "urlopen", _refuse_network)
+    monkeypatch.setattr(urllib.request, "urlopen", _refuse_weights)
+    monkeypatch.delitem(sys.modules, "runtime", raising=False)
     monkeypatch.setenv("MOVIELENS_ALLOW_DOWNLOAD", "0")
     monkeypatch.setenv("MOVIELENS_ARTIFACTS", str(production))
     monkeypatch.setenv("MOVIELENS_COLD_ARTIFACTS", str(cold))
@@ -284,8 +354,13 @@ def test_copied_space_app_without_weights_does_not_download(tmp_path, monkeypatc
         calls["n"] += 1
         raise AssertionError("missing weights must not download MovieLens")
 
+    def _refuse_weights(*_args, **_kwargs):
+        raise OSError("weight archive is unavailable")
+
+    monkeypatch.setattr(urllib.request, "urlopen", _refuse_weights)
     monkeypatch.setattr(data, "urlopen", _refuse_network)
     monkeypatch.setenv("MOVIELENS_ALLOW_DOWNLOAD", "0")
+    monkeypatch.delitem(sys.modules, "runtime", raising=False)
     monkeypatch.delenv("MOVIELENS_ARTIFACTS", raising=False)
     monkeypatch.delenv("MOVIELENS_COLD_ARTIFACTS", raising=False)
 
