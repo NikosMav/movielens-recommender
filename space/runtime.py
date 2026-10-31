@@ -1,10 +1,10 @@
 """Rebuild serving snapshots from parameter files that contain no rating rows.
 
-The Hugging Face Space installs ``movielens-recommender`` from the GitHub
-commit pinned in ``requirements.txt`` and imports this file as a sibling of
-``app.py``. Loading parameters is not training: item–item and EASE similarity
-matrices are copied, and the user–item matrix, histories, and feature tables
-are rebuilt from a GroupLens download (or from a caller-supplied frame in tests).
+Streamlit Community Cloud runs ``app.py`` from this directory and installs
+``movielens-recommender`` from the GitHub commit pinned in ``requirements.txt``.
+Loading parameters is not training: item–item and EASE similarity matrices are
+copied, and the user–item matrix, histories, and feature tables are rebuilt
+from a GroupLens download (or from a caller-supplied frame in tests).
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ import re
 import tarfile
 from pathlib import Path
 from typing import Any
+from urllib.request import urlopen
 
 import numpy as np
 import pandas as pd
@@ -45,10 +46,12 @@ from movielens_recommender.two_tower.recommender import TwoTowerRecommender
 
 SPACE_WEIGHTS_VERSION = 1
 
-# Gzip of production/ and cold_start/, sitting next to app.py in the Space root.
-# This GitHub repo gitignores the file. The Space repo stores it with Git LFS.
+# Gzip of production/ and cold_start/. This GitHub repo gitignores the file.
 WEIGHTS_ARCHIVE_NAME = "space-weights.tar.gz"
-SPACE_REPO_ID = "NikosMav/movielens-recommender"
+WEIGHTS_URL = (
+    "https://github.com/NikosMav/movielens-recommender/releases/download/"
+    "space-weights-v1/space-weights.tar.gz"
+)
 WEIGHTS_SHA256 = "f6cbc0d77d435834493b85835215211874307d827ac2910121894bb56be7dbfd"
 
 # Files a full serving snapshot writes that must not be uploaded with the Space.
@@ -416,14 +419,16 @@ def _attach_item_item(directory: Path, train: pd.DataFrame) -> ItemItemCosineRec
             "saved item ids do not match the rebuilt train catalog "
             f"({len(item_ids)} saved, {len(expected)} rebuilt)"
         )
-    similarity = sparse.load_npz(directory / "item_item_similarity.npz")
+    similarity = sparse.load_npz(directory / "item_item_similarity.npz").tocsr()
+    if similarity.dtype != np.float64:
+        similarity = similarity.astype(np.float64)
     users = np.sort(train["user_id"].unique()).astype(np.int64)
     user_index = {int(user): index for index, user in enumerate(users.tolist())}
     item_index = {int(item): index for index, item in enumerate(item_ids.tolist())}
     rows = train["user_id"].map(user_index).to_numpy()
     cols = train["item_id"].map(item_index).to_numpy()
     data = train["rating"].to_numpy(dtype=np.float64)
-    model._similarity = similarity.toarray().astype(np.float64)
+    model._similarity = similarity
     model._user_item = sparse.csr_matrix(
         (data, (rows, cols)),
         shape=(len(users), len(item_ids)),
@@ -579,17 +584,18 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 
 def install_space_weights(root: Path | str, *, sha256: str | None = None) -> Path | None:
-    """Read ``space-weights.tar.gz`` next to the app, check SHA-256, extract into ``weights/``.
+    """Read ``space-weights.tar.gz`` beside the app, or download it, then extract.
 
-    Returns that directory, or ``None`` when the archive is missing or the
-    checksum fails. A missing local file may be fetched from the public Space
-    repo with ``hf_hub_download`` and no token.
+    The local file wins. Otherwise the bytes come from ``WEIGHTS_URL`` and are
+    stored under ``.runtime/cache/``. Returns ``weights/``, or ``None`` when
+    the archive is missing or the checksum fails.
     """
     root = Path(root)
     dest = root / "weights"
     expected = WEIGHTS_SHA256 if sha256 is None else sha256
+    cache = root / ".runtime" / "cache" / WEIGHTS_ARCHIVE_NAME
     try:
-        payload = _weight_archive_bytes(root / WEIGHTS_ARCHIVE_NAME)
+        payload = _weight_archive_bytes(root / WEIGHTS_ARCHIVE_NAME, cache, expected)
         if payload is None or hashlib.sha256(payload).hexdigest() != expected:
             return None
         if dest.exists() and any(dest.iterdir()):
@@ -607,34 +613,72 @@ def install_space_weights(root: Path | str, *, sha256: str | None = None) -> Pat
     return dest
 
 
-def _weight_archive_bytes(archive: Path) -> bytes | None:
+def _weight_archive_bytes(archive: Path, cache: Path, expected: str) -> bytes | None:
     if archive.is_file():
         return archive.read_bytes()
-    return _hub_weight_bytes()
+    return _download_weights(cache, expected)
 
 
-def _hub_weight_bytes() -> bytes | None:
-    """Download the archive from the public Space. No token is sent.
+def _download_weights(cache: Path, expected: str) -> bytes | None:
+    """Download ``WEIGHTS_URL`` into ``cache`` after the SHA-256 matches.
 
     Tests set ``MOVIELENS_ALLOW_DOWNLOAD=0`` so this returns before any network
-    call. The Space process does not set that variable.
+    call. A checksum mismatch is not written to the cache.
     """
     if os.environ.get("MOVIELENS_ALLOW_DOWNLOAD") == "0":
         return None
+    if cache.is_file():
+        cached = cache.read_bytes()
+        if hashlib.sha256(cached).hexdigest() == expected:
+            return cached
     try:
-        from huggingface_hub import hf_hub_download
-    except ImportError:
-        return None
-    try:
-        path = hf_hub_download(
-            repo_id=SPACE_REPO_ID,
-            filename=WEIGHTS_ARCHIVE_NAME,
-            repo_type="space",
-            token=False,
-        )
-        return Path(path).read_bytes()
+        with urlopen(WEIGHTS_URL, timeout=120) as response:  # noqa: S310 — pinned URL
+            payload = response.read()
     except Exception:
         return None
+    if hashlib.sha256(payload).hexdigest() != expected:
+        return None
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    temporary = cache.with_suffix(cache.suffix + ".partial")
+    temporary.write_bytes(payload)
+    temporary.replace(cache)
+    return payload
+
+
+def use_sparse_item_item_loader() -> None:
+    """Keep item–item similarity sparse when a snapshot is loaded.
+
+    The library loader densifies a full item-by-item matrix to float64. The
+    stored matrix is already sparse, and the same matmul accepts that form.
+    Community Cloud's RAM budget is 1 GB.
+    """
+    import movielens_recommender.serving.bundle as bundle_mod
+
+    if getattr(bundle_mod, "_space_sparse_item_item", False):
+        return
+
+    def _load_item_item(directory: Path) -> ItemItemCosineRecommender:
+        meta = json.loads((directory / "item_item_meta.json").read_text(encoding="utf-8"))
+        model = ItemItemCosineRecommender(
+            min_common=int(meta["min_common"]),
+            k_neighbors=int(meta["k_neighbors"]),
+            shrinkage=float(meta["shrinkage"]),
+        )
+        with np.load(directory / "item_item_index.npz") as packed:
+            item_ids = packed["item_ids"].astype(np.int64)
+            user_ids = packed["user_ids"].astype(np.int64)
+        similarity = sparse.load_npz(directory / "item_item_similarity.npz").tocsr()
+        if similarity.dtype != np.float64:
+            similarity = similarity.astype(np.float64)
+        model._similarity = similarity
+        model._user_item = sparse.load_npz(directory / "item_item_user_item.npz").tocsr()
+        model._item_ids = item_ids
+        model._item_index = {int(item): index for index, item in enumerate(item_ids)}
+        model._user_index = {int(user): index for index, user in enumerate(user_ids)}
+        return model
+
+    bundle_mod._load_item_item = _load_item_item
+    bundle_mod._space_sparse_item_item = True
 
 
 def _extract_weight_archive(payload: bytes, dest: Path) -> None:

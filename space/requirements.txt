@@ -1,3 +1,5 @@
+# Installed by Streamlit Community Cloud when the entrypoint is space/app.py.
+# Python 3.12. CPU torch comes from the PyTorch wheel index.
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.6.0+cpu
 numpy==2.2.6

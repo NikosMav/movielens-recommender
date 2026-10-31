@@ -1,6 +1,6 @@
 # movielens-recommender
 
-[![Hugging Face Space (pending deploy)](https://img.shields.io/badge/Hugging%20Face%20Space-pending%20deploy-yellow)](https://huggingface.co/spaces/NikosMav/movielens-recommender)
+[![Streamlit Community Cloud (pending)](https://img.shields.io/badge/Streamlit%20Community%20Cloud-pending-yellow)](#streamlit-community-cloud)
 
 A movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings, with an evaluation protocol strict enough that negative results are reported as such.
 
@@ -12,7 +12,7 @@ It covers the path from data to a demo: download and cleaning, a per-user time s
 
 - [Findings so far](#findings-so-far)
 - [Quickstart](#quickstart)
-- [Hugging Face Space](#hugging-face-space)
+- [Streamlit Community Cloud](#streamlit-community-cloud)
 - [Serve over HTTP, batch, and Docker](#serve-over-http-batch-and-docker)
 - [Project layout](#project-layout)
 - [Roadmap](#roadmap)
@@ -68,13 +68,15 @@ The page has two modes:
 
 ![New user: about five ratings and an open explanation](docs/demo/streamlit-new-user.png)
 
-## Hugging Face Space
+## Streamlit Community Cloud
 
-The same two modes can run as a public Space at [NikosMav/movielens-recommender](https://huggingface.co/spaces/NikosMav/movielens-recommender). That link is pending until the Space is pushed. The badge above says so. Nothing in this repo creates the Space or reads a Hugging Face token (ADR-0020).
+The same two modes can run on [Streamlit Community Cloud](https://share.streamlit.io/) from this GitHub repo. The badge above says pending until that app exists. Nothing in this repo creates the app or reads a token (ADR-0020). Hugging Face Docker Spaces require a PRO account, so that is not the deploy path.
 
-`space/` is the Space repository (`sdk: docker`, port 8501). It holds the Streamlit page, the Dockerfile, pinned requirements, and the code that rebuilds feature tables at startup. It does not hold MovieLens files. Model parameters are `space-weights.tar.gz` next to `app.py`, stored with Git LFS in the Space repo and gitignored in this repo. On startup the Space checks that file's SHA-256, extracts it into `weights/`, then downloads ml-1m from GroupLens. It does not train. If the archive is missing or the checksum fails, the page shows `make space-snapshot`. Copy the archive into `space/`, then `git lfs install`, add, and push. The steps are in [`space/README.md`](space/README.md).
+The entrypoint is `space/app.py`. Community Cloud runs `streamlit run` with the repository root as the working directory and looks for dependencies in the entrypoint's directory first. `space/requirements.txt` is that file: pinned versions, Python 3.12, and CPU PyTorch from `--extra-index-url https://download.pytorch.org/whl/cpu`. `packages.txt` at the repo root installs `libgomp1` for LightGBM. In Advanced settings, select Python 3.12.
 
-The page does not show gender, age, occupation, ZIP, or region as reasons.
+On [share.streamlit.io](https://share.streamlit.io/), create an app from `NikosMav/movielens-recommender`, branch `main`, main file path `space/app.py`.
+
+The app looks first for `space/space-weights.tar.gz`. That file is gitignored. If it is absent, the app downloads release tag `space-weights-v1`, asset `space-weights.tar.gz`, into `space/.runtime/cache/` and checks `WEIGHTS_SHA256` (`f6cbc0d77d435834493b85835215211874307d827ac2910121894bb56be7dbfd`). If the file is missing or the checksum fails, the page shows `make space-snapshot` and does not download MovieLens. On success it downloads ml-1m from GroupLens and does not train. The page does not show gender, age, occupation, ZIP, or region as reasons.
 
 ## Serve over HTTP, batch, and Docker
 
@@ -134,7 +136,7 @@ Measured latency and batch time are in the [serving panel](#serving-latency-and-
 | `src/movielens_recommender/ops/` | Drift signals and the time-ordered refresh replay (S6) |
 | `Dockerfile` | API image; holds no MovieLens data or snapshot |
 | `app/streamlit_app.py` | The demo page |
-| `space/` | Self-contained Hugging Face Space (page, requirements, startup rebuild). `space/weights/` is gitignored |
+| `space/` | Community Cloud entrypoint `space/app.py`, pinned requirements, startup rebuild. `space/weights/` and `space/space-weights.tar.gz` are gitignored |
 | `configs/` | Run configs: `default.yaml` (ml-latest-small), `ml-1m.yaml`, `ml-32m.yaml` |
 | `scripts/` | Results-table generator, EDA, and one-off experiment runners |
 | `results/` | Committed experiment logs: metrics, intervals, tuning trials, budgets |
@@ -275,7 +277,7 @@ The code was written by AI coding agents working from a staged plan, with an ADR
 
 ## License and data terms
 
-The code is MIT ([LICENSE](LICENSE)). The MovieLens data is not included: the scripts download it, and it stays under the [GroupLens terms of use](https://grouplens.org/datasets/movielens/) for every dataset used here, ml-32M included. The Hugging Face Space downloads ml-1m the same way and does not commit it (ADR-0020).
+The code is MIT ([LICENSE](LICENSE)). The MovieLens data is not included: the scripts download it, and it stays under the [GroupLens terms of use](https://grouplens.org/datasets/movielens/) for every dataset used here, ml-32M included. The Community Cloud app downloads ml-1m the same way and does not commit it (ADR-0020).
 
 ## Results
 
