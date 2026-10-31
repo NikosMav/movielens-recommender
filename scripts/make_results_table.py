@@ -2589,6 +2589,172 @@ def render_als_retune(path: Path | None = None) -> str:
     return "\n".join(lines)
 
 
+def _seed_list(seeds: list) -> str:
+    values = [_plain_num(seed) for seed in seeds]
+    if len(values) == 1:
+        return values[0]
+    return ", ".join(values[:-1]) + " and " + values[-1]
+
+
+def _sasrec_phrase(hp: dict) -> str:
+    return (
+        f"max_seq_len {_plain_num(hp['max_seq_len'])}, "
+        f"n_layers {_plain_num(hp['n_layers'])}, "
+        f"dropout {_plain_num(hp['dropout'])}, "
+        f"d_model {_plain_num(hp['d_model'])}, "
+        f"n_heads {_plain_num(hp['n_heads'])}"
+    )
+
+
+def sasrec_reading(payload: dict) -> list[str]:
+    """Three sentences. Every number is read from the SASRec results JSON."""
+    selected = payload["selected"]
+    models = payload["models"]
+    sasrec = models["sasrec"]
+    shuffled = models["sasrec_shuffled"]
+    tower = models["two_tower"]
+    ranker = models["lambdarank"]
+    paired = payload["paired"]
+    published = payload["published"]
+    decision = payload["decision"]
+    if decision["negative_result"]:
+        verdict = "Negative result: order does not help on this split"
+    else:
+        verdict = "Order helps on this split"
+    budget = payload["budget"]
+    extra = ""
+    if budget.get("truncated"):
+        extra = (
+            f", and the search stopped after {int(budget['n_trials_scored'])} "
+            f"of {int(budget['n_configs'])} configs"
+        )
+    primary_ci = sasrec["primary_ndcg@10_ci"]
+    return [
+        (
+            f"Validation selected {_sasrec_phrase(selected['hyperparams'])} "
+            f"at best epoch {_plain_num(selected['best_epoch'])} "
+            f"with NDCG@10 {_fmt(float(selected['val_ndcg@10']))} "
+            f"{_fmt_ci_cell(selected['val_ndcg@10_ci'])}; "
+            f"its sealed test NDCG@10 is {_fmt(float(sasrec['ndcg@10_mean']))} "
+            f"across seeds (std {_fmt(float(sasrec['ndcg@10_std']))}), "
+            f"and the primary seed is {_fmt(float(primary_ci['mean']))} "
+            f"{_fmt_ci_cell(primary_ci)}."
+        ),
+        (
+            "The shuffled-order model scores "
+            f"{_fmt(float(shuffled['ndcg@10']))} {_fmt_ci_cell(shuffled['ndcg@10_ci'])}; "
+            "the paired real-minus-shuffled difference is "
+            f"{_pair_text(paired['real_minus_shuffled'])}; "
+            "on this run the two-tower scores "
+            f"{_fmt(float(tower['ndcg@10']))} {_fmt_ci_cell(tower['ndcg@10_ci'])} "
+            "and LambdaRank scores "
+            f"{_fmt(float(ranker['ndcg@10']))} {_fmt_ci_cell(ranker['ndcg@10_ci'])} "
+            f"(best iteration {_plain_num(ranker['best_iteration'])}); "
+            "the paired SASRec-minus-two-tower difference is "
+            f"{_pair_text(paired['sasrec_minus_two_tower'])} "
+            "and the paired SASRec-minus-LambdaRank difference is "
+            f"{_pair_text(paired['sasrec_minus_lambdarank'])}; "
+            "published headline NDCG@10 is "
+            f"{_fmt(float(published['two_tower']['ndcg@10']))} for the two-tower and "
+            f"{_fmt(float(published['lambdarank']['ndcg@10']))} for LambdaRank."
+        ),
+        f"{verdict}, and the selected config {_edge_clause(selected)}{extra}.",
+    ]
+
+
+def _sasrec_extension_sentence(budget: dict, trials: list, winner_val: float) -> str:
+    """Name each scored edge step. Counts and values come from the JSON."""
+    n = int(budget["n_edge_extensions"])
+    if not trials:
+        return f"Edge-extension trials scored: {n}."
+    labels = ", ".join(
+        (
+            f"max_seq_len {_plain_num(trial['hyperparams']['max_seq_len'])}, "
+            f"n_layers {_plain_num(trial['hyperparams']['n_layers'])}, "
+            f"dropout {_plain_num(trial['hyperparams']['dropout'])} "
+            f"(validation NDCG@10 {_fmt(float(trial['val_ndcg@10']))})"
+        )
+        for trial in trials
+    )
+    lower = all(float(trial["val_ndcg@10"]) < float(winner_val) for trial in trials)
+    comparison = "all lower on validation" if lower else "not all lower on validation"
+    return (
+        "Edge-extension trials scored after the base grid, under the ADR-0019 "
+        f"one-step rule: {n} ({labels}; {comparison})."
+    )
+
+
+def render_sasrec(path: Path | None = None) -> str:
+    """SASRec panel (ADR-0019). Empty when the results file is absent.
+
+    An empty return leaves the earlier README panels byte-identical.
+    """
+    path = RESULTS_DIR / "sasrec" / "ml-1m.json" if path is None else path
+    if not path.is_file():
+        return ""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    budget = payload["budget"]
+    models = payload["models"]
+    selected = payload["selected"]
+    seeds = payload["seeds"]
+    lines = [
+        "### SASRec (`ml-1m`)",
+        "",
+        "From `results/sasrec/ml-1m.json`, with the grid in "
+        "`results/tuning/sasrec_ml-1m.json`. "
+        "Selection is validation NDCG@10 on the existing split. "
+        "Test is scored once. The shuffled model keeps the selected "
+        "hyperparameters and permutes each window (ADR-0019). "
+        "The SASRec test column is the mean across test seeds, and its "
+        "interval is the primary seed.",
+        "",
+    ]
+    lines.extend(sasrec_reading(payload))
+    lines.append("")
+    cut = budget.get("cut")
+    cut_text = f" Budget cut: {cut}." if cut else ""
+    lines.append(
+        f"Validation configs in the locked grid: {int(budget['n_configs'])}. "
+        f"The two-tower grid had {int(budget['two_tower_grid_configs'])} "
+        f"and EASE had {int(budget['ease_configs'])}. "
+        + _sasrec_extension_sentence(
+            budget,
+            list(payload.get("edge_extension_trials") or []),
+            float(selected["val_ndcg@10"]),
+        )
+        + cut_text
+    )
+    lines.append("")
+    lines.append(
+        "Seeds: tuning "
+        f"{_plain_num(seeds['tuning'])}, test {_seed_list(seeds['test'])}, "
+        f"shuffle {_plain_num(seeds['shuffle'])}, "
+        f"bootstrap {_plain_num(seeds['bootstrap'])}."
+    )
+    lines.append("")
+    lines.append("| model | validation NDCG@10 | test NDCG@10 | 95% CI |")
+    lines.append("| --- | --- | --- | --- |")
+    sasrec = models["sasrec"]
+    lines.append(
+        "| SASRec | "
+        f"{_fmt(float(selected['val_ndcg@10']))} | "
+        f"{_fmt(float(sasrec['ndcg@10_mean']))} | "
+        f"{_fmt_ci_cell(sasrec['primary_ndcg@10_ci'])} |"
+    )
+    for label, key in (
+        ("SASRec shuffled", "sasrec_shuffled"),
+        ("two-tower", "two_tower"),
+        ("LambdaRank", "lambdarank"),
+    ):
+        block = models[key]
+        lines.append(
+            f"| {label} | — | {_fmt(float(block['ndcg@10']))} | "
+            f"{_fmt_ci_cell(block['ndcg@10_ci'])} |"
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
 def build_section(results: list[tuple[str, dict]]) -> str:
     parts = [BEGIN, ""]
     for filename, payload in results:
@@ -2617,6 +2783,9 @@ def build_section(results: list[tuple[str, dict]]) -> str:
     als_retune = render_als_retune()
     if als_retune:
         parts.append(als_retune)
+    sasrec = render_sasrec()
+    if sasrec:
+        parts.append(sasrec)
     parts.append(END)
     return "\n".join(parts) + "\n"
 
