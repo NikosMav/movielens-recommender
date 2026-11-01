@@ -39,6 +39,7 @@ from movielens_recommender.serving.cold import (
     recommend_new_user,
 )
 from movielens_recommender.serving.monitoring import ItemPopularity, Monitor
+from movielens_recommender.serving.provenance import snapshot_summary
 from movielens_recommender.serving.reasons import display_title
 
 DEFAULT_ARTIFACTS = Path("artifacts/ml-1m")
@@ -192,6 +193,10 @@ def create_app(
                 "candidate_set": bundle.candidate_set,
                 "candidate_k": bundle.candidate_k,
                 "new_user_snapshot": state.cold is not None,
+                "snapshots": {
+                    "production": snapshot_summary(manifest),
+                    "new_user": snapshot_summary(state.cold.manifest) if state.cold else None,
+                },
             }
         )
 

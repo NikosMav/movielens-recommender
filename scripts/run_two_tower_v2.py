@@ -27,6 +27,7 @@ from movielens_recommender.evaluate import (
 )
 from movielens_recommender.metrics import ndcg_at_k, paired_bootstrap_delta_ci
 from movielens_recommender.movies import load_movies
+from movielens_recommender.reporting import primary_metrics, summarize_seed_metrics
 from movielens_recommender.scale import apply_eval_user_sample, release_memory
 from movielens_recommender.segments import filter_recs_to_segment, head_tail_items
 from movielens_recommender.split import SplitConfig, SplitResult, time_based_split
@@ -535,51 +536,13 @@ def cmd_tune(dataset: str) -> None:
     )
 
 
-def _seed_summary(per_seed: list[dict[str, Any]], keys: list[str]) -> dict[str, Any]:
-    out: dict[str, Any] = {}
-    for key in keys:
-        vals = [float(row["metrics"][key]) for row in per_seed if key in row["metrics"]]
-        if not vals:
-            continue
-        arr = np.asarray(vals, dtype=np.float64)
-        out[key] = {
-            "mean": round(float(arr.mean()), 6),
-            "std": round(float(arr.std(ddof=0)), 6),
-            "min": round(float(arr.min()), 6),
-            "max": round(float(arr.max()), 6),
-            "values": [round(float(v), 6) for v in vals],
-        }
-    return out
-
-
-SUMMARY_KEYS = [
-    "ndcg@10",
-    "ndcg@20",
-    "precision@10",
-    "recall@10",
-    "precision@20",
-    "recall@20",
-    "recall@100",
-    "recall@200",
-    "coverage@10",
-    "mean_popularity@10",
-]
-
-
 def _headline(per_seed: list[dict[str, Any]], primary_seed: int) -> dict[str, Any]:
-    across = _seed_summary(per_seed, SUMMARY_KEYS)
-    primary = next(row for row in per_seed if int(row["seed"]) == primary_seed)
-    headline = dict(primary["metrics"])
-    for key, block in across.items():
-        headline[key] = block["mean"]
-    headline["seed_summary"] = across
-    headline["n_seeds"] = len(per_seed)
-    return headline
+    return summarize_seed_metrics(per_seed, primary_seed=primary_seed)
 
 
 def _segment_value(metrics: dict[str, Any], which: str) -> float | None:
     cell = (
-        (metrics.get("segments") or {})
+        (primary_metrics(metrics).get("segments") or {})
         .get("item_head_tail", {})
         .get(which, {})
     )
@@ -718,8 +681,8 @@ def _published_reference_block(dataset: str) -> dict[str, Any]:
     tower = metrics["two_tower"]
     item = metrics["item_item_cosine"]
     ranker = metrics["lambdarank"]
-    ci = tower["confidence_intervals"]["ndcg@10"]
-    rank_ci = ranker["confidence_intervals"]["ndcg@10"]
+    ci = primary_metrics(tower)["confidence_intervals"]["ndcg@10"]
+    rank_ci = primary_metrics(ranker)["confidence_intervals"]["ndcg@10"]
     block: dict[str, Any] = {
         "source": f"results/{dataset}.json",
         "tuning_source": f"results/tuning/two_tower_{dataset}.json",

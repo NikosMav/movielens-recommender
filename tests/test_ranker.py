@@ -380,3 +380,85 @@ def test_gate_reads_item_item_metric_from_results():
     )
     assert lose["negative_result"] is True
     assert lose["mean_exceeds_bar_point"] is False
+
+
+def test_fixed_gate_win_does_not_claim_best_prior_improvement():
+    metrics = {
+        "item_item_cosine": {
+            "ndcg@10": 0.2,
+            "confidence_intervals": {"ndcg@10": {"low": 0.18, "high": 0.22}},
+        },
+        "ease": {"ndcg@10": 0.3},
+        "two_tower": {"ndcg@10": 0.4},
+        "no_ranker": {"ndcg@10": 0.35},
+        # An ablation must not become a "prior model" comparator.
+        "lambdarank_item_item": {"ndcg@10": 0.9},
+    }
+    gate = gate_against_s3(ranker_mean=0.25, per_seed_cis=[], metrics=metrics)
+    assert gate["negative_result"] is False
+    assert gate["scope"] == "fixed_item_item_baseline"
+    comparisons = gate["comparisons"]
+    assert comparisons["best_prior_model"] == "two_tower"
+    assert comparisons["beats_best_prior_point"] is False
+    assert comparisons["beats_no_ranker_point"] is False
+    assert comparisons["beats_both_points"] is False
+    assert comparisons["ranker_minus_best_prior"] == pytest.approx(-0.15)
+    assert comparisons["paired_vs_best_prior"] is None
+
+
+def test_overall_point_comparison_requires_both_comparators():
+    metrics = {
+        "item_item_cosine": {
+            "ndcg@10": 0.2,
+            "confidence_intervals": {"ndcg@10": {"low": 0.18, "high": 0.22}},
+        },
+    }
+    gate = gate_against_s3(ranker_mean=0.25, per_seed_cis=[], metrics=metrics)
+    assert gate["comparisons"]["beats_both_points"] is None
+    metrics["no_ranker"] = {"ndcg@10": 0.25}
+    gate = gate_against_s3(ranker_mean=0.25, per_seed_cis=[], metrics=metrics)
+    assert gate["comparisons"]["beats_both_points"] is False
+
+
+def test_ranker_stage_separates_seed_metrics_and_pairs_unranked_users(tmp_path):
+    pytest.importorskip("torch")
+    from conftest import _config, _ratings_movies_users
+    from movielens_recommender.baselines.item_knn import ItemItemCosineRecommender
+    from movielens_recommender.evaluate import evaluate_recommender
+    from movielens_recommender.ranker.pipeline import run_ranker_stage
+    from movielens_recommender.split import SplitConfig, time_based_split
+    from movielens_recommender.two_tower.train import fit_two_tower_recommender
+
+    ratings, movies, _users = _ratings_movies_users()
+    config = _config()
+    config.models.ranker.demographics = "off"
+    config.models.ranker.seeds = [42, 43]
+    config.models_dir = str(tmp_path / "models")
+    split = time_based_split(ratings, SplitConfig(val_fraction=0.1))
+    item_hp = {"k_neighbors": 5}
+    tower_hp = {"embedding_dim": 8, "batch_size": 16, "max_history": 10}
+    item = ItemItemCosineRecommender(**item_hp).fit(split.full_train)
+    tower, _, _ = fit_two_tower_recommender(
+        split.full_train, dataset="synthetic", movies=movies,
+        hyperparams=tower_hp, seed=42, n_epochs=1,
+    )
+    prior = {
+        "item_item_cosine": evaluate_recommender(
+            item.recommend, split.full_train, split.test, n_bootstrap=10,
+        ),
+    }
+    result = run_ranker_stage(
+        split=split, movies=movies, config=config, tuned_item_hp=item_hp,
+        two_tower_hp=tower_hp, two_tower_epochs=1,
+        full_train_item_model=item, full_train_two_tower=tower, prior_metrics=prior,
+    )
+    summary = result["metrics"]["lambdarank"]
+    assert summary["confidence_intervals"] == {}
+    assert set(summary["per_seed_metrics"]) == {"42", "43"}
+    paired = result["ranker"]["gate"]["comparisons"]["paired_vs_no_ranker"]
+    assert paired["seed"] == 42
+    assert paired["n_users"] == 8
+    assert paired["mean"] == pytest.approx(
+        summary["primary_seed_metrics"]["ndcg@10"]
+        - result["metrics"]["no_ranker"]["ndcg@10"], abs=1e-6,
+    )

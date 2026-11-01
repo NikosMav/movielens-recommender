@@ -370,11 +370,12 @@ def _epoch_payload(
     }
 
 
-def _save_epoch_checkpoint(path: Path, payload: dict[str, Any]) -> None:
+def _save_epoch_checkpoint(path: Path, payload: dict[str, Any]) -> float:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     torch.save(payload, tmp)
     tmp.replace(path)
+    return float(payload["wall_time_sec"])
 
 
 def _load_epoch_checkpoint(path: Path) -> dict[str, Any] | None:
@@ -404,6 +405,11 @@ def train_two_tower(
     ``epoch_checkpoint`` is rewritten after every completed epoch. A resume
     loads weights and optimizer state and continues at the next epoch. The
     DataLoader is shuffled again, so a resumed run is not bit-exact.
+
+    For checkpointed runs, ``wall_time_sec`` is cumulative elapsed time through
+    the last completed epoch, just before its checkpoint write. The saved and
+    returned values agree; the final write and loading a finished checkpoint
+    add no time. Earlier checkpoint writes in the same session are included.
     """
     _require_torch()
     set_torch_seed(seed)
@@ -472,6 +478,7 @@ def train_two_tower(
         if saved.get("finished"):
             start_epoch = max_epochs + 1
     t0 = time.perf_counter()
+    checkpoint_wall = prior_wall
 
     for epoch in range(start_epoch, max_epochs + 1):
         model.train()
@@ -543,7 +550,7 @@ def train_two_tower(
                 if stale >= patience:
                     history.append(record)
                     if ckpt_path is not None:
-                        _save_epoch_checkpoint(
+                        checkpoint_wall = _save_epoch_checkpoint(
                             ckpt_path,
                             _epoch_payload(
                                 epoch,
@@ -571,7 +578,7 @@ def train_two_tower(
 
         history.append(record)
         if ckpt_path is not None:
-            _save_epoch_checkpoint(
+            checkpoint_wall = _save_epoch_checkpoint(
                 ckpt_path,
                 _epoch_payload(
                     epoch,
@@ -594,7 +601,7 @@ def train_two_tower(
         # Fixed-epoch refit: last epoch is the intended stopping point.
         best_epoch = max_epochs if not history else history[-1]["epoch"]
 
-    wall = prior_wall + (time.perf_counter() - t0)
+    wall = checkpoint_wall if ckpt_path is not None else prior_wall + (time.perf_counter() - t0)
     result = TrainResult(
         best_epoch=int(best_epoch),
         epochs_trained=int(history[-1]["epoch"] if history else 0),

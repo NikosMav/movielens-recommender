@@ -32,6 +32,17 @@ def test_health_and_snapshot(client):
     assert snapshot["new_user_snapshot"] is True
 
 
+def test_snapshot_reports_both_models_and_their_provenance(client):
+    snapshots = client.get("/v1/snapshot").json()["snapshots"]
+    assert snapshots["production"]["candidate_k"] > 0
+    assert snapshots["new_user"]["candidate_k"] == 5
+    for snapshot in snapshots.values():
+        assert len(snapshot["snapshot_id"]) == 64
+        assert snapshot["created_at"]
+        assert snapshot["artifact_integrity"] == "verified"
+        assert snapshot["benchmark_record"] is None
+
+
 def test_known_user_recommendations(client, artifact_dir):
     from movielens_recommender.serving.bundle import load_bundle, recommend_for_user
 

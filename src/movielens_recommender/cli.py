@@ -146,23 +146,6 @@ def _eval_model(
     return format_metrics(metrics)
 
 
-def _seed_summary(per_seed: list[dict[str, Any]], keys: list[str]) -> dict[str, Any]:
-    out: dict[str, Any] = {}
-    for key in keys:
-        vals = [float(s["metrics"][key]) for s in per_seed if key in s["metrics"]]
-        if not vals:
-            continue
-        arr = np.asarray(vals, dtype=np.float64)
-        out[key] = {
-            "mean": round(float(arr.mean()), 6),
-            "std": round(float(arr.std(ddof=0)), 6),
-            "min": round(float(arr.min()), 6),
-            "max": round(float(arr.max()), 6),
-            "values": [round(float(v), 6) for v in vals],
-        }
-    return out
-
-
 def _load_baseline_tuning(path: Path) -> dict[str, Any] | None:
     if not path.is_file():
         return None
@@ -453,7 +436,7 @@ def run_pipeline(
             two_tower_epochs=int(two_tower_meta["best_epoch"]),
             full_train_item_model=fitted_models["item_item_cosine_tuned"],
             full_train_two_tower=two_tower_primary,
-            bar_metrics=results["item_item_cosine"],
+            prior_metrics=results,
         )
         results.update(ranker_out["metrics"])
         hyperparams.update(ranker_out["hyperparameters"])
@@ -699,19 +682,10 @@ def _run_two_tower(
         "coverage@10",
         "mean_popularity@10",
     ]
-    across = _seed_summary(per_seed, summary_keys)
+    from movielens_recommender.reporting import summarize_seed_metrics
 
-    # Headline metrics entry: mean across seeds for point estimates; attach
-    # CI from the config seed when present, else the first seed.
-    primary = next(s for s in per_seed if s["seed"] == primary_seed)
-    headline = dict(primary["metrics"])
-    for key, block in across.items():
-        headline[key] = block["mean"]
-    headline["seed_summary"] = across
-    headline["per_seed_confidence_intervals"] = {
-        str(s["seed"]): s["metrics"].get("confidence_intervals", {}) for s in per_seed
-    }
-    headline["n_seeds"] = float(len(seeds))
+    headline = summarize_seed_metrics(per_seed, primary_seed=primary_seed)
+    across = {key: headline["seed_summary"][key] for key in summary_keys}
 
     results["two_tower"] = headline
     recorded_hp = {
@@ -1033,6 +1007,45 @@ def _cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_reproduce(args: argparse.Namespace) -> int:
+    """Rerun one published headline protocol in a unique output directory."""
+    from movielens_recommender.experiments import prepare_reproduction
+    from movielens_recommender.serving.provenance import git_sha
+
+    config, directory = prepare_reproduction(
+        args.from_results, args.output_root, run_id=args.run_id,
+    )
+    manifest_path = directory / "run.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest.update({
+        "git_sha": git_sha(), "host": host_info(), "library_versions": library_versions(),
+    })
+
+    def write_status(status: str) -> None:
+        manifest["status"] = status
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+    if args.prepare_only:
+        write_status("prepared")
+        print(f"Prepared {directory}; no model was trained.")
+        return 0
+    write_status("running")
+    try:
+        out = run_pipeline(
+            config, download=args.download,
+            reuse_baseline_tuning=True, reuse_two_tower_tuning=True,
+        )
+        payload = json.loads(out.read_text(encoding="utf-8"))
+        payload["reproduction"] = {**manifest, "status": "complete"}
+        out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    except Exception:
+        write_status("failed")
+        raise
+    write_status("complete")
+    print(f"Wrote isolated reproduction to {out}")
+    return 0
+
+
 def _cmd_demographics(args: argparse.Namespace) -> int:
     """S4b ranker experiment. Refuses anything other than ml-1m."""
     config = load_config(args.config)
@@ -1190,6 +1203,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Skip the optional LambdaRank stage even if enabled in YAML",
     )
     p_run.set_defaults(func=_cmd_run)
+
+    p_reproduce = sub.add_parser(
+        "reproduce", help="Rerun a saved headline protocol without overwriting published results",
+    )
+    p_reproduce.add_argument(
+        "--from-results", required=True, help="Headline result JSON with config",
+    )
+    p_reproduce.add_argument(
+        "--output-root", default="artifacts/runs", help="Isolated runs directory",
+    )
+    p_reproduce.add_argument(
+        "--run-id", default=None, help="Unique label; existing runs are refused",
+    )
+    p_reproduce.add_argument(
+        "--prepare-only", action="store_true", help="Freeze inputs without training",
+    )
+    p_reproduce.add_argument(
+        "--download", action="store_true", help="Allow downloading missing data",
+    )
+    p_reproduce.set_defaults(func=_cmd_reproduce)
 
     p_demo = sub.add_parser(
         "demographics",

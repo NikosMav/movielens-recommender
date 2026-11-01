@@ -74,3 +74,39 @@ def test_bootstrap_ci_contains_mean_and_is_deterministic():
 def test_bootstrap_single_value():
     mean, low, high = bootstrap_mean_ci([0.42], n_bootstrap=100, seed=0)
     assert mean == low == high == pytest.approx(0.42)
+
+
+def test_seed_summary_keeps_primary_intervals_separate_from_mean():
+    from movielens_recommender.reporting import summarize_seed_metrics
+
+    rows = [
+        {"seed": 42, "metrics": {
+            "ndcg@10": 0.05, "recall@100": 0.2, "n_eval_users": 10,
+            "confidence_intervals": {"ndcg@10": {"mean": 0.05, "low": 0.04, "high": 0.06}},
+            "segments": {"primary_only": True},
+        }},
+        {"seed": 43, "metrics": {
+            "ndcg@10": 0.15, "recall@100": 0.4, "n_eval_users": 10,
+            "confidence_intervals": {"ndcg@10": {"mean": 0.15, "low": 0.14, "high": 0.16}},
+        }},
+    ]
+    summary = summarize_seed_metrics(rows, primary_seed=42)
+    assert summary["seed_mean_metrics"]["ndcg@10"] == pytest.approx(0.1)
+    assert summary["recall@100"] == pytest.approx(0.3)
+    assert summary["confidence_intervals"] == {}
+    assert "segments" not in summary
+    assert summary["primary_seed_metrics"]["ndcg@10"] == 0.05
+    assert summary["primary_seed_metrics"]["confidence_intervals"]["ndcg@10"]["high"] == 0.06
+    assert summary["per_seed_metrics"]["43"]["ndcg@10"] == 0.15
+    assert rows[0]["metrics"]["ndcg@10"] == 0.05
+
+
+def test_seed_summary_rejects_different_evaluation_populations():
+    from movielens_recommender.reporting import summarize_seed_metrics
+
+    rows = [
+        {"seed": 42, "metrics": {"ndcg@10": 0.1, "n_eval_users": 10}},
+        {"seed": 43, "metrics": {"ndcg@10": 0.2, "n_eval_users": 9}},
+    ]
+    with pytest.raises(ValueError, match="evaluation populations"):
+        summarize_seed_metrics(rows, primary_seed=42)

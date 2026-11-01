@@ -8,7 +8,6 @@ and ``best_iteration`` are computed again on the validation window.
 from __future__ import annotations
 
 import json
-import subprocess
 import time
 from collections.abc import Mapping
 from datetime import datetime, timezone
@@ -37,33 +36,9 @@ from movielens_recommender.ranker.pipeline import (
 )
 from movielens_recommender.ranker.train import assemble_matrices, train_with_early_stop_then_refit
 from movielens_recommender.serving.bundle import ServingBundle, manifest_template, save_bundle
+from movielens_recommender.serving.provenance import git_sha
 from movielens_recommender.split import SplitConfig, SplitResult, time_based_split
 from movielens_recommender.two_tower.train import fit_two_tower_recommender
-
-
-def git_sha(cwd: Path | str | None = None) -> str:
-    """HEAD sha, with a ``-dirty`` suffix when the worktree is not clean."""
-    try:
-        sha = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"],
-            cwd=cwd,
-            text=True,
-            stderr=subprocess.DEVNULL,
-        ).strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return "unknown"
-    try:
-        dirty = subprocess.call(
-            ["git", "diff", "--quiet"],
-            cwd=cwd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-    except FileNotFoundError:
-        return sha
-    if dirty != 0:
-        return f"{sha}-dirty"
-    return sha
 
 
 def load_production_hyperparams(config: RunConfig) -> tuple[dict[str, Any], dict[str, Any], int]:

@@ -6,6 +6,8 @@ Accepted (S4). The headline gate is test NDCG@10 against item–item cosine (the
 
 ## Context
 
+Reporting amendment: the historical gate below uses default item-item cosine as a fixed comparator. It is not a test against the strongest prior model on every panel. ADR-0021 adds explicit prior-model and unranked-list comparisons and separates seed means from run-specific intervals. Existing outcome records and their historical gate flags are preserved.
+
 S3a set the per-user time split, validation tuning, segments, and the global-time-cutoff check (ADR-0005, ADR-0002). S3b added a two-tower retriever that missed the NDCG@10 gate and led item–item on Recall@100/200 (ADR-0006). S4 re-ranks a candidate set. The candidate set is chosen on validation recall, not on test NDCG.
 
 The ranker has to stay small, CPU-trainable on ml-1m, and free of test labels. MovieLens files and model binaries stay out of git.

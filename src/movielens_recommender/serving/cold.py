@@ -113,10 +113,9 @@ def save_cold_start_bundle(
             directory / "popular_items.npy",
             np.asarray(popular_item_ids, dtype=np.int64),
         )
-    (directory / "manifest.json").write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    from movielens_recommender.serving.provenance import write_manifest
+
+    write_manifest(directory, payload)
     return directory
 
 
@@ -137,6 +136,9 @@ def load_cold_start_bundle(directory: Path | str) -> ColdStartBundle:
             "movielens-recommender cold-start --config configs/ml-1m.yaml"
         )
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    from movielens_recommender.serving.provenance import verify_manifest
+
+    verify_manifest(directory, manifest)
     if str(manifest.get("kind")) != KIND:
         raise ValueError(f"{directory} is not a cold-start snapshot")
     version = int(manifest.get("schema_version", -1))

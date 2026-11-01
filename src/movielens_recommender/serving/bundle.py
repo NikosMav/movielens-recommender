@@ -129,10 +129,9 @@ def save_bundle(bundle: ServingBundle, directory: Path | str) -> Path:
     )
     manifest = dict(bundle.manifest)
     manifest["schema_version"] = SCHEMA_VERSION
-    (directory / MANIFEST_FILENAME).write_text(
-        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    from movielens_recommender.serving.provenance import write_manifest
+
+    write_manifest(directory, manifest)
     return directory
 
 
@@ -149,6 +148,9 @@ def load_bundle(directory: Path | str) -> ServingBundle:
             "movielens-recommender build-artifacts --config configs/ml-1m.yaml"
         )
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    from movielens_recommender.serving.provenance import verify_manifest
+
+    verify_manifest(directory, manifest)
     version = int(manifest.get("schema_version", -1))
     if version != SCHEMA_VERSION:
         raise ValueError(
