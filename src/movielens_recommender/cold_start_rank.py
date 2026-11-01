@@ -1130,11 +1130,22 @@ def finish_round2(
         popular_item_ids=np.asarray(popular._ranked_items, dtype=np.int64),
         manifest={
             "dataset": config.dataset,
+            "config": config.to_dict(),
             "dataset_sha256": DATASET_SHA256[config.dataset],
             "git_sha": git_sha(),
+            "item_item_hyperparams": dict(item_hp),
+            "ease_hyperparams": dict(ease_hp),
+            "two_tower_hyperparams": dict(choices.hyperparams),
+            "two_tower_epochs": int(winner_trial["best_epoch"]),
+            "ranker_seed": seed,
+            "benchmark_record": {
+                "path": str(results_dir / "cold-start" / f"{config.dataset}.json"),
+                "binding": "The result serving_snapshot field identifies this snapshot.",
+            },
             "candidate_source": "cold_start_union",
             "candidate_k": int(choices.candidate_k),
             "ranker_mode": "cold_start_ranker",
+            "demographics": "off",
             "demographics_missing": False,
             "history_only": bool(winner_trial["history_only"]),
             "user_id_dropout": float(winner_trial["user_id_dropout"]),
@@ -1152,6 +1163,9 @@ def finish_round2(
 
     payload: dict[str, Any] = {
         "experiment": "s5c_new_user_cold_start",
+        "serving_snapshot": json.loads(
+            (artifact_dir / "manifest.json").read_text(encoding="utf-8")
+        )["snapshot_id"],
         "round": 2,
         "dataset": config.dataset,
         "dataset_version": DATASET_VERSION_LABELS[config.dataset],

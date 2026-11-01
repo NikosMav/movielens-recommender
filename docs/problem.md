@@ -64,3 +64,5 @@ Committed numbers live in `results/*.json`. Tuning grids and val scores live in 
 | **S6** | Operations: API monitoring, data drift signals, and a time-ordered refresh replay (ADR-0016) |
 
 Each modeling stage reuses this harness. If a stage does not improve NDCG@10 (with CI context), write it up as a negative result rather than claiming progress.
+
+Reporting clarification (ADR-0021): the historical S4 `negative_result` flag describes only its fixed default item-item comparator. It does not establish improvement over every earlier model. New reports separately identify the strongest recorded prior point and the unranked candidate list, with paired uncertainty where aligned user scores are retained. These test comparisons describe outcomes and do not select training settings.

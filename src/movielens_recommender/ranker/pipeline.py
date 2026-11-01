@@ -20,6 +20,7 @@ from movielens_recommender.baselines.item_knn import ItemItemCosineRecommender
 from movielens_recommender.config import RunConfig
 from movielens_recommender.data import load_users
 from movielens_recommender.evaluate import evaluate_recommender, format_metrics
+from movielens_recommender.metrics import ndcg_at_k, paired_bootstrap_delta_ci
 from movielens_recommender.ranker.candidates import (
     CANDIDATE_SET_NAMES,
     RANKER_CANDIDATE_SETS,
@@ -48,6 +49,7 @@ from movielens_recommender.ranker.train import (
     train_fixed_rounds,
     train_with_early_stop_then_refit,
 )
+from movielens_recommender.reporting import primary_metrics, summarize_seed_metrics
 from movielens_recommender.scale import release_memory
 from movielens_recommender.split import (
     SplitConfig,
@@ -344,14 +346,17 @@ def _candidate_reports(
 def _summary_from_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:
     """Compact ablation row. Full metrics stay in the top-level metrics map."""
     tail = (
-        (metrics.get("segments") or {})
+        (primary_metrics(metrics).get("segments") or {})
         .get("item_head_tail", {})
         .get("tail", {})
     )
-    ci = (metrics.get("confidence_intervals") or {}).get("ndcg@10", {})
+    ci = (primary_metrics(metrics).get("confidence_intervals") or {}).get("ndcg@10", {})
     return {
         "ndcg@10": metrics.get("ndcg@10"),
-        "ndcg@10_ci": ci,
+        "ndcg@10_ci": {} if metrics.get("seed_mean_metrics") else ci,
+        "primary_seed": metrics.get("primary_seed"),
+        "primary_seed_ndcg@10": primary_metrics(metrics).get("ndcg@10"),
+        "primary_seed_ndcg@10_ci": ci,
         "recall@10": metrics.get("recall@10"),
         "coverage@10": metrics.get("coverage@10"),
         "tail_ndcg@10": tail.get("ndcg@10"),
@@ -369,12 +374,12 @@ def run_ranker_stage(
     two_tower_epochs: int,
     full_train_item_model: ItemItemCosineRecommender,
     full_train_two_tower: Any,
-    bar_metrics: Mapping[str, Any],
+    prior_metrics: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Validation candidate choice, ranker training, and one test evaluation.
 
-    ``bar_metrics`` is the already-computed ``item_item_cosine`` test block
-    (the S3 gate). ``full_train_*`` models are the refit retrievers.
+    ``prior_metrics`` contains the already-computed baseline and retrieval
+    test results. ``full_train_*`` models are the refit retrievers.
     """
     if split.val is None or split.val.empty:
         raise ValueError("ranker requires a validation window")
@@ -548,6 +553,7 @@ def run_ranker_stage(
 
     ablation_metrics: dict[str, dict[str, Any]] = {}
     per_seed_rows: list[dict[str, Any]] = []
+    primary_ranked: dict[int, list[int]] = {}
     for name in rank_sets:
         for seed, result in trained[name].items():
             ranked = _rerank(
@@ -569,6 +575,8 @@ def run_ranker_stage(
             if seed == primary_seed:
                 ablation_metrics[name] = metrics
             if name == winner:
+                if seed == primary_seed:
+                    primary_ranked = ranked
                 per_seed_rows.append(
                     {
                         "seed": seed,
@@ -593,16 +601,7 @@ def run_ranker_stage(
         "mean_popularity@10",
     ]
     across = _seed_summary(per_seed_rows, summary_keys)
-    primary_row = next(row for row in per_seed_rows if int(row["seed"]) == primary_seed)
-    headline = dict(primary_row["metrics"])
-    for key, block in across.items():
-        headline[key] = block["mean"]
-    headline["seed_summary"] = across
-    headline["per_seed_confidence_intervals"] = {
-        str(row["seed"]): row["metrics"].get("confidence_intervals", {})
-        for row in per_seed_rows
-    }
-    headline["n_seeds"] = float(len(per_seed_rows))
+    headline = summarize_seed_metrics(per_seed_rows, primary_seed=primary_seed)
 
     no_ranker_metrics = _evaluate_lists(
         lists_full[winner],
@@ -656,8 +655,22 @@ def run_ranker_stage(
         per_seed_cis=[
             row["metrics"]["confidence_intervals"]["ndcg@10"] for row in per_seed_rows
         ],
-        metrics={"item_item_cosine": bar_metrics},
+        metrics={**prior_metrics, "no_ranker": no_ranker_metrics},
     )
+    _seen, paired_relevant, _stats = apply_cold_start_policy(eval_split)
+    paired = paired_bootstrap_delta_ci(
+        [ndcg_at_k(lists_full[winner].get(uid, []), rel, 10)
+         for uid, rel in paired_relevant.items()],
+        [ndcg_at_k(primary_ranked.get(uid, []), rel, 10)
+         for uid, rel in paired_relevant.items()],
+        n_bootstrap=config.eval.n_bootstrap,
+        alpha=config.eval.bootstrap_alpha,
+        seed=primary_seed,
+    )
+    gate["comparisons"]["paired_vs_no_ranker"] = {
+        **paired, "seed": primary_seed,
+        "comparison": "primary_seed_ranker_minus_unranked",
+    }
     gate["ranker_mean_ndcg@10"] = _round(gate["ranker_mean_ndcg@10"])
     gate["bar_ndcg@10"] = _round(gate["bar_ndcg@10"])
     gate["bar_ci"] = {

@@ -147,7 +147,7 @@ Measured latency and batch time are in the [serving panel](#serving-latency-and-
 
 ## Roadmap
 
-Each modeling stage must beat the previous best on **NDCG@10** on the same harness, or be written up as a negative result.
+Model improvements are assessed on **NDCG@10** on the same harness. The historical S4 gate compares with default item-item cosine only. Passing it does not mean beating every prior model. The generated results also compare the ranker with the strongest recorded prior point and its unranked candidate list; these descriptive comparisons do not choose training settings or establish significance.
 
 | Stage | Status | Focus | ADR |
 | --- | --- | --- | --- |
@@ -238,11 +238,23 @@ Tuning grids and per-trial validation scores are in `results/tuning/`.
 
 **Two-tower gate (S3b).** On ml-1m the two-tower must beat both item–item default and tuned on test NDCG@10, with intervals taken into account, or be written up as a negative result. It was written up as one.
 
-**Ranker (S4).** Candidate sets (tuned item–item, two-tower, a balanced union, and an unbalanced union) are compared on validation Recall@100/200 at budget K, and the winner is the default. The ranker trains on validation-window labels with features from fit-train only, early-stops on a held-out slice of validation users, then refits for `best_iteration` rounds. Before test scoring, both retrievers and all features are rebuilt on full train. On all three datasets the 3-seed mean clears the item–item NDCG@10 point estimate (`negative_result` is false), though seed intervals overlap the bar's interval. On ml-latest-small the primary seed stops at `best_iteration` 1 and sits under the item–item point; the mean is what clears the gate. Details, including the later-window rule, are in [ADR-0007](docs/adr/0007-ranker.md).
+**Ranker (S4).** Candidate sets (tuned item–item, two-tower, a balanced union, and an unbalanced union) are compared on validation Recall@100/200, and the winner is the default. The balanced sets use budget K; the unbalanced union can be larger. The ranker trains on validation-window labels with fit-train features, early-stops on held-out validation users, then refits for `best_iteration` rounds. Before test scoring, retrievers and features are rebuilt on full train. All three stored seed means exceed the historical default item-item point. On ml-latest-small the ranker remains below EASE and tuned item-item; on ml-32M it remains below the two-tower point. A fixed-baseline pass therefore does not establish an overall stage improvement. New runs also record a primary-seed paired interval against the unranked list. Details are in [ADR-0007](docs/adr/0007-ranker.md) and [ADR-0021](docs/adr/0021-results-and-reproducibility.md).
 
 `run` also writes a gitignored refit ranker to `models/<dataset>/` (`ranker.txt`, `ranker_meta.json`). `explain_candidates` returns per-candidate LightGBM `pred_contrib` values (SHAP values plus bias) by feature name, with the retriever that supplied each candidate and its score and rank. The Streamlit page turns those into short sentences (ADR-0010).
 
 ## Reproducing the results
+
+To rerun a published headline protocol, use its saved result record. This reads the recorded configuration and selected hyperparameters, including demographics **off** for the S4 ml-1m headline, rather than today's serving defaults:
+
+```bash
+movielens-recommender reproduce --from-results results/ml-latest-small.json
+movielens-recommender reproduce --from-results results/ml-1m.json
+movielens-recommender reproduce --from-results results/ml-32m.json
+```
+
+Each command reserves a unique directory under `artifacts/runs/`, freezes its inputs, and writes results and model files there. It reuses the recorded validation selections, then refits and evaluates with the current implementation. It does not overwrite published results or serving snapshots. Existing data is required unless `--download` is supplied. Add `--prepare-only` to inspect the config without training. `--run-id` supplies a label; an existing label is refused. See [the reproduction guide](docs/reproduction.md) for environment limits and the other experiments.
+
+The original `run` command performs a new experiment using the current YAML and writes to its configured output paths:
 
 ```bash
 movielens-recommender run --config configs/default.yaml   # ml-latest-small
@@ -254,6 +266,8 @@ python scripts/make_results_table.py                      # regenerate the Resul
 ```
 
 Each run writes `results/<dataset>.json`: metrics, intervals, the data checksum, the split, the config, and library versions. The Results section below is generated from those files; never edit its numbers by hand.
+
+New multi-seed output separates `seed_mean_metrics`, `primary_seed_metrics`, and `per_seed_metrics`. Top-level scalar metric aliases are seed means; their `confidence_intervals` block is empty because no interval for that mean was computed. Individual user-bootstrap intervals and segment diagnostics belong to their named seed. Historical JSON records retain their original schema and measurements; the table generator reads both formats.
 
 EDA (aggregate stats and figures only, committed under [`docs/eda/`](docs/eda/)):
 
@@ -308,22 +322,22 @@ Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4
 
 95% bootstrap CIs (NDCG@10):
 
-| model | ndcg@10 CI |
-| --- | --- |
-| als | [0.0658, 0.0714] |
-| als_tuned | [0.0874, 0.0940] |
-| ease (tuned) | [0.1142, 0.1226] |
-| item_item_cosine | [0.1158, 0.1242] |
-| item_item_cosine_tuned | [0.1147, 0.1233] |
-| lambdarank (tuned) | mean±std over seeds 0.1273±0.0013; primary-seed CI [0.1247, 0.1329] |
-| lambdarank_drop_retriever_features (tuned) | [0.0964, 0.1037] |
-| lambdarank_item_item (tuned) | [0.1225, 0.1306] |
-| lambdarank_two_tower (tuned) | [0.1247, 0.1329] |
-| lambdarank_union_balanced (tuned) | [0.1201, 0.1286] |
-| most_popular | [0.0857, 0.0935] |
-| no_ranker | [0.1150, 0.1230] |
-| rp3beta (tuned) | [0.1095, 0.1178] |
-| two_tower (tuned) | mean±std over seeds 0.1192±0.0001; primary-seed CI [0.1150, 0.1230] |
+| model | NDCG@10 point summary | interval seed | run point and 95% user CI |
+| --- | --- | --- | --- |
+| als | 0.0686 | single run | 0.0686 [0.0658, 0.0714] |
+| als_tuned | 0.0906 | single run | 0.0906 [0.0874, 0.0940] |
+| ease (tuned) | 0.1184 | single run | 0.1184 [0.1142, 0.1226] |
+| item_item_cosine | 0.1201 | single run | 0.1201 [0.1158, 0.1242] |
+| item_item_cosine_tuned | 0.1192 | single run | 0.1192 [0.1147, 0.1233] |
+| lambdarank (tuned) | mean±std over seeds 0.1273±0.0013 | 42 | 0.1288 [0.1247, 0.1329] |
+| lambdarank_drop_retriever_features (tuned) | 0.1000 | single run | 0.1000 [0.0964, 0.1037] |
+| lambdarank_item_item (tuned) | 0.1264 | single run | 0.1264 [0.1225, 0.1306] |
+| lambdarank_two_tower (tuned) | 0.1288 | single run | 0.1288 [0.1247, 0.1329] |
+| lambdarank_union_balanced (tuned) | 0.1245 | single run | 0.1245 [0.1201, 0.1286] |
+| most_popular | 0.0895 | single run | 0.0895 [0.0857, 0.0935] |
+| no_ranker | 0.1191 | single run | 0.1191 [0.1150, 0.1230] |
+| rp3beta (tuned) | 0.1138 | single run | 0.1138 [0.1095, 0.1178] |
+| two_tower (tuned) | mean±std over seeds 0.1192±0.0001 | 42 | 0.1191 [0.1150, 0.1230] |
 
 #### Retrieval recall (candidate generation)
 
@@ -381,20 +395,24 @@ Early-stop user fraction=0.2 (split seed=42). Ranker seeds share candidate sets 
 
 Across seeds: NDCG@10 mean=0.1273, std=0.0013, min=0.1256, max=0.1288.
 
-**Gate: win on the point estimate.** LambdaRank mean NDCG@10=0.1273 vs item_item_cosine 0.1201 [0.1158, 0.1242] (read from `metrics['item_item_cosine']['ndcg@10']`).
+**Fixed item-item baseline: point estimate exceeded.** LambdaRank mean NDCG@10=0.1273 vs item_item_cosine 0.1201 [0.1158, 0.1242] (read from `metrics['item_item_cosine']['ndcg@10']`).
 
 Seed NDCG@10 intervals are not all above the bar CI high (`all_seed_ci_low_above_bar_ci_high=False`).
 
+Descriptive test-point comparison: strongest recorded prior model `item_item_cosine`=0.1201; ranker minus prior=+0.0071. Exceeds prior point: `True`. This comparison does not select a model or establish significance.
+Unranked candidate-list point=0.1191; ranker minus unranked=+0.0082. Exceeds both points: `True`. The historical fixed-baseline gate above is a separate comparison.
+A paired interval against the unranked list is unavailable in this record.
+
 Ablations are the primary seed, except `ndcg@10`, `recall@10`, and `coverage@10` on the `lambdarank` row, which are means over the three ranker seeds. The `ndcg@10` CI and tail NDCG@10 on that row stay the primary seed; that CI is the primary-seed user bootstrap, not a confidence interval for the 3-seed mean. `no_ranker` keeps the winning candidate order. `lambdarank_drop_retriever_features` drops retriever score and rank.
 
-| ablation | ndcg@10 | ndcg@10 CI | recall@10 | coverage@10 | tail ndcg@10 |
+| ablation | ndcg@10 point | interval run point and 95% CI | recall@10 | coverage@10 | tail ndcg@10 |
 | --- | --- | --- | --- | --- | --- |
-| lambdarank | 0.1273 | [0.1247, 0.1329] | 0.0928 | 0.3895 | 0.0915 [0.0868, 0.0969] |
-| lambdarank_drop_retriever_features | 0.1000 | [0.0964, 0.1037] | 0.0622 | 0.3736 | 0.0732 [0.0691, 0.0777] |
-| lambdarank_item_item | 0.1264 | [0.1225, 0.1306] | 0.0909 | 0.3270 | 0.0492 [0.0456, 0.0533] |
-| lambdarank_two_tower | 0.1288 | [0.1247, 0.1329] | 0.0943 | 0.3763 | 0.0915 [0.0868, 0.0969] |
-| lambdarank_union_balanced | 0.1245 | [0.1201, 0.1286] | 0.0921 | 0.3744 | 0.0907 [0.0860, 0.0960] |
-| no_ranker | 0.1191 | [0.1150, 0.1230] | 0.0897 | 0.4669 | 0.0825 [0.0782, 0.0873] |
+| lambdarank | 0.1273 | 0.1288 [0.1247, 0.1329] | 0.0928 | 0.3895 | 0.0915 [0.0868, 0.0969] |
+| lambdarank_drop_retriever_features | 0.1000 | 0.1000 [0.0964, 0.1037] | 0.0622 | 0.3736 | 0.0732 [0.0691, 0.0777] |
+| lambdarank_item_item | 0.1264 | 0.1264 [0.1225, 0.1306] | 0.0909 | 0.3270 | 0.0492 [0.0456, 0.0533] |
+| lambdarank_two_tower | 0.1288 | 0.1288 [0.1247, 0.1329] | 0.0943 | 0.3763 | 0.0915 [0.0868, 0.0969] |
+| lambdarank_union_balanced | 0.1245 | 0.1245 [0.1201, 0.1286] | 0.0921 | 0.3744 | 0.0907 [0.0860, 0.0960] |
+| no_ranker | 0.1191 | 0.1191 [0.1150, 0.1230] | 0.0897 | 0.4669 | 0.0825 [0.0782, 0.0873] |
 
 Top feature gains (refit ranker, primary seed):
 
@@ -471,26 +489,26 @@ EASE is restricted to the top 12000 items by train-interaction count (n_items_be
 
 95% bootstrap CIs (NDCG@10):
 
-| model | ndcg@10 CI |
-| --- | --- |
-| als | [0.0774, 0.0830] |
-| als_tuned | [0.0955, 0.1017] |
-| ease (tuned) | [0.1209, 0.1282] |
-| item_item_cosine | [0.1080, 0.1155] |
-| item_item_cosine_tuned | [0.1061, 0.1132] |
-| lambdarank (tuned) | mean±std over seeds 0.1423±0.0007; primary-seed CI [0.1391, 0.1472] |
-| lambdarank_drop_retriever_features (tuned) | [0.0947, 0.1015] |
-| lambdarank_item_item (tuned) | [0.1393, 0.1471] |
-| lambdarank_two_tower (tuned) | [0.1391, 0.1472] |
-| lambdarank_union_balanced (tuned) | [0.1367, 0.1444] |
-| most_popular | [0.0671, 0.0728] |
-| no_ranker | [0.1398, 0.1479] |
-| rp3beta (tuned) | [0.0957, 0.1028] |
-| two_tower (tuned) | 1 seed 0.1436; primary-seed CI [0.1398, 0.1479] |
+| model | NDCG@10 point summary | interval seed | run point and 95% user CI |
+| --- | --- | --- | --- |
+| als | 0.0800 | single run | 0.0800 [0.0774, 0.0830] |
+| als_tuned | 0.0983 | single run | 0.0983 [0.0955, 0.1017] |
+| ease (tuned) | 0.1243 | single run | 0.1243 [0.1209, 0.1282] |
+| item_item_cosine | 0.1113 | single run | 0.1113 [0.1080, 0.1155] |
+| item_item_cosine_tuned | 0.1093 | single run | 0.1093 [0.1061, 0.1132] |
+| lambdarank (tuned) | mean±std over seeds 0.1423±0.0007 | 42 | 0.1429 [0.1391, 0.1472] |
+| lambdarank_drop_retriever_features (tuned) | 0.0979 | single run | 0.0979 [0.0947, 0.1015] |
+| lambdarank_item_item (tuned) | 0.1431 | single run | 0.1431 [0.1393, 0.1471] |
+| lambdarank_two_tower (tuned) | 0.1429 | single run | 0.1429 [0.1391, 0.1472] |
+| lambdarank_union_balanced (tuned) | 0.1403 | single run | 0.1403 [0.1367, 0.1444] |
+| most_popular | 0.0699 | single run | 0.0699 [0.0671, 0.0728] |
+| no_ranker | 0.1436 | single run | 0.1436 [0.1398, 0.1479] |
+| rp3beta (tuned) | 0.0991 | single run | 0.0991 [0.0957, 0.1028] |
+| two_tower (tuned) | 1 seed 0.1436 | 42 | 0.1436 [0.1398, 0.1479] |
 
 #### Does the ranking hold at scale?
 
-Two-tower 0.1436 [0.1398, 0.1479] and LambdaRank 3-seed mean 0.1423 (primary-seed CI [0.1391, 0.1472]) are statistically tied at the top. Both beat item–item cosine 0.1113 [0.1080, 0.1155] with separated intervals, so the neural approach overtakes item–item at this scale, reversing the ml-1m result. LambdaRank adds no lift over its two-tower candidate list (`no_ranker` is also 0.1436). The two-tower's lead is on head items (head NDCG@10 0.1460 versus item–item 0.1114); its tail NDCG@10 (0.0006) is below item–item's (0.0022).
+Two-tower 0.1436 [0.1398, 0.1479] and LambdaRank 3-seed mean 0.1423 (primary-seed CI [0.1391, 0.1472]) have overlapping individual intervals; this does not establish equivalence. Both beat item–item cosine 0.1113 [0.1080, 0.1155] with separated intervals, so the neural approach overtakes item–item at this scale, reversing the ml-1m result. LambdaRank adds no lift over its two-tower candidate list (`no_ranker` is also 0.1436). The two-tower's lead is on head items (head NDCG@10 0.1460 versus item–item 0.1114); its tail NDCG@10 (0.0006) is below item–item's (0.0022).
 
 #### Retrieval recall (candidate generation)
 
@@ -546,20 +564,24 @@ Early-stop user fraction=0.2 (split seed=42). Ranker seeds share candidate sets 
 
 Across seeds: NDCG@10 mean=0.1423, std=0.0007, min=0.1414, max=0.1429.
 
-**Gate: win on the point estimate.** LambdaRank mean NDCG@10=0.1423 vs item_item_cosine 0.1113 [0.1080, 0.1155] (read from `metrics['item_item_cosine']['ndcg@10']`).
+**Fixed item-item baseline: point estimate exceeded.** LambdaRank mean NDCG@10=0.1423 vs item_item_cosine 0.1113 [0.1080, 0.1155] (read from `metrics['item_item_cosine']['ndcg@10']`).
 
 Every ranker-seed NDCG@10 CI low sits above the bar CI high.
 
+Descriptive test-point comparison: strongest recorded prior model `two_tower`=0.1436; ranker minus prior=-0.0013. Exceeds prior point: `False`. This comparison does not select a model or establish significance.
+Unranked candidate-list point=0.1436; ranker minus unranked=-0.0013. Exceeds both points: `False`. The historical fixed-baseline gate above is a separate comparison.
+A paired interval against the unranked list is unavailable in this record.
+
 Ablations are the primary seed, except `ndcg@10`, `recall@10`, and `coverage@10` on the `lambdarank` row, which are means over the three ranker seeds. The `ndcg@10` CI and tail NDCG@10 on that row stay the primary seed; that CI is the primary-seed user bootstrap, not a confidence interval for the 3-seed mean. `no_ranker` keeps the winning candidate order. `lambdarank_drop_retriever_features` drops retriever score and rank.
 
-| ablation | ndcg@10 | ndcg@10 CI | recall@10 | coverage@10 | tail ndcg@10 |
+| ablation | ndcg@10 point | interval run point and 95% CI | recall@10 | coverage@10 | tail ndcg@10 |
 | --- | --- | --- | --- | --- | --- |
-| lambdarank | 0.1423 | [0.1391, 0.1472] | 0.1142 | 0.0435 | 0.0009 [0.0000, 0.0024] |
-| lambdarank_drop_retriever_features | 0.0979 | [0.0947, 0.1015] | 0.0757 | 0.0209 | 0.0009 [0.0000, 0.0024] |
-| lambdarank_item_item | 0.1431 | [0.1393, 0.1471] | 0.1135 | 0.0436 | 0.0039 [0.0008, 0.0078] |
-| lambdarank_two_tower | 0.1429 | [0.1391, 0.1472] | 0.1148 | 0.0428 | 0.0009 [0.0000, 0.0024] |
-| lambdarank_union_balanced | 0.1403 | [0.1367, 0.1444] | 0.1134 | 0.0430 | 0.0011 [0.0000, 0.0032] |
-| no_ranker | 0.1436 | [0.1398, 0.1479] | 0.1138 | 0.0411 | 0.0006 [0.0000, 0.0017] |
+| lambdarank | 0.1423 | 0.1429 [0.1391, 0.1472] | 0.1142 | 0.0435 | 0.0009 [0.0000, 0.0024] |
+| lambdarank_drop_retriever_features | 0.0979 | 0.0979 [0.0947, 0.1015] | 0.0757 | 0.0209 | 0.0009 [0.0000, 0.0024] |
+| lambdarank_item_item | 0.1431 | 0.1431 [0.1393, 0.1471] | 0.1135 | 0.0436 | 0.0039 [0.0008, 0.0078] |
+| lambdarank_two_tower | 0.1429 | 0.1429 [0.1391, 0.1472] | 0.1148 | 0.0428 | 0.0009 [0.0000, 0.0024] |
+| lambdarank_union_balanced | 0.1403 | 0.1403 [0.1367, 0.1444] | 0.1134 | 0.0430 | 0.0011 [0.0000, 0.0032] |
+| no_ranker | 0.1436 | 0.1436 [0.1398, 0.1479] | 0.1138 | 0.0411 | 0.0006 [0.0000, 0.0017] |
 
 Top feature gains (refit ranker, primary seed):
 
@@ -631,23 +653,23 @@ Split: min_ratings=5, test_fraction=0.2, val_fraction=0.1, relevance_threshold=4
 
 95% bootstrap CIs (NDCG@10):
 
-| model | ndcg@10 CI |
-| --- | --- |
-| als | [0.0692, 0.0902] |
-| als_tuned | [0.0768, 0.0982] |
-| ease (tuned) | [0.0898, 0.1151] |
-| item_item_cosine | [0.0784, 0.1011] |
-| item_item_cosine_tuned | [0.0867, 0.1130] |
-| lambdarank (tuned) | mean±std over seeds 0.0990±0.0114; primary-seed CI [0.0734, 0.0968] |
-| lambdarank_drop_retriever_features (tuned) | [0.0722, 0.0960] |
-| lambdarank_item_item (tuned) | [0.0940, 0.1199] |
-| lambdarank_two_tower (tuned) | [0.0813, 0.1057] |
-| lambdarank_union_balanced (tuned) | [0.1078, 0.1354] |
-| lambdarank_union_unbalanced (tuned) | [0.0734, 0.0968] |
-| most_popular | [0.0636, 0.0860] |
-| no_ranker | [0.0860, 0.1110] |
-| rp3beta (tuned) | [0.0735, 0.0985] |
-| two_tower (tuned) | mean±std over seeds 0.0910±0.0023; primary-seed CI [0.0777, 0.1013] |
+| model | NDCG@10 point summary | interval seed | run point and 95% user CI |
+| --- | --- | --- | --- |
+| als | 0.0795 | single run | 0.0795 [0.0692, 0.0902] |
+| als_tuned | 0.0875 | single run | 0.0875 [0.0768, 0.0982] |
+| ease (tuned) | 0.1022 | single run | 0.1022 [0.0898, 0.1151] |
+| item_item_cosine | 0.0899 | single run | 0.0899 [0.0784, 0.1011] |
+| item_item_cosine_tuned | 0.0997 | single run | 0.0997 [0.0867, 0.1130] |
+| lambdarank (tuned) | mean±std over seeds 0.0990±0.0114 | 42 | 0.0852 [0.0734, 0.0968] |
+| lambdarank_drop_retriever_features (tuned) | 0.0838 | single run | 0.0838 [0.0722, 0.0960] |
+| lambdarank_item_item (tuned) | 0.1071 | single run | 0.1071 [0.0940, 0.1199] |
+| lambdarank_two_tower (tuned) | 0.0933 | single run | 0.0933 [0.0813, 0.1057] |
+| lambdarank_union_balanced (tuned) | 0.1218 | single run | 0.1218 [0.1078, 0.1354] |
+| lambdarank_union_unbalanced (tuned) | 0.0852 | single run | 0.0852 [0.0734, 0.0968] |
+| most_popular | 0.0743 | single run | 0.0743 [0.0636, 0.0860] |
+| no_ranker | 0.0983 | single run | 0.0983 [0.0860, 0.1110] |
+| rp3beta (tuned) | 0.0858 | single run | 0.0858 [0.0735, 0.0985] |
+| two_tower (tuned) | mean±std over seeds 0.0910±0.0023 | 42 | 0.0890 [0.0777, 0.1013] |
 
 #### Retrieval recall (candidate generation)
 
@@ -706,21 +728,25 @@ Early-stop user fraction=0.2 (split seed=42). Ranker seeds share candidate sets 
 
 Across seeds: NDCG@10 mean=0.0990, std=0.0114, min=0.0852, max=0.1131.
 
-**Gate: win on the point estimate.** LambdaRank mean NDCG@10=0.0990 vs item_item_cosine 0.0899 [0.0784, 0.1011] (read from `metrics['item_item_cosine']['ndcg@10']`).
+**Fixed item-item baseline: point estimate exceeded.** LambdaRank mean NDCG@10=0.0990 vs item_item_cosine 0.0899 [0.0784, 0.1011] (read from `metrics['item_item_cosine']['ndcg@10']`).
 
 Seed NDCG@10 intervals are not all above the bar CI high (`all_seed_ci_low_above_bar_ci_high=False`).
 
+Descriptive test-point comparison: strongest recorded prior model `ease`=0.1022; ranker minus prior=-0.0032. Exceeds prior point: `False`. This comparison does not select a model or establish significance.
+Unranked candidate-list point=0.0983; ranker minus unranked=+0.0007. Exceeds both points: `False`. The historical fixed-baseline gate above is a separate comparison.
+A paired interval against the unranked list is unavailable in this record.
+
 Ablations are the primary seed, except `ndcg@10`, `recall@10`, and `coverage@10` on the `lambdarank` row, which are means over the three ranker seeds. The `ndcg@10` CI and tail NDCG@10 on that row stay the primary seed; that CI is the primary-seed user bootstrap, not a confidence interval for the 3-seed mean. `no_ranker` keeps the winning candidate order. `lambdarank_drop_retriever_features` drops retriever score and rank.
 
-| ablation | ndcg@10 | ndcg@10 CI | recall@10 | coverage@10 | tail ndcg@10 |
+| ablation | ndcg@10 point | interval run point and 95% CI | recall@10 | coverage@10 | tail ndcg@10 |
 | --- | --- | --- | --- | --- | --- |
-| lambdarank | 0.0990 | [0.0734, 0.0968] | 0.0838 | 0.0972 | 0.0119 [0.0062, 0.0185] |
-| lambdarank_drop_retriever_features | 0.0838 | [0.0722, 0.0960] | 0.0647 | 0.1157 | 0.0088 [0.0051, 0.0131] |
-| lambdarank_item_item | 0.1071 | [0.0940, 0.1199] | 0.0899 | 0.0924 | 0.0015 [0.0000, 0.0041] |
-| lambdarank_two_tower | 0.0933 | [0.0813, 0.1057] | 0.0766 | 0.1003 | 0.0105 [0.0061, 0.0157] |
-| lambdarank_union_balanced | 0.1218 | [0.1078, 0.1354] | 0.0975 | 0.0878 | 0.0227 [0.0134, 0.0340] |
-| lambdarank_union_unbalanced | 0.0852 | [0.0734, 0.0968] | 0.0692 | 0.0999 | 0.0119 [0.0062, 0.0185] |
-| no_ranker | 0.0983 | [0.0860, 0.1110] | 0.0803 | 0.1054 | 0.0114 [0.0062, 0.0175] |
+| lambdarank | 0.0990 | 0.0852 [0.0734, 0.0968] | 0.0838 | 0.0972 | 0.0119 [0.0062, 0.0185] |
+| lambdarank_drop_retriever_features | 0.0838 | 0.0838 [0.0722, 0.0960] | 0.0647 | 0.1157 | 0.0088 [0.0051, 0.0131] |
+| lambdarank_item_item | 0.1071 | 0.1071 [0.0940, 0.1199] | 0.0899 | 0.0924 | 0.0015 [0.0000, 0.0041] |
+| lambdarank_two_tower | 0.0933 | 0.0933 [0.0813, 0.1057] | 0.0766 | 0.1003 | 0.0105 [0.0061, 0.0157] |
+| lambdarank_union_balanced | 0.1218 | 0.1218 [0.1078, 0.1354] | 0.0975 | 0.0878 | 0.0227 [0.0134, 0.0340] |
+| lambdarank_union_unbalanced | 0.0852 | 0.0852 [0.0734, 0.0968] | 0.0692 | 0.0999 | 0.0119 [0.0062, 0.0185] |
+| no_ranker | 0.0983 | 0.0983 [0.0860, 0.1110] | 0.0803 | 0.1054 | 0.0114 [0.0062, 0.0175] |
 
 Top feature gains (refit ranker, primary seed):
 

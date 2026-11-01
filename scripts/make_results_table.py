@@ -7,6 +7,9 @@ import json
 import sys
 from pathlib import Path
 
+from movielens_recommender.ranker.gate import compare_prior_points
+from movielens_recommender.reporting import primary_metrics
+
 ROOT = Path(__file__).resolve().parents[1]
 README = ROOT / "README.md"
 RESULTS_DIR = ROOT / "results"
@@ -80,7 +83,7 @@ def _recall_seed_cell(point: float, summary: dict | None) -> str:
 
 
 def _segment_ndcg(model: dict, which: str) -> float | None:
-    block = (model.get("segments") or {}).get("item_head_tail") or {}
+    block = (primary_metrics(model).get("segments") or {}).get("item_head_tail") or {}
     cell = block.get(which) or {}
     value = cell.get("ndcg@10")
     if value is None:
@@ -197,7 +200,7 @@ def render_ranker(payload: dict) -> str:
                 "The ranker does not beat the S3 item–item cosine point estimate."
             )
         else:
-            lines.append(f"**Gate: win on the point estimate.** {comparison}")
+            lines.append(f"**Fixed item-item baseline: point estimate exceeded.** {comparison}")
         if gate.get("all_seed_ci_low_above_bar_ci_high"):
             lines.append("")
             lines.append(
@@ -211,6 +214,37 @@ def render_ranker(payload: dict) -> str:
                 f"{gate.get('all_seed_ci_low_above_bar_ci_high')}`)."
             )
     lines.append("")
+    metrics = payload.get("metrics") or {}
+    if "lambdarank" in metrics:
+        comparison = compare_prior_points(float(metrics["lambdarank"]["ndcg@10"]), metrics)
+        best = comparison["best_prior_model"]
+        if best is not None:
+            lines.append(
+                f"Descriptive test-point comparison: strongest recorded prior model "
+                f"`{best}`={_fmt(comparison['best_prior_ndcg@10'])}; "
+                f"ranker minus prior={comparison['ranker_minus_best_prior']:+.4f}. "
+                f"Exceeds prior point: `{comparison['beats_best_prior_point']}`. "
+                "This comparison does not select a model or establish significance."
+            )
+        if comparison["no_ranker_ndcg@10"] is not None:
+            lines.append(
+                f"Unranked candidate-list point={_fmt(comparison['no_ranker_ndcg@10'])}; "
+                f"ranker minus unranked={comparison['ranker_minus_no_ranker']:+.4f}. "
+                f"Exceeds both points: `{comparison['beats_both_points']}`. "
+                "The historical fixed-baseline gate above is a separate comparison."
+            )
+        paired = ((ranker.get("gate") or {}).get("comparisons") or {}).get("paired_vs_no_ranker")
+        if paired:
+            lines.append(
+                f"Paired ranker minus unranked, seed {paired['seed']}: "
+                f"{paired['mean']:+.4f} [{paired['low']:+.4f}, {paired['high']:+.4f}] "
+                f"over {paired['n_users']} users. This interval belongs to that seed."
+            )
+        else:
+            lines.append(
+                "A paired interval against the unranked list is unavailable in this record."
+            )
+        lines.append("")
     ablations = ranker.get("ablations") or {}
     if ablations:
         lines.append(
@@ -224,12 +258,13 @@ def render_ranker(payload: dict) -> str:
         )
         lines.append("")
         lines.append(
-            "| ablation | ndcg@10 | ndcg@10 CI | recall@10 | coverage@10 | tail ndcg@10 |"
+            "| ablation | ndcg@10 point | interval run point and 95% CI | "
+            "recall@10 | coverage@10 | tail ndcg@10 |"
         )
         lines.append("| --- | --- | --- | --- | --- | --- |")
         for name in sorted(ablations):
             block = ablations[name]
-            ci = block.get("ndcg@10_ci") or {}
+            ci = block.get("primary_seed_ndcg@10_ci", block.get("ndcg@10_ci")) or {}
             tail_ci = block.get("tail_ndcg@10_ci") or {}
             tail = block.get("tail_ndcg@10")
             tail_cell = ""
@@ -240,6 +275,8 @@ def render_ranker(payload: dict) -> str:
             ci_cell = (
                 f"[{_fmt(float(ci['low']))}, {_fmt(float(ci['high']))}]" if ci else ""
             )
+            if ci.get("mean") is not None:
+                ci_cell = f"{_fmt(float(ci['mean']))} {ci_cell}"
             lines.append(
                 "| "
                 + " | ".join(
@@ -330,8 +367,8 @@ def render_scale_ranking(payload: dict) -> str:
     no_ranker = metrics.get("no_ranker")
     if not (two_tower and lambdarank and item_item and no_ranker):
         return ""
-    tt_ci = _ci_pair(two_tower.get("confidence_intervals") or {}, "ndcg@10")
-    lr_ci = _ci_pair(lambdarank.get("confidence_intervals") or {}, "ndcg@10")
+    tt_ci = _ci_pair(primary_metrics(two_tower).get("confidence_intervals") or {}, "ndcg@10")
+    lr_ci = _ci_pair(primary_metrics(lambdarank).get("confidence_intervals") or {}, "ndcg@10")
     ii_ci = _ci_pair(item_item.get("confidence_intervals") or {}, "ndcg@10")
     lr_seeds = (lambdarank.get("seed_summary") or {}).get("ndcg@10") or {}
     if not (tt_ci and lr_ci and ii_ci and "mean" in lr_seeds):
@@ -342,13 +379,16 @@ def render_scale_ranking(payload: dict) -> str:
     ii_ndcg = float(item_item["ndcg@10"])
     nr_ndcg = float(no_ranker["ndcg@10"])
     lr_mean = float(lr_seeds["mean"])
-    tied = tt_ci[0] <= lr_ci[1] and lr_ci[0] <= tt_ci[1]
+    overlapping = tt_ci[0] <= lr_ci[1] and lr_ci[0] <= tt_ci[1]
     separated = tt_ci[0] > ii_ci[1] and lr_ci[0] > ii_ci[1]
     tt_head = _segment_ndcg(two_tower, "head")
     tt_tail = _segment_ndcg(two_tower, "tail")
     ii_head = _segment_ndcg(item_item, "head")
     ii_tail = _segment_ndcg(item_item, "tail")
-    relation = "are statistically tied at the top" if tied else "are the top two"
+    relation = (
+        "have overlapping individual intervals; this does not establish equivalence"
+        if overlapping else "are the top two on the recorded points"
+    )
     top = (
         f"Two-tower {_fmt(tt_ndcg)} {_bracket(tt_ci)} and LambdaRank "
         f"{seed_label} {_fmt(lr_mean)} (primary-seed CI {_bracket(lr_ci)}) "
@@ -470,19 +510,25 @@ def render_headline(filename: str, payload: dict) -> str:
     lines.append("")
     lines.append("95% bootstrap CIs (NDCG@10):")
     lines.append("")
-    lines.append("| model | ndcg@10 CI |")
-    lines.append("| --- | --- |")
+    lines.append("| model | NDCG@10 point summary | interval seed | run point and 95% user CI |")
+    lines.append("| --- | --- | --- | --- |")
     for model in sorted(metrics):
-        cis = metrics[model].get("confidence_intervals", {})
+        primary = primary_metrics(metrics[model])
+        cis = primary.get("confidence_intervals", {})
         label = _model_label(model, tuned_flags)
         if metrics[model].get("seed_summary"):
             ss = metrics[model]["seed_summary"]["ndcg@10"]
+            seed = metrics[model].get("primary_seed", payload.get("seed", "primary"))
+            run_point = cis.get("ndcg@10", {}).get("mean", primary.get("ndcg@10"))
             lines.append(
-                f"| {label} | {_ndcg_seed_spread(ss)}; "
-                f"primary-seed CI {_fmt_ci(cis, 'ndcg@10')} |"
+                f"| {label} | {_ndcg_seed_spread(ss)} | {seed} | "
+                f"{_fmt(run_point)} {_fmt_ci(cis, 'ndcg@10')} |"
             )
         else:
-            lines.append(f"| {label} | {_fmt_ci(cis, 'ndcg@10')} |")
+            lines.append(
+                f"| {label} | {_fmt(float(metrics[model]['ndcg@10']))} | single run | "
+                f"{_fmt(float(metrics[model]['ndcg@10']))} {_fmt_ci(cis, 'ndcg@10')} |"
+            )
     lines.append("")
     scale = render_scale_ranking(payload)
     if scale:
@@ -582,7 +628,7 @@ def render_headline(filename: str, payload: dict) -> str:
         lines.append(ranker_section)
 
     # Segment breakdowns (NDCG@10 only).
-    if any("segments" in metrics[m] for m in metrics):
+    if any("segments" in primary_metrics(metrics[m]) for m in metrics):
         lines.append("#### Segment NDCG@10")
         lines.append("")
         lines.append(
@@ -597,7 +643,7 @@ def render_headline(filename: str, payload: dict) -> str:
         )
         lines.append("| --- | --- | --- | --- | --- | --- |")
         for model in sorted(metrics):
-            seg = metrics[model].get("segments") or {}
+            seg = primary_metrics(metrics[model]).get("segments") or {}
             act = seg.get("user_activity_terciles") or {}
             items = seg.get("item_head_tail") or {}
 
@@ -704,7 +750,7 @@ def render_global_cutoff() -> str:
     metrics = payload["metrics"]
     for model in sorted(metrics):
         m = metrics[model]
-        cis = m.get("confidence_intervals", {})
+        cis = primary_metrics(m).get("confidence_intervals", {})
         lines.append(
             "| "
             + " | ".join(
@@ -1460,7 +1506,8 @@ def _answer_tail(payload: dict) -> str:
 
 
 def _segment_value_metrics(metrics: dict, which: str) -> float | None:
-    cell = ((metrics.get("segments") or {}).get("item_head_tail") or {}).get(which) or {}
+    segments = (primary_metrics(metrics).get("segments") or {}).get("item_head_tail") or {}
+    cell = segments.get(which) or {}
     value = cell.get("ndcg@10")
     if value is None:
         return None
@@ -1666,7 +1713,7 @@ def _render_matched_budget(dataset: str) -> list[str]:
     test = payload.get("test") or {}
     if test.get("status") == "ran":
         metrics = test["model"]["metrics"]
-        ci = (metrics.get("confidence_intervals") or {}).get("ndcg@10") or {}
+        ci = (primary_metrics(metrics).get("confidence_intervals") or {}).get("ndcg@10") or {}
         lines.append(
             f"Test NDCG@10 {_fmt(float(metrics['ndcg@10']))} {_fmt_ci_cell(ci)}, "
             f"head {_fmt(float(_segment_value_metrics(metrics, 'head')))}, "
@@ -1817,7 +1864,7 @@ def _render_edge_extension(dataset: str) -> list[str]:
         test = payload.get("test") or {}
         if test.get("status") == "ran":
             metrics = test["model"]["metrics"]
-            ci = (metrics.get("confidence_intervals") or {}).get("ndcg@10") or {}
+            ci = (primary_metrics(metrics).get("confidence_intervals") or {}).get("ndcg@10") or {}
             lines.append(
                 f"Re-scored test NDCG@10 {_fmt(float(metrics['ndcg@10']))} {_fmt_ci_cell(ci)}."
             )
@@ -1932,7 +1979,7 @@ def render_two_tower_v2() -> str:
             if not model:
                 continue
             metrics = model["metrics"]
-            ci = (metrics.get("confidence_intervals") or {}).get("ndcg@10") or {}
+            ci = (primary_metrics(metrics).get("confidence_intervals") or {}).get("ndcg@10") or {}
             n_seeds = len(model.get("per_seed") or [])
             label = name if n_seeds != 1 else f"{name} (1 seed)"
             if n_seeds > 1:

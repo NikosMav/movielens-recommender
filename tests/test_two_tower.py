@@ -568,6 +568,46 @@ def test_epoch_checkpoint_resumes(tmp_path):
     assert second.wall_time_sec >= first.wall_time_sec
 
 
+def test_checkpoint_time_matches_returned_time_despite_slow_save(tmp_path, monkeypatch):
+    from movielens_recommender.two_tower import train as training
+
+    # Simulate expensive disk writes without sleeping or changing training.
+    clock = [0.0]
+
+    def now():
+        clock[0] += 1.0
+        return clock[0]
+
+    save = training._save_epoch_checkpoint
+
+    def slow_save(path, payload):
+        result = save(path, payload)
+        clock[0] += 100.0
+        return result
+
+    monkeypatch.setattr(training.time, "perf_counter", now)
+    monkeypatch.setattr(training, "_save_epoch_checkpoint", slow_save)
+    checkpoint = tmp_path / "slow.pt"
+    kwargs = {
+        "dataset": "synthetic", "movies": _toy_movies(),
+        "hyperparams": _toy_hyperparams(), "seed": 0, "epoch_checkpoint": checkpoint,
+    }
+    _, _, first = fit_two_tower_recommender(_toy_ratings(), n_epochs=1, **kwargs)
+    saved = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    assert first.wall_time_sec == saved["wall_time_sec"]
+
+    # Loading a completed checkpoint adds no training time.
+    _, _, loaded = fit_two_tower_recommender(_toy_ratings(), n_epochs=1, **kwargs)
+    assert loaded.wall_time_sec == first.wall_time_sec
+
+    saved["finished"] = False
+    torch.save(saved, checkpoint)
+    _, _, resumed = fit_two_tower_recommender(_toy_ratings(), n_epochs=2, **kwargs)
+    saved = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    assert resumed.wall_time_sec == saved["wall_time_sec"]
+    assert resumed.wall_time_sec > first.wall_time_sec
+
+
 def test_full_and_sampled_softmax_train_on_toy_data():
     train = _toy_ratings()
     movies = _toy_movies()

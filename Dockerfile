@@ -6,11 +6,14 @@
 #   docker build -t movielens-recommender .
 #   docker run --rm -p 8000:8000 -v "$PWD/artifacts:/app/artifacts:ro" movielens-recommender
 FROM python:3.12-slim
+ARG VCS_REF=unknown
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
+
+ENV MOVIELENS_BUILD_SHA=${VCS_REF}
 
 # LightGBM needs the OpenMP runtime.
 RUN apt-get update \

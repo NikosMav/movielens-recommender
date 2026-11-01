@@ -36,6 +36,7 @@ from movielens_recommender.ranker.features import (
     history_user_stats,
 )
 from movielens_recommender.ranker.train import RankerMatrices
+from movielens_recommender.reporting import primary_metrics
 from movielens_recommender.split import (
     SplitConfig,
     SplitResult,
@@ -407,7 +408,7 @@ def _known_user_reference(results_dir: Path) -> dict[str, Any]:
     models["two_tower"] = {
         "ndcg@10": tower["ndcg@10"]["mean"],
         "ndcg@10_std": tower["ndcg@10"]["std"],
-        "ndcg@10_ci": metrics["two_tower"]["confidence_intervals"]["ndcg@10"],
+        "ndcg@10_ci": primary_metrics(metrics["two_tower"])["confidence_intervals"]["ndcg@10"],
         "recall@10": tower["recall@10"]["mean"],
         "coverage@10": tower["coverage@10"]["mean"],
         "aggregation": "mean_over_seeds",
@@ -418,7 +419,7 @@ def _known_user_reference(results_dir: Path) -> dict[str, Any]:
     models["lambdarank"] = {
         "ndcg@10": ranker["ndcg@10"],
         "ndcg@10_std": across["std"],
-        "ndcg@10_ci": ranker["ndcg@10_ci"],
+        "ndcg@10_ci": ranker.get("primary_seed_ndcg@10_ci", ranker["ndcg@10_ci"]),
         "recall@10": ranker["recall@10"],
         "coverage@10": ranker["coverage@10"],
         "aggregation": "mean_over_seeds",

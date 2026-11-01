@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -36,6 +39,63 @@ def test_manifest_round_trip(artifact_dir):
     assert manifest["best_iteration"] >= 1
     again = load_bundle(artifact_dir)
     assert again.manifest == manifest
+
+
+def test_saved_snapshot_identity_detects_modified_model_files(artifact_dir, tmp_path):
+    directory = tmp_path / "copy"
+    shutil.copytree(artifact_dir, directory)
+    manifest = json.loads((directory / "manifest.json").read_text())
+    assert len(manifest["snapshot_id"]) == 64
+    assert "movies.csv" in manifest["artifact_sha256"]
+    assert manifest["library_versions"]["numpy"]
+    assert manifest["host"]["python"]
+    with (directory / "movies.csv").open("a") as handle:
+        handle.write("\n")
+    with pytest.raises(ValueError, match="checksum"):
+        load_bundle(directory)
+
+
+def test_legacy_snapshot_loads_without_inventing_provenance(artifact_dir, tmp_path):
+    directory = tmp_path / "legacy"
+    shutil.copytree(artifact_dir, directory)
+    path = directory / "manifest.json"
+    manifest = json.loads(path.read_text())
+    for key in ("snapshot_id", "artifact_sha256", "provenance_version"):
+        manifest.pop(key, None)
+    path.write_text(json.dumps(manifest))
+    loaded = load_bundle(directory)
+    assert loaded.manifest.get("snapshot_id") is None
+    assert recommend_for_user(loaded, 1, n=3)["production"]
+
+
+@pytest.mark.parametrize("change", ["staged", "untracked"])
+def test_git_provenance_marks_all_uncommitted_code(tmp_path, change):
+    from movielens_recommender.serving.build import git_sha
+
+    if shutil.which("git") is None:
+        pytest.skip("git is unavailable")
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    source = tmp_path / "source.py"
+    source.write_text("original")
+    subprocess.run(["git", "-C", str(tmp_path), "add", "source.py"], check=True)
+    subprocess.run([
+        "git", "-C", str(tmp_path), "-c", "user.name=Test", "-c", "user.email=test@example.test",
+        "commit", "-qm", "fixture",
+    ], check=True)
+    clean = git_sha(tmp_path)
+    if change == "staged":
+        source.write_text("changed")
+        subprocess.run(["git", "-C", str(tmp_path), "add", "source.py"], check=True)
+    else:
+        (tmp_path / "new.py").write_text("new code")
+    assert git_sha(tmp_path) == clean + "-dirty"
+
+
+def test_container_build_revision_is_used_without_git_checkout(tmp_path, monkeypatch):
+    from movielens_recommender.serving.provenance import git_sha
+
+    monkeypatch.setenv("MOVIELENS_BUILD_SHA", "0123456789abcdef-build")
+    assert git_sha(tmp_path) == "0123456789abcdef-build"
 
 
 def test_recommend_round_trip_and_plain_reasons(artifact_dir):
