@@ -15,7 +15,7 @@
   background: var(--paper);
 }
 
-body { margin: 0; min-width: 300px; }
+body { margin: 0; }
 [hidden] { display: none !important; }
 button, input { font: inherit; }
 button { cursor: pointer; }

@@ -10,6 +10,7 @@ const proxy = {
 
 export default defineConfig({
   plugins: [react()],
+  build: {license: {fileName: 'THIRD_PARTY_LICENSES.md'}},
   server: {proxy},
   preview: {proxy},
 });

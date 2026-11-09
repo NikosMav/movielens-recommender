@@ -74,7 +74,9 @@ For the local React and Astryx frontend, follow the [frontend setup guide](front
 
 ## Streamlit Community Cloud
 
-The public page runs on [Streamlit Community Cloud](https://share.streamlit.io/) from this GitHub repo: [the live demo](https://nikosmav-movielens-recommender.streamlit.app/). Nothing in this repo creates the app or reads a token (ADR-0020). Its new-user mode picks genres, then rates films by clicking stars on the cards. The title control is one filtering list, so matches appear as you type. Switching modes shows a spinner while the cached models open. Posters, when `TMDB_API_KEY` is set as a Streamlit secret, load in the browser from TMDB. Without that secret each card uses a placeholder, as in the figures. A third mode, How good is it?, reads the committed results JSON (ADR-0022). Hugging Face Docker Spaces require a PRO account, so that is not the deploy path.
+The [public demo](https://nikosmav-movielens-recommender.streamlit.app/) runs on [Streamlit Community Cloud](https://share.streamlit.io/). It opens on the Astryx Discover page for movie search, star ratings, and personalized picks. Model Lab compares the three ranked lists for an existing profile.
+
+Open **Genre shelves, posters and evaluation** to reach the original Streamlit interface. It supports genre browsing and optional TMDB posters via the Streamlit secret TMDB_API_KEY. Without that secret, each card uses a placeholder. The **How good is it?** view reads the committed results JSON (ADR-0022).
 
 ![Live page, new user: a Comedy shelf with stars on each card](docs/demo/streamlit-new-user.png)
 

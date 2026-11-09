@@ -1,6 +1,6 @@
 # MovieLens recommender
 
-Existing-user and new-user recommendations for MovieLens ml-1m. The page loads prebuilt model parameters. It does not train.
+The public entrypoint opens the Astryx frontend for MovieLens ml-1m. Streamlit hosts the compiled component and scores requests with the same prebuilt snapshots as the original interface. The **Genre shelves, posters and evaluation** control opens that interface.
 
 **Existing user.** Pick an ml-1m user. Candidates come from the validation-chosen retriever and LightGBM LambdaRank re-ranks them.
 

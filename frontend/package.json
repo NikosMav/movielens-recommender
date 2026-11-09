@@ -4,6 +4,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:streamlit": "tsc --noEmit && vite build --mode streamlit --base ./ --outDir ../space/astryx_ui --emptyOutDir",
     "preview": "vite preview"
   },
   "type": "module",

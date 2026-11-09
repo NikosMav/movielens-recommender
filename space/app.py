@@ -515,11 +515,81 @@ def _footer() -> None:
     )
 
 
+def _astryx_cards(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    from runtime import visible_reasons
+
+    return [
+        {
+            "item_id": int(row["item_id"]),
+            "title": str(row["title"]),
+            "year": clean_year(row.get("year")),
+            "genres": str(row["genres"]),
+            "reasons": visible_reasons(list(row.get("reasons") or [])),
+        }
+        for row in rows
+    ]
+
+
+def _astryx(prod: Path, cold: Path, *, has_prod: bool, has_cold: bool) -> None:
+    from astryx_app import render
+    from movielens_recommender.serving.bundle import recent_history
+    from movielens_recommender.serving.cold import recommend_new_user
+
+    prod_path, cold_path = str(prod.resolve()), str(cold.resolve())
+
+    def search(query: str) -> list[dict[str, Any]]:
+        if not has_cold:
+            raise FileNotFoundError(cold)
+        records, _ = _catalog(cold_path)
+        needle = query.casefold()
+        hits = [row for row in records if needle in row["title"].casefold()]
+        hits.sort(key=lambda row: (row["title"].casefold() != needle, row["title"].casefold()))
+        return hits[:10]
+
+    def recommend(profile: list[tuple[int, int]]) -> dict[str, Any]:
+        if not has_cold:
+            raise FileNotFoundError(cold)
+        records, _ = _catalog(cold_path)
+        known = {row["item_id"] for row in records}
+        if any(item_id not in known for item_id, _ in profile):
+            raise ValueError("Unknown movie ID")
+        result = recommend_new_user(_load_cold(cold_path), profile, n=_N_RECS)
+        return {"recommendations": _astryx_cards(result["recommendations"])}
+
+    def compare(user_id: int) -> dict[str, Any]:
+        if not has_prod:
+            raise FileNotFoundError(prod)
+        bundle, summaries = _load(prod_path)
+        summary = summaries[user_id]
+        result = _recommendations(prod_path, user_id, _N_RECS)
+        return {
+            **summary,
+            "recent_ratings": recent_history(bundle, user_id),
+            "recommendations": {
+                name: _astryx_cards(result[name])
+                for name in ("production", "item_item", "two_tower")
+            },
+        }
+
+    render(search=search, recommend=recommend, compare=compare)
+    st.button(
+        "Genre shelves, posters and evaluation",
+        on_click=lambda: st.query_params.update(view="classic"),
+    )
+    st.caption(_CITATION)
+
+
 def main() -> None:
     st.set_page_config(page_title="MovieLens recommender", layout="wide")
-    st.markdown(THEME_CSS, unsafe_allow_html=True)
-    st.markdown(hero_html(), unsafe_allow_html=True)
-    api_key = tmdb_api_key()
+    from astryx_app import BUILD
+
+    classic = st.query_params.get("view") == "classic"
+    if classic:
+        st.button("Back to Discover", on_click=st.query_params.clear)
+    if classic or not (BUILD / "index.html").is_file():
+        st.markdown(THEME_CSS, unsafe_allow_html=True)
+        st.markdown(hero_html(), unsafe_allow_html=True)
+
     resolved = _resolve()
     if resolved is None:
         prod_env = os.environ.get("MOVIELENS_ARTIFACTS")
@@ -538,6 +608,11 @@ def main() -> None:
         _footer()
         return
 
+    if not classic and (BUILD / "index.html").is_file():
+        _astryx(prod, cold, has_prod=has_prod, has_cold=has_cold)
+        return
+
+    api_key = tmdb_api_key()
     with st.spinner("Loading both recommenders…"):
         _warm(prod, cold, has_prod=has_prod, has_cold=has_cold)
 

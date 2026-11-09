@@ -9,8 +9,11 @@ import '@fontsource-variable/figtree';
 import '@fontsource-variable/fraunces';
 import './styles.css';
 import {App} from './App';
+import {connectStreamlit} from './streamlit';
 
-createRoot(document.getElementById('root')!).render(
+const root = document.getElementById('root')!;
+if (import.meta.env.MODE === 'streamlit') connectStreamlit(root);
+createRoot(root).render(
   <Theme theme={neutralTheme} mode="light">
     <App />
   </Theme>,
