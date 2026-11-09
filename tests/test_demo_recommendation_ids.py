@@ -76,13 +76,11 @@ def test_demo_top10_ids_match_main():
     sys.path.insert(0, str(SPACE))
     from movielens_recommender.serving.bundle import load_bundle, recommend_for_user
     from movielens_recommender.serving.cold import load_cold_start_bundle, recommend_new_user
-    from runtime import use_compact_seen_ids, use_sparse_item_item_loader
+    from runtime import use_sparse_item_item_loader
 
     original_item_item = bundle_mod._load_item_item
-    original_tower = bundle_mod._load_two_tower
     try:
         use_sparse_item_item_loader()
-        use_compact_seen_ids()
         bundle = load_bundle(prod)
         for user_id, expected in EXISTING_TOP10.items():
             result = recommend_for_user(bundle, user_id, n=10)
@@ -94,8 +92,6 @@ def test_demo_top10_ids_match_main():
         assert got == NEW_USER_TOP10
     finally:
         bundle_mod._load_item_item = original_item_item
-        bundle_mod._load_two_tower = original_tower
         bundle_mod._space_sparse_item_item = False
-        bundle_mod._space_compact_seen = False
         if sys.path and sys.path[0] == str(SPACE):
             sys.path.pop(0)

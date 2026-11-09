@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 SPACE = Path(__file__).resolve().parents[1] / "space"
-_PIN = "23ab9515a3cbc0a18471d0fd36d03ae56b96a641"
+_PIN = "2f48c5f5c9f7df8f9bdbece0c53a3d81e79161b7"
 _DEMO_REASON = (
     "demo_",
     "group_",
@@ -212,35 +212,6 @@ def test_install_space_weights_reuses_extracted_tree(tmp_path, monkeypatch):
     dest = runtime.install_space_weights(root)
     assert dest == root / "weights"
     assert runtime.install_space_weights(root) == dest
-
-
-def test_compact_seen_ids_replaces_pinned_set_copy():
-    pytest.importorskip("torch")
-    import inspect
-
-    import movielens_recommender.serving.bundle as bundle_mod
-
-    runtime = _load_runtime()
-    original = bundle_mod._load_two_tower
-    bundle_mod._space_compact_seen = False
-
-    def _load_two_tower(directory):
-        seen_raw = {1: [10, 11]}
-        # The pinned library builds this set. The line must stay intact so the
-        # space patch can find it.
-        seen_item_ids = {uid: set(int(i) for i in items.tolist()) for uid, items in seen_raw.items()}  # noqa: E501
-        return directory, seen_item_ids
-
-    bundle_mod._load_two_tower = _load_two_tower
-    try:
-        runtime.use_compact_seen_ids()
-        loaded = bundle_mod._load_two_tower(None)
-        assert loaded == (None, {1: [10, 11]})
-        assert "set(int(i)" not in inspect.getsource(original)
-        runtime.use_compact_seen_ids()
-    finally:
-        bundle_mod._load_two_tower = original
-        bundle_mod._space_compact_seen = False
 
 
 def test_install_space_weights_bad_checksum(tmp_path, monkeypatch):
