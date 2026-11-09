@@ -37,9 +37,9 @@ Walk, with two browser sessions open at the same time. Headless Chrome drives th
 1. Session A opens Existing user and waits until the production model and its top 10 are on the page.
 2. Session B opens and waits until Existing user is on the page. From here the two sessions overlap.
 3. Session A switches to New user, selects Comedy, rates the first five films on that shelf 5, 4, 5, 3, and 4, and waits until Get recommendations has returned a top 10.
-4. Session A opens How good is it?, then Existing user, then New user, then How good is it? again.
-5. Session B opens How good is it? and then New user.
-6. Both browsers close. The script waits two seconds and reads `VmRSS` (steady) and `VmHWM` (peak over the whole process, including startup).
+4. Session B opens How good is it? and then New user. Session A stays open.
+5. Session A opens How good is it?, then Existing user, then New user, then How good is it? again. Session B stays open.
+6. Both sessions close. The script waits two seconds and reads `VmRSS` (steady) and `VmHWM` (peak over the whole process, including startup).
 
 Fresh process, after the server has exited, in a new interpreter: import Streamlit, rebuild both snapshots from the archive and ml-1m already on disk, keep both models resident, build one genre shelf, render one recommendation card, read the quality JSON, and call the poster lookup with an empty key. Print `ru_maxrss` and `VmHWM`. That is the ADR-0022 shape. It is not the gate for this decision.
 
@@ -51,3 +51,29 @@ The script prints `peak_vmhwm_kb`, `steady_vmrss_kb`, `fresh_ru_maxrss_kib`, and
 - The walk includes startup, so a one-time allocation during rebuild counts. Freeing it afterwards does not lower `VmHWM`.
 - `results/` is not an input to this measurement and must not change.
 - The live app picks up `space/` from this repo. It does not pick up `src/` until the pin in `space/requirements.txt` moves (ADR-0020). A reduction that the running Community Cloud process needs has to live in `space/` or the pin has to move.
+
+## Measurement
+
+Same VM class as ADR-0022: 4 CPUs, x86_64, Linux 6.12.113+, `MemTotal` 16,387,328 kB, no swap. The weight archive on disk was 119,917,467 bytes. No `TMDB_API_KEY`. Not a Community Cloud measurement. `results/` was not rewritten.
+
+`scripts/measure_server_rss.py` was run twice on this branch: once before the changes below, while `space/app.py` and the loaders still matched `main` at `268c75a`, and once after. The script was the same both times.
+
+| | before | after |
+| --- | --- | --- |
+| server `VmHWM` (`peak_vmhwm_kb`) | 1,097,748 | 764,512 |
+| server steady `VmRSS` (`steady_vmrss_kb`) | 738,124 | 632,544 |
+| fresh `ru_maxrss` (`fresh_ru_maxrss_kib`) | 771,676 | 726,020 |
+| fresh `VmHWM` (`fresh_vmhwm_kb`) | 772,100 | 726,432 |
+
+764,512 kB is under the 870,400 kB line. The margin is 105,888 kB.
+
+The before step log, in kB (`VmRSS` / `VmHWM`): server healthy 54,308 / 54,308; session A on Existing user 777,900 / 777,900; session B on Existing user 780,592 / 894,736; session A after the new-user top 10 795,192 / 1,097,748. The high-water mark then stayed at 1,097,748 through the rest of the walk. Steady RSS after the browsers closed was 738,124. Opening the second session raised the high-water mark by 116,836 kB (894,736 − 777,900). The archive is 119,917,467 bytes, and that step is a rerun of `install_space_weights`, which read the whole file. The rating flow raised it by another 203,012 kB. Each star is a rerun, and each rerun read the archive again.
+
+After the same steps: Existing user 749,904 / 760,152; second session still 751,876 / 760,152; new-user top 10 630,188 / 764,512. The rest of the walk did not raise `VmHWM`. The rating flow added 4,360 kB, not another archive.
+
+Two copies were removed.
+
+- `install_space_weights` read the archive on every Streamlit rerun, including when `weights/` was already extracted. It now returns that directory after one `assert_weights_only` check and does not open the archive again in that process. A bad archive placed next to an already-accepted tree is ignored until the process restarts.
+- The two-tower loader built a Python set of ints per user from the seen-id arrays. In a separate process, building those sets raised RSS by 71,576 kB for the production snapshot (6,040 users, array payload 6,420,424 bytes) and by a further 35,556 kB for the cold-start snapshot (5,436 users, array payload 5,750,680 bytes). The loader keeps the arrays. Masking still visits every id. Community Cloud installs the pinned library, which still has the set line, so `space/runtime.py` replaces that line before the snapshot loads.
+
+Thread caps and `MALLOC_ARENA_MAX` were not changed. The step log pinned the peak on the archive reads, and a thread cap can change a LightGBM reduction. The after peak does not need them.

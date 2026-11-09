@@ -96,7 +96,11 @@ def test_space_readme_and_requirements_pin():
     )
     assert "fit_two_tower_recommender" not in runtime_source
     assert "fit_lambdarank" not in runtime_source
+    # ``weights/`` and ``.runtime/`` are gitignored rebuilds. They are not committed.
+    ignored = {"weights", ".runtime"}
     for path in SPACE.rglob("*"):
+        if ignored.intersection(path.parts):
+            continue
         if path.is_file() and path.suffix in {".dat", ".csv"} and "README" not in path.name:
             raise AssertionError(f"MovieLens-like file committed under space/: {path.name}")
 
@@ -190,6 +194,53 @@ def test_install_space_weights_missing(tmp_path, monkeypatch):
     assert runtime.install_space_weights(root) is None
     assert calls["n"] == 1
     assert not (root / "weights").exists()
+
+
+def test_install_space_weights_reuses_extracted_tree(tmp_path, monkeypatch):
+    pytest.importorskip("torch")
+    runtime = _load_runtime()
+    root = tmp_path / "space"
+    production = root / "weights" / "production"
+    production.mkdir(parents=True)
+    (production / "manifest.json").write_text("{}\n", encoding="utf-8")
+    (root / runtime.WEIGHTS_ARCHIVE_NAME).write_bytes(b"not-an-archive")
+
+    def _boom(*_args, **_kwargs):
+        raise AssertionError("an extracted weight tree must not read the archive")
+
+    monkeypatch.setattr(runtime, "_weight_archive_bytes", _boom)
+    dest = runtime.install_space_weights(root)
+    assert dest == root / "weights"
+    assert runtime.install_space_weights(root) == dest
+
+
+def test_compact_seen_ids_replaces_pinned_set_copy():
+    pytest.importorskip("torch")
+    import inspect
+
+    import movielens_recommender.serving.bundle as bundle_mod
+
+    runtime = _load_runtime()
+    original = bundle_mod._load_two_tower
+    bundle_mod._space_compact_seen = False
+
+    def _load_two_tower(directory):
+        seen_raw = {1: [10, 11]}
+        # The pinned library builds this set. The line must stay intact so the
+        # space patch can find it.
+        seen_item_ids = {uid: set(int(i) for i in items.tolist()) for uid, items in seen_raw.items()}  # noqa: E501
+        return directory, seen_item_ids
+
+    bundle_mod._load_two_tower = _load_two_tower
+    try:
+        runtime.use_compact_seen_ids()
+        loaded = bundle_mod._load_two_tower(None)
+        assert loaded == (None, {1: [10, 11]})
+        assert "set(int(i)" not in inspect.getsource(original)
+        runtime.use_compact_seen_ids()
+    finally:
+        bundle_mod._load_two_tower = original
+        bundle_mod._space_compact_seen = False
 
 
 def test_install_space_weights_bad_checksum(tmp_path, monkeypatch):

@@ -564,7 +564,10 @@ def _load_two_tower(directory: Path) -> TwoTowerRecommender:
         seen_raw = _unpack_ragged(
             packed["seen_keys"], packed["seen_offsets"], packed["seen_values"]
         )
-    seen_item_ids = {uid: set(int(i) for i in items.tolist()) for uid, items in seen_raw.items()}
+    # Arrays, not per-user sets. Masking only iterates the ids, and a set of
+    # Python ints is a second copy of this map (about 90 MB for both ml-1m
+    # snapshots). The ids are the same values the set used to hold.
+    seen_item_ids = seen_raw
     features = TwoTowerFeatures(
         user_ids=user_ids,
         item_ids=item_ids,
