@@ -68,6 +68,10 @@ The page has two modes:
 - **Existing user.** Pick an ml-1m user. The list is the production pipeline: validation-chosen candidates re-ranked by LambdaRank with the ADR-0009 demographic features. Each title opens a plain-language explanation, and a checkbox shows the item–item and two-tower lists side by side (ADR-0010).
 - **New user.** Search titles and rate at least three (about five is a good start). The page says which method produced the list for that profile size. It does not ask for gender, age, occupation, or ZIP, and it does not save the profile (ADR-0012). The Community Cloud page, below, uses a genre shelf and a filtering title list instead of that search box.
 
+### Run the React frontend
+
+For the local React and Astryx frontend, follow the [frontend setup guide](frontend/README.md). It uses FastAPI for movie search, personalized picks, and the Model Lab comparisons.
+
 ## Streamlit Community Cloud
 
 The public page runs on [Streamlit Community Cloud](https://share.streamlit.io/) from this GitHub repo: [the live demo](https://nikosmav-movielens-recommender.streamlit.app/). Nothing in this repo creates the app or reads a token (ADR-0020). Its new-user mode picks genres, then rates films by clicking stars on the cards. The title control is one filtering list, so matches appear as you type. Switching modes shows a spinner while the cached models open. Posters, when `TMDB_API_KEY` is set as a Streamlit secret, load in the browser from TMDB. Without that secret each card uses a placeholder, as in the figures. A third mode, How good is it?, reads the committed results JSON (ADR-0022). Hugging Face Docker Spaces require a PRO account, so that is not the deploy path.
@@ -95,6 +99,7 @@ uvicorn --factory movielens_recommender.serving.api:create_app_from_env --port 8
 | GET | `/health` | `ok`, or 503 with the build command when no snapshot is mounted |
 | GET | `/v1/snapshot` | Dataset checksum, git SHA, and creation time of the loaded snapshot |
 | GET | `/v1/users/{user_id}/recommendations?n=10&explain=true` | Production top n for a known ml-1m user, with plain-language reasons |
+| GET | `/v1/users/{user_id}/comparison?n=10` | Recent training ratings and ranked lists from the production ranker, item–item, and two-tower models |
 | POST | `/v1/recommendations/new-user` | Top n for `{"ratings": [{"item_id": 2571, "rating": 5}], "n": 10}` |
 | GET | `/v1/movies/search?q=matrix` | Find item ids by title |
 | GET | `/metrics` | Prometheus metrics: requests and latency by route, snapshot age, new-user input drift |

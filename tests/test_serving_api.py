@@ -66,6 +66,25 @@ def test_known_user_recommendations(client, artifact_dir):
     assert all("reasons" not in card for card in plain["recommendations"])
 
 
+def test_model_comparison_includes_training_history_and_all_three_lists(client, artifact_dir):
+    from movielens_recommender.serving.bundle import load_bundle, recent_history, recommend_for_user
+
+    response = client.get("/v1/users/1/comparison", params={"n": 3})
+    assert response.status_code == 200
+    body = response.json()
+    bundle = load_bundle(artifact_dir)
+    expected = recommend_for_user(bundle, 1, n=3)
+    assert body["user_id"] == 1
+    assert body["n_ratings"] >= len(body["recent_ratings"]) > 0
+    assert body["recent_ratings"] == recent_history(bundle, 1)
+    assert set(body["recommendations"]) == {"production", "item_item", "two_tower"}
+    for model, cards in body["recommendations"].items():
+        assert [card["item_id"] for card in cards] == [card["item_id"] for card in expected[model]]
+
+    assert client.get("/v1/users/999/comparison").status_code == 404
+    assert client.get("/v1/users/1/comparison", params={"n": 0}).status_code == 422
+
+
 def test_known_user_errors(client):
     missing = client.get("/v1/users/999/recommendations")
     assert missing.status_code == 404
