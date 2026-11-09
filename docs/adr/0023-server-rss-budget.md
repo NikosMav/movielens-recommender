@@ -77,3 +77,5 @@ Two copies were removed.
 - The two-tower loader built a Python set of ints per user from the seen-id arrays. In a separate process, building those sets raised RSS by 71,576 kB for the production snapshot (6,040 users, array payload 6,420,424 bytes) and by a further 35,556 kB for the cold-start snapshot (5,436 users, array payload 5,750,680 bytes). The loader keeps the arrays. Masking still visits every id. Community Cloud installs the pinned library, which still has the set line, so `space/runtime.py` replaces that line before the snapshot loads.
 
 Thread caps and `MALLOC_ARENA_MAX` were not changed. The step log pinned the peak on the archive reads, and a thread cap can change a LightGBM reduction. The after peak does not need them.
+
+`space/requirements.txt` now pins `2f48c5f5c9f7df8f9bdbece0c53a3d81e79161b7`, which keeps the seen-item arrays, so `space/runtime.py` no longer rewrites that loader line.
