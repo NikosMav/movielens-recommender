@@ -5,6 +5,19 @@ uses the new-user model and keeps ratings in page memory. Model Lab uses an
 existing profile from the production snapshot to show the recent training
 ratings and three ranked lists.
 
+## Build for Streamlit Cloud
+
+Run the following from this directory after installing dependencies.
+
+```sh
+npm run build:streamlit
+```
+
+Commit the generated bundle in `space/astryx_ui` alongside source changes.
+Streamlit Cloud serves that build from the Python entrypoint and handles movie
+requests over the Streamlit component connection. CI verifies that the bundle
+matches its source. The separate local build uses FastAPI.
+
 ## Run locally
 
 Start FastAPI from the repository root with the Python API dependencies and

@@ -49,6 +49,9 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run build
+      - run: npm run build:streamlit
+      - name: Verify the Streamlit deployment bundle
+        run: test -z "$(git status --porcelain -- ../space/astryx_ui)"
 
   docker:
     # Builds the API image and checks it starts with no snapshot mounted.

@@ -394,6 +394,35 @@ def _reason_text(app) -> str:
     return "\n".join(chunks)
 
 
+def test_astryx_rejects_invalid_rating_requests(monkeypatch):
+    pytest.importorskip("streamlit")
+    monkeypatch.syspath_prepend(str(SPACE))
+    from astryx_app import dispatch
+
+    handlers = {
+        "search": lambda query: [{"title": query}],
+        "recommend": lambda profile: {"profile": profile},
+        "compare": _boom,
+    }
+    assert dispatch({"path": "/movies/search?q=Movie+1"}, **handlers) == (
+        200,
+        {"movies": [{"title": "Movie 1"}]},
+    )
+    request = {
+        "path": "/recommendations/new-user",
+        "body": {
+            "ratings": [
+                {"item_id": 1, "rating": 5},
+                {"item_id": 2, "rating": 4},
+                {"item_id": 3, "rating": 3},
+            ]
+        },
+    }
+    assert dispatch(request, **handlers) == (200, {"profile": [(1, 5), (2, 4), (3, 3)]})
+    request["body"]["ratings"][2]["item_id"] = 1
+    assert dispatch(request, **handlers) == (422, {})
+
+
 def test_copied_space_app_starts_from_synthetic_snapshots(
     artifact_dir,
     cold_artifact_dir,
@@ -449,6 +478,10 @@ def test_copied_space_app_starts_from_synthetic_snapshots(
     app = AppTest.from_file(str(copy / "app.py"))
     app.run()
     assert not app.exception
+    assert len(app.get("component_instance")) == 1
+
+    app.button[0].click().run()
+    assert not app.exception
     assert calls["n"] == 0
     labels = [radio.label for radio in app.radio]
     assert "Who is this for?" in labels
@@ -484,6 +517,9 @@ def test_copied_space_app_starts_from_synthetic_snapshots(
     panel = "\n".join(block.value for block in list(app.markdown) + list(app.caption))
     assert "0.127264" in panel
     assert "Every number on this page is read from the committed results JSON." in panel
+    app.button[0].click().run()
+    assert not app.exception
+    assert len(app.get("component_instance")) == 1
 
 
 def test_copied_space_app_without_weights_does_not_download(tmp_path, monkeypatch):

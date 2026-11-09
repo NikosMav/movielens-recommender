@@ -1,3 +1,5 @@
+import {streamlitRequest} from './streamlit';
+
 export type Movie = {
   item_id: number;
   title: string;
@@ -27,6 +29,11 @@ class ApiError extends Error {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  if (import.meta.env.MODE === 'streamlit') {
+    const reply = await streamlitRequest(path, options);
+    if (reply.status !== 200) throw new ApiError(reply.status);
+    return reply.data as T;
+  }
   const response = await fetch('/v1' + path, options);
   if (!response.ok) throw new ApiError(response.status);
   return response.json() as Promise<T>;

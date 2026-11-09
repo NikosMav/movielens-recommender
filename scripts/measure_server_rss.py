@@ -170,7 +170,7 @@ def _wait_text(page: object, text: str, timeout: int = 180_000) -> None:
 
 
 def _open_existing(page: object, base: str) -> None:
-    page.goto(base, wait_until="domcontentloaded", timeout=120_000)  # type: ignore[attr-defined]
+    page.goto(f"{base}?view=classic", wait_until="domcontentloaded", timeout=120_000)  # type: ignore[attr-defined]
     page.locator("[data-testid='stRadio']").get_by_text("Existing user", exact=True).wait_for(  # type: ignore[attr-defined]
         timeout=300_000
     )
