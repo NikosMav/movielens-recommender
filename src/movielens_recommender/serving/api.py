@@ -31,7 +31,9 @@ from movielens_recommender.serving.bundle import (
     load_bundle,
     movie_row,
     rank_for_user,
+    recent_history,
     recommend_for_user,
+    user_summary,
 )
 from movielens_recommender.serving.cold import (
     ColdStartBundle,
@@ -234,6 +236,31 @@ def create_app(
                 "candidate_set": bundle.candidate_set,
                 "n": n,
                 "recommendations": cards,
+            }
+        )
+
+    @app.get("/v1/users/{user_id}/comparison")
+    def compare_user_models(
+        user_id: int,
+        n: Annotated[int, Query(ge=1, le=MAX_N)] = 10,
+    ) -> dict[str, Any]:
+        bundle = state.need_production()
+        try:
+            with state.lock:
+                result = recommend_for_user(bundle, user_id, n=n)
+                summary = user_summary(bundle, user_id)
+                history = recent_history(bundle, user_id)
+        except KeyError:
+            raise HTTPException(
+                status_code=404, detail=f"user {user_id} is not in the serving snapshot"
+            ) from None
+        return _plain(
+            {
+                **summary,
+                "recent_ratings": history,
+                "recommendations": {
+                    key: result[key] for key in ("production", "item_item", "two_tower")
+                },
             }
         )
 
