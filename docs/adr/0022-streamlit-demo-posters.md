@@ -52,7 +52,7 @@ A failed lookup, a missing key, a title that does not match exactly, or a networ
 
 **Mode switch.** Both snapshots are loaded, and the catalog and the default existing-user list are cached, before the mode control is used again. `st.cache_resource` keeps the bundles. `st.cache_data` keeps the catalog, the popularity order, and each viewer's top 10. Switching modes opens inside `st.spinner`, so a slow path shows a spinner instead of leaving the previous mode's cards on screen with no indication. New-user scoring still runs only when the person asks for recommendations, not on every star.
 
-**Memory budget.** Peak RSS of the demo process, measured with `ru_maxrss` after both models are resident and these features have run, stays under about 850 MiB. The features are not allowed to densify item–item similarity, decode poster bytes, or retain TMDB responses on disk. 850 MiB is about 870,400 KiB. ADR-0020's measured peak was 781,632 KiB on this class of VM, so the budget leaves roughly 90 MiB for the catalog, the URL cache, and the results JSON. The measurement is recorded in this ADR after the run. It is a VM measurement, not a Community Cloud measurement, same as ADR-0020.
+**Memory budget.** Peak RSS of the demo process, measured with `ru_maxrss` after both models are resident and these features have run, stays under about 850 MiB. The features are not allowed to densify item–item similarity, decode poster bytes, or retain TMDB responses on disk. 850 MiB is 870,400 KiB. ADR-0020's measured peak was 781,632 KiB on this class of VM. The measurement is in the section below. It is a VM measurement, not a Community Cloud measurement, same as ADR-0020.
 
 ## Alternatives considered
 
@@ -68,6 +68,12 @@ A failed lookup, a missing key, a title that does not match exactly, or a networ
 | Drop the title search | A genre shelf cannot reach every catalog title. One filtering selectbox keeps search without the Enter gate |
 | Hard-code the README metrics into the page | They would drift from `results/`. The page reads the JSON |
 | Show a demographic feature as a reason next to a poster | ADR-0009 and ADR-0020. The display filter stays |
+
+## Measurement
+
+One fresh process on this VM (4 CPUs, x86_64, Linux 6.12.113+, `MemTotal` 16,387,328 kB, no swap). It imported Streamlit, downloaded the pinned weight archive and ml-1m into `/tmp` (not into the git checkout), rebuilt both snapshots, kept both models resident, built the genre shelf from the in-memory catalog, rendered recommendation-card HTML, read the quality view from the committed JSON, and called the poster lookup with an empty API key. No poster bytes were fetched. Item–item similarity stayed sparse.
+
+`ru_maxrss` peaked at 780,108 KiB. `/proc` `VmHWM` at the end was 780,444 kB. Wall time for that process, including both downloads, was about 18 seconds. 780,108 KiB is under the 870,400 KiB budget. The number is not a Community Cloud measurement. A configured `TMDB_API_KEY` would add search responses to the one-day memory cache, not image files.
 
 ## Consequences
 

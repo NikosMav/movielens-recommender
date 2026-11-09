@@ -4,7 +4,9 @@ Existing-user and new-user recommendations for MovieLens ml-1m. The page loads p
 
 **Existing user.** Pick an ml-1m user. Candidates come from the validation-chosen retriever and LightGBM LambdaRank re-ranks them.
 
-**New user.** Rate a few films. The list is the cold-start ranker. The page does not ask for gender, age, occupation, or ZIP, and it does not show those attributes as reasons.
+**New user.** Pick genres and rate a few films on the cards. The list is the cold-start ranker. A title can also be found from one filtering list. The page does not ask for gender, age, occupation, or ZIP, and it does not show those attributes as reasons.
+
+**How good is it?** The headline NDCG figures are read from the committed `results/` JSON when the page opens.
 
 MovieLens ml-1m is downloaded from [GroupLens](https://grouplens.org/datasets/movielens/) when the app starts. This repository does not redistribute the ratings, the movie titles, or the user file. GroupLens and the University of Minnesota do not endorse this demo. Cite F. Maxwell Harper and Joseph A. Konstan. 2015. The MovieLens Datasets: History and Context. ACM Transactions on Interactive Intelligent Systems 5, 4, Article 19. DOI [10.1145/2827872](https://doi.org/10.1145/2827872).
 
@@ -20,4 +22,6 @@ If the file is missing or the checksum fails, the page shows `make space-snapsho
 
 ## Streamlit Community Cloud
 
-Hugging Face Docker Spaces require a PRO account, so this app is deployed from this GitHub repo on Streamlit Community Cloud. The entrypoint is `space/app.py`. Community Cloud reads `requirements.txt` in this directory (it takes precedence over the repo root) and `packages.txt` at the repo root (`libgomp1` for LightGBM). Choose Python 3.12. The steps are in the repository README. The public link stays pending until that deploy.
+Hugging Face Docker Spaces require a PRO account, so this app is deployed from this GitHub repo on Streamlit Community Cloud. The entrypoint is `space/app.py`. Community Cloud reads `requirements.txt` in this directory (it takes precedence over the repo root) and `packages.txt` at the repo root (`libgomp1` for LightGBM). Choose Python 3.12. The steps are in the repository README. The public app is [nikosmav-movielens-recommender.streamlit.app](https://nikosmav-movielens-recommender.streamlit.app/).
+
+Posters use TMDB when the Streamlit secret `TMDB_API_KEY` is set. The key is not in this repo. Image files are loaded by the browser. The footer carries TMDB's required notice. Without the secret, cards show a placeholder. Lookups are cached in memory for one day (ADR-0022).
