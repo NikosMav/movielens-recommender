@@ -47,7 +47,11 @@ def test_space_readme_and_requirements_pin():
     root_readme = (SPACE.parent / "README.md").read_text(encoding="utf-8")
     assert "space/app.py" in root_readme
     assert "Streamlit Community Cloud" in root_readme
-    assert "pending" in root_readme.splitlines()[2]
+    badge = root_readme.splitlines()[2]
+    assert "nikosmav-movielens-recommender.streamlit.app" in badge
+    assert "pending" not in badge.lower()
+    assert "live" in badge.lower()
+    assert "Live demo" in root_readme.split("## Contents", 1)[0]
     requirements = (SPACE / "requirements.txt").read_text(encoding="utf-8")
     assert _PIN in requirements
     assert "--extra-index-url https://download.pytorch.org/whl/cpu" in requirements
@@ -58,6 +62,13 @@ def test_space_readme_and_requirements_pin():
     assert "HF_TOKEN" not in requirements
     assert "HF_TOKEN" not in root_readme
     assert (SPACE / "app.py").is_file()
+    app_source = (SPACE / "app.py").read_text(encoding="utf-8")
+    assert "st.text_input" not in app_source
+    assert "Find a title" in app_source
+    assert "Loading both recommenders" in app_source
+    assert "Opening this view" in app_source
+    assert "@st.cache_resource" in app_source
+    assert "@st.cache_data" in app_source
     assert (SPACE / "runtime.py").is_file()
     assert (SPACE / "packages.txt").read_text(encoding="utf-8").strip() == "libgomp1"
     assert (SPACE.parent / "packages.txt").read_text(encoding="utf-8").strip() == "libgomp1"
@@ -410,6 +421,7 @@ def test_copied_space_app_starts_from_synthetic_snapshots(
     monkeypatch.setenv("MOVIELENS_ALLOW_DOWNLOAD", "0")
     monkeypatch.setenv("MOVIELENS_ARTIFACTS", str(production))
     monkeypatch.setenv("MOVIELENS_COLD_ARTIFACTS", str(cold))
+    monkeypatch.setenv("MOVIELENS_RESULTS", str(SPACE.parent / "results"))
 
     copy = _copy_space(tmp_path / "space")
     app = AppTest.from_file(str(copy / "app.py"))
@@ -431,6 +443,25 @@ def test_copied_space_app_starts_from_synthetic_snapshots(
     assert calls["n"] == 0
     new_user = "\n".join(block.value for block in list(app.markdown) + list(app.caption))
     assert "New-user model" in new_user
+    assert list(app.text_input) == []
+    assert any(box.label == "Find a title" for box in app.selectbox)
+    app.multiselect[0].set_value(["Comedy"]).run()
+    assert not app.exception
+    shelf = "\n".join(block.value for block in app.markdown)
+    assert "Movie 4" in shelf
+    assert "No poster" in shelf
+    assert len(list(app.feedback)) == 1
+    app.feedback[0].set_value(4).run()
+    assert not app.exception
+    rated = "\n".join(block.value for block in list(app.markdown) + list(app.caption))
+    assert "Your ratings" in rated
+    assert "Add 2 more rating(s) to continue." in rated
+
+    app.radio[0].set_value("How good is it?").run()
+    assert not app.exception
+    panel = "\n".join(block.value for block in list(app.markdown) + list(app.caption))
+    assert "0.127264" in panel
+    assert "Every number on this page is read from the committed results JSON." in panel
 
 
 def test_copied_space_app_without_weights_does_not_download(tmp_path, monkeypatch):

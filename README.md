@@ -1,12 +1,14 @@
 # movielens-recommender
 
-[![Streamlit Community Cloud (pending)](https://img.shields.io/badge/Streamlit%20Community%20Cloud-pending-yellow)](#streamlit-community-cloud)
+[![Streamlit Community Cloud](https://img.shields.io/badge/Streamlit%20Community%20Cloud-live-brightgreen)](https://nikosmav-movielens-recommender.streamlit.app/)
+
+**Live demo:** [nikosmav-movielens-recommender.streamlit.app](https://nikosmav-movielens-recommender.streamlit.app/)
 
 A movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings, with an evaluation protocol strict enough that negative results are reported as such.
 
 It covers the path from data to a demo: download and cleaning, a per-user time split, an evaluation harness with bootstrap confidence intervals, classic baselines, a two-tower retrieval model, a LightGBM LambdaRank re-ranker, a Streamlit app that explains each recommendation in plain language and also serves people with no MovieLens history, an HTTP API with batch scoring, monitoring, and a Docker image, and a time-ordered replay that tests when the models need retraining. The same harness runs on ml-latest-small, ml-1m, and MovieLens 32M.
 
-![ml-1m user 155: training history and an open explanation for Sleepless in Seattle](docs/demo/streamlit.png)
+![Live page, existing user: reasons sit beside each poster placeholder](docs/demo/streamlit.png)
 
 ## Contents
 
@@ -64,13 +66,15 @@ streamlit run app/streamlit_app.py
 The page has two modes:
 
 - **Existing user.** Pick an ml-1m user. The list is the production pipeline: validation-chosen candidates re-ranked by LambdaRank with the ADR-0009 demographic features. Each title opens a plain-language explanation, and a checkbox shows the item–item and two-tower lists side by side (ADR-0010).
-- **New user.** Search titles and rate at least three (about five is a good start). The page says which method produced the list for that profile size. It does not ask for gender, age, occupation, or ZIP, and it does not save the profile (ADR-0012).
-
-![New user: about five ratings and an open explanation](docs/demo/streamlit-new-user.png)
+- **New user.** Search titles and rate at least three (about five is a good start). The page says which method produced the list for that profile size. It does not ask for gender, age, occupation, or ZIP, and it does not save the profile (ADR-0012). The Community Cloud page, below, uses a genre shelf and a filtering title list instead of that search box.
 
 ## Streamlit Community Cloud
 
-The same two modes can run on [Streamlit Community Cloud](https://share.streamlit.io/) from this GitHub repo. The badge above says pending until that app exists. Nothing in this repo creates the app or reads a token (ADR-0020). Hugging Face Docker Spaces require a PRO account, so that is not the deploy path.
+The public page runs on [Streamlit Community Cloud](https://share.streamlit.io/) from this GitHub repo: [the live demo](https://nikosmav-movielens-recommender.streamlit.app/). Nothing in this repo creates the app or reads a token (ADR-0020). Its new-user mode picks genres, then rates films by clicking stars on the cards. The title control is one filtering list, so matches appear as you type. Switching modes shows a spinner while the cached models open. Posters, when `TMDB_API_KEY` is set as a Streamlit secret, load in the browser from TMDB. Without that secret each card uses a placeholder, as in the figures. A third mode, How good is it?, reads the committed results JSON (ADR-0022). Hugging Face Docker Spaces require a PRO account, so that is not the deploy path.
+
+![Live page, new user: a Comedy shelf with stars on each card](docs/demo/streamlit-new-user.png)
+
+![Live page, How good is it: NDCG@10 copied from the committed results JSON](docs/demo/streamlit-quality.png)
 
 The entrypoint is `space/app.py`. Community Cloud runs `streamlit run` with the repository root as the working directory and looks for dependencies in the entrypoint's directory first. `space/requirements.txt` is that file: pinned versions, Python 3.12, and CPU PyTorch from `--extra-index-url https://download.pytorch.org/whl/cpu`. `packages.txt` at the repo root installs `libgomp1` for LightGBM. In Advanced settings, select Python 3.12.
 
