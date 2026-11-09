@@ -1,112 +1,188 @@
-"""Card HTML. Poster images are referenced by URL so the server does not decode them."""
+"""Card HTML. Poster images are referenced by URL so the server does not decode them.
+
+Colours follow the colour scheme Streamlit sets on ``.stApp``. That scheme is
+light or dark from the active theme (Settings, or the system preference when
+the theme follows the system). ``light-dark()`` reads it. A light fallback is
+declared first for a browser that does not understand ``light-dark()``.
+"""
 
 from __future__ import annotations
 
 import html
 from pathlib import Path
 
-THEME_CSS = """
+# Warm paper in light mode. The dark values are the same hues, lightened or
+# darkened until body text is at least 4.5:1 and borders at least 3:1.
+LIGHT = {
+    "app": "#f4efe6",
+    "card": "#fffdf9",
+    "ink": "#1f1a16",
+    "pitch": "#3f3832",
+    "kicker": "#8a3a32",
+    "meta": "#6d645b",
+    "why": "#2c2723",
+    "footer": "#5c554e",
+    "border": "#8a7b6c",
+    "placeholder_bg": "#2c2622",
+    "placeholder_fg": "#f3eadf",
+    "logo_plate": "#ffffff",
+}
+DARK = {
+    "app": "#14110e",
+    "card": "#241f1c",
+    "ink": "#f7f1e8",
+    "pitch": "#e7dfd4",
+    "kicker": "#f0b2a4",
+    "meta": "#c4b8a8",
+    "why": "#f3ece3",
+    "footer": "#ddd4c8",
+    "border": "#8d8278",
+    "placeholder_bg": "#3c342e",
+    "placeholder_fg": "#f6f0e6",
+    "logo_plate": "#ffffff",
+}
+
+
+def _paint(prop: str, light: str, dark: str) -> str:
+    """A plain colour, then the same property via ``light-dark()``.
+
+    ``light-dark()`` takes colours only, so borders set the width here and
+    the colour on the longhand.
+    """
+    return f"{prop}: {light};\n  {prop}: light-dark({light}, {dark});"
+
+
+def _line(prop: str, light: str, dark: str) -> str:
+    return (
+        f"{prop}: 1px solid {light};\n"
+        f"  {prop}-color: {light};\n"
+        f"  {prop}-color: light-dark({light}, {dark});"
+    )
+
+
+def _theme_css() -> str:
+    light, dark = LIGHT, DARK
+    return f"""
 <style>
-.stApp {
-  background: #f4efe6;
-}
-.block-container {
+.stApp[data-testid="stApp"] {{
+  {_paint("background", light["app"], dark["app"])}
+}}
+.block-container {{
   padding-top: 1.2rem;
-}
-.hero {
+}}
+.hero {{
   padding: 0.2rem 0 0.8rem;
-  border-bottom: 1px solid #e2d8c8;
+  {_line("border-bottom", light["border"], dark["border"])}
   margin-bottom: 0.8rem;
-}
-.hero .kicker {
+}}
+.hero .kicker {{
   margin: 0;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-size: 0.75rem;
-  color: #8a3a32;
-}
-.hero h1 {
+  {_paint("color", light["kicker"], dark["kicker"])}
+}}
+.hero h1 {{
   margin: 0.15rem 0 0;
   font-size: 2.15rem;
   line-height: 1.1;
   letter-spacing: -0.03em;
-  color: #1f1a16;
-}
-.hero .pitch {
+  {_paint("color", light["ink"], dark["ink"])}
+}}
+.hero .pitch {{
   margin: 0.45rem 0 0;
   font-size: 1.12rem;
-  color: #3f3832;
+  {_paint("color", light["pitch"], dark["pitch"])}
   max-width: 40rem;
-}
-.rec-card {
+}}
+.rec-card {{
   display: flex;
   gap: 0.75rem;
   align-items: flex-start;
-  background: #fffdf9;
-  border: 1px solid #e4d9c8;
+  {_paint("background", light["card"], dark["card"])}
+  {_line("border", light["border"], dark["border"])}
+  {_paint("color", light["ink"], dark["ink"])}
   border-radius: 14px;
   padding: 0.65rem;
   margin-bottom: 0.45rem;
   min-height: 132px;
-}
-.poster {
+}}
+.poster {{
   width: 84px;
   height: 126px;
   object-fit: cover;
   border-radius: 8px;
   flex: 0 0 auto;
-  background: #2c2622;
-}
-.poster.placeholder {
+  {_paint("background", light["placeholder_bg"], dark["placeholder_bg"])}
+}}
+.poster.placeholder {{
   display: flex;
   align-items: flex-end;
   box-sizing: border-box;
   padding: 0.45rem;
-  color: #f3eadf;
+  {_paint("color", light["placeholder_fg"], dark["placeholder_fg"])}
+  {_line("border", light["border"], dark["meta"])}
   font-size: 0.72rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-}
-.rec-body { min-width: 0; }
-.rec-rank {
-  color: #8a3a32;
+}}
+.rec-body {{ min-width: 0; }}
+.rec-rank {{
+  {_paint("color", light["kicker"], dark["kicker"])}
   font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   margin: 0;
-}
-.rec-title {
+}}
+.rec-title {{
   margin: 0.05rem 0 0;
   font-size: 1rem;
   font-weight: 650;
-  color: #1f1a16;
+  {_paint("color", light["ink"], dark["ink"])}
   word-break: normal;
-}
-.rec-meta {
+}}
+.rec-meta {{
   margin: 0.12rem 0 0.3rem;
-  color: #6d645b;
+  {_paint("color", light["meta"], dark["meta"])}
   font-size: 0.82rem;
   word-break: normal;
-}
-.rec-why {
+}}
+.rec-why {{
   margin: 0;
   padding-left: 1rem;
-  color: #2c2723;
+  {_paint("color", light["why"], dark["why"])}
   font-size: 0.88rem;
-}
-.rec-why li { margin: 0.12rem 0; }
-.shelf-card .rec-card { min-height: 0; }
-.tmdb-footer {
+}}
+.rec-why li {{ margin: 0.12rem 0; }}
+.shelf-card .rec-card {{ min-height: 0; }}
+.tmdb-footer {{
   margin-top: 1.4rem;
   padding-top: 0.8rem;
-  border-top: 1px solid #e2d8c8;
-  color: #5c554e;
+  {_line("border-top", light["border"], dark["border"])}
+  {_paint("color", light["footer"], dark["footer"])}
   font-size: 0.82rem;
-}
-.tmdb-footer a { color: #1f1a16; }
-.tmdb-logo { width: 92px; height: auto; display: block; margin: 0.35rem 0; }
+}}
+.tmdb-footer a {{
+  {_paint("color", light["ink"], dark["ink"])}
+}}
+.tmdb-mark {{
+  display: inline-block;
+  background: {light["logo_plate"]};
+  {_line("border", light["border"], dark["border"])}
+  border-radius: 8px;
+  padding: 0.35rem 0.55rem 0.3rem;
+  line-height: 0;
+}}
+.tmdb-logo {{ width: 92px; height: auto; display: block; margin: 0; }}
+.stApp [data-testid="stCaptionContainer"] {{
+  opacity: 1;
+  {_paint("color", light["footer"], dark["meta"])}
+}}
 </style>
 """
+
+
+THEME_CSS = _theme_css()
 
 PITCH = "Pick a viewer or rate a few films, then read why each title made the list."
 
@@ -185,7 +261,9 @@ def footer_html(*, logo_svg: str, api_key_set: bool) -> str:
     logo = logo_svg.replace("<svg ", '<svg class="tmdb-logo" ', 1)
     return (
         '<div class="tmdb-footer">'
+        '<span class="tmdb-mark">'
         f'<a href="{html.escape(ATTRIBUTION_LINK, quote=True)}">{logo}</a>'
+        "</span>"
         f"<p>{html.escape(ATTRIBUTION_NOTICE)}</p>"
         f"<p>{html.escape(extra)}</p>"
         "</div>"
