@@ -583,29 +583,58 @@ def _read_json(path: Path) -> dict[str, Any]:
     return payload
 
 
+# Roots whose extracted tree already passed :func:`assert_weights_only`.
+# A later rerun must not read the 120 MB archive again: ``VmHWM`` does not
+# fall when that buffer is freed, and Streamlit calls this on every run.
+_READY_WEIGHTS: set[str] = set()
+
+
+def _weights_ready(dest: Path) -> bool:
+    """True when ``dest`` is an extracted weight tree we already accepted.
+
+    The first successful check still runs :func:`assert_weights_only`. After
+    that, the same process reuses the directory and does not open the archive.
+    A corrupt archive placed beside an already-accepted tree is ignored until
+    the process restarts.
+    """
+    resolved = str(dest.resolve())
+    if resolved in _READY_WEIGHTS:
+        return True
+    if not (dest / "production" / "manifest.json").is_file():
+        return False
+    assert_weights_only(dest)
+    _READY_WEIGHTS.add(resolved)
+    return True
+
+
 def install_space_weights(root: Path | str, *, sha256: str | None = None) -> Path | None:
     """Read ``space-weights.tar.gz`` beside the app, or download it, then extract.
 
     The local file wins. Otherwise the bytes come from :func:`resolved_weights_url`
     and are stored under ``.runtime/cache/``. Returns ``weights/``, or ``None``
     when the archive is missing or the checksum fails.
+
+    When ``weights/production/manifest.json`` is already present and the tree
+    passes :func:`assert_weights_only`, the archive is not read. Streamlit
+    reruns this on every interaction. Reading the archive each time held a
+    second copy of the file in memory on top of the resident models.
     """
     root = Path(root)
     dest = root / "weights"
     expected = WEIGHTS_SHA256 if sha256 is None else sha256
     cache = root / ".runtime" / "cache" / WEIGHTS_ARCHIVE_NAME
     try:
+        if _weights_ready(dest):
+            return dest
         payload = _weight_archive_bytes(root / WEIGHTS_ARCHIVE_NAME, cache, expected)
         if payload is None or hashlib.sha256(payload).hexdigest() != expected:
             return None
         if dest.exists() and any(dest.iterdir()):
-            if (dest / "production" / "manifest.json").is_file():
-                assert_weights_only(dest)
-                return dest
             raise ValueError(f"weight destination is not empty: {dest}")
         dest.mkdir(parents=True, exist_ok=True)
         _extract_weight_archive(payload, dest)
         assert_weights_only(dest)
+        _READY_WEIGHTS.add(str(dest.resolve()))
     except Exception:
         return None
     if not (dest / "production" / "manifest.json").is_file():
@@ -676,15 +705,53 @@ def _download_weights(cache: Path, expected: str) -> bytes | None:
     return payload
 
 
+# The line the pinned library (space/requirements.txt) uses to copy seen ids
+# into a Python set per user. Replacing it keeps the numpy arrays.
+_SEEN_SET_LINE = (
+    "seen_item_ids = {uid: set(int(i) for i in items.tolist()) "
+    "for uid, items in seen_raw.items()}"
+)
+
+
+def use_compact_seen_ids() -> None:
+    """Keep seen-item ids as numpy arrays when a snapshot is loaded.
+
+    Masking iterates the ids. A set of Python ints is a second copy of the
+    same map. This checkout already stores the arrays. Community Cloud
+    installs the pinned library, which still builds the sets, so when that
+    line is present it is replaced before the snapshot is loaded. Scores do
+    not change: every id the set would have contained is still masked.
+    """
+    import inspect
+    import textwrap
+
+    import movielens_recommender.serving.bundle as bundle_mod
+
+    if getattr(bundle_mod, "_space_compact_seen", False):
+        return
+    source = textwrap.dedent(inspect.getsource(bundle_mod._load_two_tower))
+    if _SEEN_SET_LINE not in source:
+        bundle_mod._space_compact_seen = True
+        return
+    name = bundle_mod._load_two_tower.__name__
+    namespace = dict(bundle_mod.__dict__)
+    replaced = source.replace(_SEEN_SET_LINE, "seen_item_ids = seen_raw", 1)
+    exec(compile(replaced, bundle_mod.__file__, "exec"), namespace)  # noqa: S102
+    bundle_mod._load_two_tower = namespace[name]
+    bundle_mod._space_compact_seen = True
+
+
 def use_sparse_item_item_loader() -> None:
     """Keep item–item similarity sparse when a snapshot is loaded.
 
     The library loader densifies a full item-by-item matrix to float64. The
     stored matrix is already sparse, and the same matmul accepts that form.
-    Community Cloud's RAM budget is 1 GB.
+    Community Cloud's RAM budget is 1 GB. The same call keeps seen-item ids
+    as arrays; see :func:`use_compact_seen_ids`.
     """
     import movielens_recommender.serving.bundle as bundle_mod
 
+    use_compact_seen_ids()
     if getattr(bundle_mod, "_space_sparse_item_item", False):
         return
 
