@@ -154,6 +154,16 @@ def _theme_css() -> str:
   color: {light["app"]};
   color: light-dark({light["app"]}, {dark["app"]});
 }}
+[data-testid="stLayoutWrapper"]:has(> .st-key-topbar) {{
+  position: sticky;
+  top: 3.75rem;
+  z-index: 40;
+  {_paint("background", light["app"], dark["app"])}
+}}
+[data-testid="stVerticalBlock"].st-key-topbar {{
+  {_paint("background", light["app"], dark["app"])}
+  padding-bottom: 0.15rem;
+}}
 .st-key-topbar [data-testid="stRadio"] div[role="radiogroup"] {{
   flex-wrap: wrap;
   gap: 0.35rem 0.85rem;
@@ -200,7 +210,7 @@ def _theme_css() -> str:
   max-width: 100%;
 }}
 .section-title {{
-  margin: 0.2rem 0 0.35rem;
+  margin: 1.5rem 0 0.45rem;
   font-size: clamp(1.7rem, 3vw, 2.5rem);
   line-height: 1.1;
 }}
@@ -228,12 +238,13 @@ def _theme_css() -> str:
   {_paint("color", light["placeholder_fg"], dark["placeholder_fg"])}
   background-image: linear-gradient(
     155deg,
-    hsl(var(--poster-hue) 38% 34%),
-    hsl(calc(var(--poster-hue) + 28) 42% 22%)
+    hsl(var(--poster-hue) 38% 30%),
+    hsl(var(--poster-hue-b) 44% 16%)
   );
   font-family: Fraunces, Georgia, serif;
   font-size: 1.35rem;
   letter-spacing: 0.04em;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 45%);
 }}
 .pick-body {{ min-width: 0; flex: 1 1 auto; }}
 .pick-rank {{
@@ -261,13 +272,9 @@ def _theme_css() -> str:
 }}
 .pick-why li {{ margin: 0.15rem 0; }}
 .ticket {{
-  {_paint("background", light["card"], dark["card"])}
-  {_line("border", light["border"], dark["border"])}
-  border-top: 3px solid {light["kicker"]};
-  border-top-color: {light["kicker"]};
-  border-top-color: light-dark({light["kicker"]}, {dark["kicker"]});
-  border-radius: 10px;
-  padding: 1rem 1rem 1.1rem;
+  background: transparent;
+  border: 0;
+  padding: 0;
 }}
 .progress {{
   display: grid;
@@ -460,10 +467,13 @@ def _theme_css() -> str:
   width: 132px;
   height: 198px;
 }}
+.pick-compact {{
+  align-items: center;
+}}
 .pick-compact .poster,
 .pick-compact .poster.placeholder {{
-  width: 120px;
-  height: 180px;
+  width: 108px;
+  height: 162px;
 }}
 .pick-poster .pick-title {{
   display: -webkit-box;
@@ -472,9 +482,9 @@ def _theme_css() -> str:
   overflow: hidden;
   min-height: 2.6em;
 }}
-.pick-why {{
+.pick-compact .pick-why {{
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }}
@@ -493,6 +503,9 @@ def _theme_css() -> str:
 .rated-line .pick-title {{
   font-size: 0.95rem;
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }}
 .rated-line .history-stars {{
   margin: 0.1rem 0 0;
@@ -642,10 +655,13 @@ def _theme_css() -> str:
   align-items: center !important;
   gap: 0.35rem !important;
   flex-wrap: nowrap !important;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }}
 [data-testid="stVerticalBlock"][class*="st-key-rated-"]
   > [data-testid="stElementContainer"]:first-child {{
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
 }}
 [data-testid="stVerticalBlock"][class*="st-key-rated-"]
@@ -681,8 +697,51 @@ def _theme_css() -> str:
   color: {light["kicker"]};
   color: light-dark({light["kicker"]}, {dark["kicker"]});
 }}
-.st-key-ticket {{
-  max-width: 32rem;
+[data-testid="stVerticalBlock"].st-key-ticket {{
+  {_paint("background", light["card"], dark["card"])}
+  {_line("border", light["border"], dark["border"])}
+  border-top: 3px solid {light["kicker"]};
+  border-top-color: {light["kicker"]};
+  border-top-color: light-dark({light["kicker"]}, {dark["kicker"]});
+  border-radius: 10px;
+  padding: 0.9rem 0.95rem 1rem;
+  position: sticky;
+  top: 7.5rem;
+  flex: 0 0 auto !important;
+  align-self: flex-start !important;
+  max-height: calc(100vh - 8.5rem);
+  overflow: auto;
+  width: 100%;
+  box-sizing: border-box;
+}}
+.st-key-workbench [data-testid="stColumn"]:last-child
+  [data-testid="stLayoutWrapper"]:has(> .st-key-ticket) {{
+  flex: 1 1 auto !important;
+  align-items: flex-start !important;
+  width: 100%;
+}}
+.st-key-workbench [data-testid="stHorizontalBlock"] {{
+  align-items: stretch !important;
+}}
+.st-key-workbench [data-testid="stColumn"] {{
+  overflow: visible !important;
+}}
+.st-key-viewer-bar [data-testid="stHorizontalBlock"] {{
+  justify-content: flex-start !important;
+  align-items: flex-end !important;
+  gap: 0.75rem !important;
+  flex-wrap: wrap !important;
+}}
+.st-key-viewer-bar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {{
+  width: 240px !important;
+  max-width: 100% !important;
+  flex: 0 1 240px !important;
+  min-width: 0 !important;
+}}
+.st-key-viewer-bar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child {{
+  width: auto !important;
+  min-width: 0 !important;
+  flex: 0 0 auto !important;
 }}
 .st-key-starters [data-testid="stHorizontalBlock"],
 .st-key-tries [data-testid="stHorizontalBlock"] {{
@@ -744,6 +803,11 @@ def _theme_css() -> str:
 .stApp [data-testid="stAlert"] p {{
   {_paint("color", light["ink"], dark["ink"])}
 }}
+.st-key-shelf-frame,
+.st-key-matches-frame {{
+  container-type: inline-size;
+  container-name: gridframe;
+}}
 [data-testid="stVerticalBlock"].st-key-shelf,
 [data-testid="stVerticalBlock"].st-key-matches,
 .st-key-shelf > [data-testid="stVerticalBlockBorderWrapper"] > [data-testid="stVerticalBlock"],
@@ -754,6 +818,24 @@ def _theme_css() -> str:
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
   align-items: stretch;
+}}
+@container gridframe (min-width: 680px) {{
+  [data-testid="stVerticalBlock"].st-key-shelf,
+  [data-testid="stVerticalBlock"].st-key-matches {{
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }}
+}}
+@container gridframe (min-width: 920px) {{
+  [data-testid="stVerticalBlock"].st-key-shelf,
+  [data-testid="stVerticalBlock"].st-key-matches {{
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }}
+}}
+@container gridframe (min-width: 1160px) {{
+  [data-testid="stVerticalBlock"].st-key-shelf,
+  [data-testid="stVerticalBlock"].st-key-matches {{
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }}
 }}
 [data-testid="stVerticalBlock"].st-key-picks,
 [data-testid="stVerticalBlock"].st-key-top10,
@@ -767,14 +849,6 @@ def _theme_css() -> str:
   align-items: stretch;
 }}
 @media (min-width: 900px) {{
-  [data-testid="stVerticalBlock"].st-key-shelf,
-  [data-testid="stVerticalBlock"].st-key-matches,
-  .st-key-shelf > [data-testid="stVerticalBlockBorderWrapper"] > [data-testid="stVerticalBlock"],
-  .st-key-matches > [data-testid="stVerticalBlockBorderWrapper"] > [data-testid="stVerticalBlock"],
-  .st-key-shelf > [data-testid="stVerticalBlock"],
-  .st-key-matches > [data-testid="stVerticalBlock"] {{
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }}
   [data-testid="stVerticalBlock"].st-key-picks,
   [data-testid="stVerticalBlock"].st-key-top10,
   .st-key-picks > [data-testid="stVerticalBlockBorderWrapper"] > [data-testid="stVerticalBlock"],
@@ -782,16 +856,6 @@ def _theme_css() -> str:
   .st-key-picks > [data-testid="stVerticalBlock"],
   .st-key-top10 > [data-testid="stVerticalBlock"] {{
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }}
-}}
-@media (min-width: 1500px) {{
-  [data-testid="stVerticalBlock"].st-key-shelf,
-  [data-testid="stVerticalBlock"].st-key-matches,
-  .st-key-shelf > [data-testid="stVerticalBlockBorderWrapper"] > [data-testid="stVerticalBlock"],
-  .st-key-matches > [data-testid="stVerticalBlockBorderWrapper"] > [data-testid="stVerticalBlock"],
-  .st-key-shelf > [data-testid="stVerticalBlock"],
-  .st-key-matches > [data-testid="stVerticalBlock"] {{
-    grid-template-columns: repeat(6, minmax(0, 1fr));
   }}
 }}
 @media (max-width: 800px) {{
@@ -807,6 +871,22 @@ def _theme_css() -> str:
   }}
   .st-key-topbar [data-testid="stRadio"] div[role="radiogroup"] {{
     justify-content: flex-start;
+  }}
+  .st-key-viewer-bar [data-testid="stHorizontalBlock"] {{ flex-wrap: nowrap !important; }}
+  .st-key-viewer-bar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {{
+    width: 11.5rem !important;
+    min-width: 11.5rem !important;
+    flex: 0 0 11.5rem !important;
+  }}
+  .st-key-workbench [data-testid="stHorizontalBlock"] {{ flex-wrap: wrap !important; }}
+  .st-key-workbench [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {{
+    width: 100% !important;
+    flex: 1 1 100% !important;
+    min-width: 0 !important;
+  }}
+  [data-testid="stVerticalBlock"].st-key-ticket {{
+    position: static;
+    max-height: none;
   }}
   .intro {{ grid-template-columns: minmax(0, 1fr); }}
   .intro-art {{ order: -1; }}
@@ -849,6 +929,14 @@ if (head) head.focus({preventScroll: true});
 """
 
 
+def _poster_hue(title: str) -> int:
+    """Same mixing as ``posters.poster_hue``. Neighbours do not share a gradient."""
+    value = 17
+    for char in str(title):
+        value = (value * 33 + ord(char)) & 0xFFFFFFFF
+    return value % 360
+
+
 def initials(title: str) -> str:
     """Two letters for a poster placeholder. Articles do not count."""
     words = _WORD.findall(title)
@@ -881,11 +969,12 @@ def poster_html(title: str, poster_url: str | None) -> str:
         alt = html.escape(title, quote=True)
         return f'<img class="poster" alt="" data-title="{alt}" width="76" height="114" src="{src}">'
     label = html.escape(title)
-    hue = sum(ord(char) for char in title) % 360
+    hue = _poster_hue(title)
+    hue_b = (hue * 5 + 83) % 360
     mark = html.escape(initials(title))
     return (
         f'<div class="poster placeholder" role="img" aria-label="No poster for {label}" '
-        f'style="--poster-hue:{hue}"><span>{mark}</span></div>'
+        f'style="--poster-hue:{hue};--poster-hue-b:{hue_b}"><span>{mark}</span></div>'
     )
 
 

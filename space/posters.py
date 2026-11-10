@@ -87,6 +87,14 @@ Opener = Callable[..., Any]
 _FIXTURE_ARTICLES = frozenset({"a", "an", "the"})
 
 
+def poster_hue(title: str) -> int:
+    """A stable hue. One changed character moves it, so neighbours do not match."""
+    value = 17
+    for char in str(title):
+        value = (value * 33 + ord(char)) & 0xFFFFFFFF
+    return value % 360
+
+
 def fixture_poster(title: str) -> str:
     """A generated poster image for layout checks. No network and no TMDB call.
 
@@ -104,16 +112,18 @@ def fixture_poster(title: str) -> str:
         mark = words[0][:2].upper()
     else:
         mark = (words[0][0] + words[1][0]).upper()
-    hue = sum(ord(char) for char in title) % 360
-    hue_2 = (hue + 36) % 360
+    hue = poster_hue(title)
+    hue_2 = (hue * 5 + 83) % 360
+    # Lightness stays at or below 30 so the initials stay readable on a light page.
     svg = (
         '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="360" viewBox="0 0 240 360">'
         "<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>"
-        f"<stop offset='0' stop-color='hsl({hue} 42% 46%)'/>"
-        f"<stop offset='1' stop-color='hsl({hue_2} 48% 28%)'/>"
+        f"<stop offset='0' stop-color='hsl({hue} 38% 30%)'/>"
+        f"<stop offset='1' stop-color='hsl({hue_2} 44% 16%)'/>"
         "</linearGradient></defs>"
         "<rect width='240' height='360' fill='url(#g)'/>"
-        "<text x='120' y='196' text-anchor='middle' fill='#f6f3ff' "
+        "<text x='120' y='196' text-anchor='middle' fill='#f7f4ff' "
+        "stroke='#140f22' stroke-width='2' paint-order='stroke' "
         "font-family='Georgia, serif' font-size='72'>"
         f"{mark}</text></svg>"
     )

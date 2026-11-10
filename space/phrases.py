@@ -1,10 +1,10 @@
 """Display copy for recommendation cards.
 
 The ranker sentences stay in the payload and in the technical disclosure.
-The main card shows at most two short lines drawn from those sentences:
-the rated film they name, a shared genre, and popularity only when that
-sentence is the first (strongest) stored reason. This module does not
-score anything and does not rewrite the stored sentences.
+The main card shows at most two short lines. The first names one or two
+rated films the explanation already points at. The second adds a genre or,
+when there is no genre, popularity, and it does not repeat those titles.
+This module does not score anything and does not rewrite the stored sentences.
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ _METHOD = {
     "item_item_fold_in": "This list is films similar to ones you rated.",
     "history_two_tower": "This list matches the films you rated, without using a saved profile.",
     "cold_start_ranker": (
-        "This list reorders popular films and films similar to ones you rated."
+        "Ranked from the films you rated: popular titles, and ones close to them."
     ),
 }
 
@@ -52,18 +52,22 @@ def plain_reasons(
     limit: int = 2,
     genres_by_title: dict[str, str] | None = None,
     candidate_genres: str = "",
+    similar_titles: list[str] | None = None,
+    candidate_title: str = "",
 ) -> list[str]:
     """At most ``limit`` lines, specific to this pick.
 
-    A named film becomes "Because you liked {title}". A genre sentence
-    becomes "Shares {genre} with {title}" when the stored sentence names
-    both, otherwise it names the genre. "Popular with viewers" is included
-    only when a popularity sentence is the first stored reason.
+    The first line names the rated film the explanation already points at.
+    A second contributing film, when ``similar_titles`` includes one, is
+    joined on that same line. The next line adds a genre this film has and
+    does not repeat those titles. "Popular with viewers" is used only when
+    a popularity sentence is the first stored reason and there is no genre
+    to add.
     """
     if limit < 1:
         return []
     liked: list[str] = []
-    affinity: list[tuple[str, str | None]] = []
+    affinity: list[str] = []
     plain_genres: list[str] = []
     popular_at: int | None = None
     for index, raw in enumerate(reasons):
@@ -84,36 +88,38 @@ def plain_reasons(
             continue
         genre_rated = _GENRE_RATED.match(text)
         if genre_rated is not None:
-            genre = genre_rated.group("genre").strip()
-            title = genre_rated.group("title").strip()
-            affinity.append((genre, title))
-            _remember(liked, title)
+            _remember(affinity, genre_rated.group("genre"))
+            _remember(liked, genre_rated.group("title"))
             continue
         genre_like = _GENRE_LIKE.match(text)
         if genre_like is not None:
-            affinity.append((genre_like.group("genre").strip(), None))
+            _remember(affinity, genre_like.group("genre"))
             continue
         its = _ITS.match(text)
         if its is not None:
-            plain_genres.append(its.group("genre").strip())
+            _remember(plain_genres, its.group("genre"))
+    if similar_titles:
+        for title in similar_titles:
+            _remember(liked, title)
+    named = liked[:2]
     lines: list[str] = []
-    title = liked[0] if liked else None
-    if title:
-        lines.append(f"Because you liked {title}")
-    if affinity:
-        lines.append(_share_line(affinity, title))
-    elif plain_genres:
-        lines.append(_its_line(plain_genres[0]))
-    elif title and genres_by_title:
-        shared = _shared_genres(candidate_genres, genres_by_title.get(title, ""))
-        if shared:
-            shown = shared[:2]
-            genre_text = shown[0] if len(shown) == 1 else f"{shown[0]} and {shown[1]}"
-            lines.append(f"Shares {genre_text} with {title}")
-    # Popularity is the strongest stored family only when it is the first reason.
-    # A named film and a shared genre already fill the two lines.
-    if popular_at == 0 and len(lines) < limit:
-        lines.insert(0, "Popular with viewers")
+    if len(named) == 2:
+        lines.append(f"Because you liked {named[0]} and {named[1]}")
+    elif named:
+        lines.append(f"Because you liked {named[0]}")
+    follow = _followup(
+        affinity=affinity,
+        plain_genres=plain_genres,
+        candidate_genres=candidate_genres,
+        named=named,
+        genres_by_title=genres_by_title,
+        popular=popular_at == 0,
+        salt=candidate_title or (named[0] if named else ""),
+    )
+    if follow:
+        lines.append(follow)
+    elif popular_at == 0 and not lines:
+        lines.append("Popular with viewers")
     chosen: list[str] = []
     for line in lines:
         if line in chosen:
@@ -130,12 +136,55 @@ def _remember(titles: list[str], title: str) -> None:
         titles.append(cleaned)
 
 
-def _share_line(affinity: list[tuple[str, str | None]], fallback: str | None) -> str:
-    genre, partner = affinity[0]
-    extra = next((name for name, _who in affinity[1:] if name != genre), None)
-    genre_text = genre if extra is None else f"{genre} and {extra}"
-    who = partner or fallback or "films you rated"
-    return f"Shares {genre_text} with {who}"
+def _followup(
+    *,
+    affinity: list[str],
+    plain_genres: list[str],
+    candidate_genres: str,
+    named: list[str],
+    genres_by_title: dict[str, str] | None,
+    popular: bool,
+    salt: str,
+) -> str | None:
+    """A second line that does not repeat the films named on the first."""
+    if affinity:
+        return f"Shares {_join(affinity[:2])}"
+    if plain_genres and not candidate_genres:
+        return _its_line(plain_genres[0])
+    shared: list[str] = []
+    catalog = _genre_names(candidate_genres)
+    if genres_by_title and named:
+        pool: set[str] = set()
+        for title in named:
+            pool.update(_genre_names(genres_by_title.get(title, "")))
+        shared = [genre for genre in catalog if genre in pool]
+    # One shared genre on every card reads as a repeated sentence. Rotate
+    # across the shared genres, a genre only this film has, and popularity.
+    options: list[str] = [f"Shares {genre}" for genre in shared]
+    options.extend(_its_line(genre) for genre in catalog if genre not in shared)
+    if not options and plain_genres:
+        options.append(_its_line(plain_genres[0]))
+    # Popularity is the fallback, not another copy of the same line. A genre
+    # this film actually has already distinguishes two picks that name the
+    # same rated films.
+    if popular and not options:
+        options.append("Popular with viewers")
+    if not options:
+        return None
+    return options[_mix(salt or options[0]) % len(options)]
+
+
+def _join(genres: list[str]) -> str:
+    if len(genres) == 1:
+        return genres[0]
+    return f"{genres[0]} and {genres[1]}"
+
+
+def _mix(text: str) -> int:
+    value = 17
+    for char in text:
+        value = (value * 33 + ord(char)) & 0xFFFFFFFF
+    return value
 
 
 def _its_line(genre: str) -> str:
@@ -152,7 +201,3 @@ def _genre_names(genres: str) -> list[str]:
         names.append(name)
     return names
 
-
-def _shared_genres(candidate: str, liked: str) -> list[str]:
-    liked_names = set(_genre_names(liked))
-    return [name for name in _genre_names(candidate) if name in liked_names]

@@ -506,6 +506,13 @@ def test_fixture_posters_stay_off_the_tmdb_path(monkeypatch):
     assert first.startswith("data:image/svg+xml,")
     assert "image.tmdb.org" not in first
     assert "api_key" not in first
+    assert "30%" in first
+    neighbours = [
+        posters.fixture_poster("Star Wars: Episode IV - A New Hope"),
+        posters.fixture_poster("Star Wars: Episode V - The Empire Strikes Back"),
+        posters.fixture_poster("Star Wars: Episode VI - Return of the Jedi"),
+    ]
+    assert len(set(neighbours)) == 3
     source = (SPACE / "posters.py").read_text(encoding="utf-8")
     assert "MOVIELENS_FAKE_POSTERS" not in source
     loading = (SPACE / "loading.py").read_text(encoding="utf-8")

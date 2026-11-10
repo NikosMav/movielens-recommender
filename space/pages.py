@@ -129,56 +129,64 @@ def _discover_body(cold_path: str, api_key: str) -> None:
         '<p class="muted">Search for a title, or browse a genre, then tap a star.</p>',
         unsafe_allow_html=True,
     )
-    query = st.text_input(
-        "Search for a movie",
-        key="movie_query",
-        placeholder="Search for a movie",
-    )
-    st.caption("Try a title")
-    with st.container(key="starters"):
-        chips = st.columns(len(_STARTERS))
-        for column, title in zip(chips, _STARTERS, strict=True):
-            column.button(title, key=f"chip-{title}", on_click=_set_query, args=(title,))
-    hits = rank_titles(query, records, ranks)
-    if query.strip() and len(" ".join(query.split())) >= 2 and not hits:
-        st.caption("No title matches that search.")
-    if hits:
-        st.markdown("**Matches**")
-        _poster_grid(hits, rated, api_key, grid_key="matches")
-    genres = present_genres(records)
-    selected = st.pills(
-        "Genres",
-        genres,
-        selection_mode="multi",
-        default=[],
-        key="shelf_genres",
-    )
-    chosen = list(selected or [])
-    if chosen:
-        shelf = select_grid(records, chosen, ranks)
-        heading = "Genre shelf"
-    else:
-        shelf = popular_shelf(records, ranks)
-        heading = "Popular films"
-    shown = {int(record["item_id"]) for record in hits}
-    shelf = [record for record in shelf if int(record["item_id"]) not in shown]
-    if shelf:
-        st.markdown(f"**{heading}**")
-        st.markdown(
-            '<p class="sr-only">The star row names the film. '
-            "Filled stars show the current rating.</p>",
-            unsafe_allow_html=True,
-        )
-        _poster_grid(shelf, rated, api_key, grid_key="shelf")
-    elif chosen:
-        st.caption("No films in the snapshot match those genres.")
-    with st.container(key="ticket"):
-        _ticket(ratings, by_id, cold_path, api_key)
+    with st.container(key="workbench"):
+        browse, side = st.columns([1.7, 0.9], gap="medium")
+        with browse:
+            query = st.text_input(
+                "Search for a movie",
+                key="movie_query",
+                placeholder="Search for a movie",
+            )
+            st.caption("Try a title")
+            with st.container(key="starters"):
+                chips = st.columns(len(_STARTERS))
+                for column, title in zip(chips, _STARTERS, strict=True):
+                    column.button(
+                        title, key=f"chip-{title}", on_click=_set_query, args=(title,)
+                    )
+            hits = rank_titles(query, records, ranks)
+            if query.strip() and len(" ".join(query.split())) >= 2 and not hits:
+                st.caption("No title matches that search.")
+            if hits:
+                st.markdown("**Matches**")
+                with st.container(key="matches-frame"):
+                    _poster_grid(hits, rated, api_key, grid_key="matches")
+            genres = present_genres(records)
+            selected = st.pills(
+                "Genres",
+                genres,
+                selection_mode="multi",
+                default=[],
+                key="shelf_genres",
+            )
+            chosen = list(selected or [])
+            if chosen:
+                shelf = select_grid(records, chosen, ranks)
+                heading = "Genre shelf"
+            else:
+                shelf = popular_shelf(records, ranks)
+                heading = "Popular films"
+            shown = {int(record["item_id"]) for record in hits}
+            shelf = [record for record in shelf if int(record["item_id"]) not in shown]
+            if shelf:
+                st.markdown(f"**{heading}**")
+                st.markdown(
+                    '<p class="sr-only">The star row names the film. '
+                    "Filled stars show the current rating.</p>",
+                    unsafe_allow_html=True,
+                )
+                with st.container(key="shelf-frame"):
+                    _poster_grid(shelf, rated, api_key, grid_key="shelf")
+            elif chosen:
+                st.caption("No films in the snapshot match those genres.")
+        with side:
+            with st.container(key="ticket"):
+                _ticket(ratings, by_id, cold_path, api_key)
 
     genres_by_title = {
         str(record["title"]): str(record.get("genres") or "") for record in records
     }
-    _picks(ratings, api_key, genres_by_title)
+    _picks(ratings, api_key, genres_by_title, cold_path)
 
 
 @st.fragment
@@ -204,16 +212,22 @@ def _explore_body(prod_path: str, api_key: str) -> None:
     lo, hi = user_ids[0], user_ids[-1]
     st.markdown(f"Viewer ids in this snapshot run from **{lo}** to **{hi}**.")
     suggestions = suggested_user_ids(user_ids)
-    entered = st.number_input(
-        "Viewer id",
-        min_value=int(lo),
-        max_value=int(hi),
-        value=None,
-        step=1,
-        key="viewer_id",
-        placeholder=str(suggestions[0]) if suggestions else str(lo),
-    )
-    if st.button("Load viewer", type="primary"):
+    with st.container(key="viewer-bar"):
+        field, action = st.columns([1, 1], vertical_alignment="bottom")
+        with field:
+            entered = st.number_input(
+                "Viewer id",
+                min_value=int(lo),
+                max_value=int(hi),
+                value=None,
+                step=1,
+                key="viewer_id",
+                placeholder=str(suggestions[0]) if suggestions else str(lo),
+                width=240,
+            )
+        with action:
+            load_clicked = st.button("Load viewer", type="primary")
+    if load_clicked:
         if entered is None:
             st.session_state["explore_error"] = f"Enter a viewer id from {lo} to {hi}."
         else:
@@ -241,7 +255,7 @@ def _explore_body(prod_path: str, api_key: str) -> None:
         return
     if error:
         st.caption("The list below is still the previous viewer.")
-    _viewer_result(result, api_key, genres_by_title)
+    _viewer_result(result, api_key, genres_by_title, bundle)
 
 
 def _quality_body(path_str: str) -> None:
@@ -492,6 +506,7 @@ def _picks(
     ratings: list[dict[str, Any]],
     api_key: str,
     genres_by_title: dict[str, str],
+    cold_path: str,
 ) -> None:
     stored = st.session_state.get("new_user_result")
     if not stored:
@@ -509,10 +524,10 @@ def _picks(
             "These picks used your earlier ratings. Update picks to match the list above."
         )
     else:
-        st.caption("Ranked from the films you rated.")
         method = str(stored.get("method") or "")
-        if method:
-            st.caption(plain_method(method))
+        st.caption(
+            plain_method(method) if method else "Ranked from the films you rated."
+        )
     if st.session_state.get("scroll_nonce") != st.session_state.get("picks_nonce"):
         st.session_state["scroll_nonce"] = st.session_state.get("picks_nonce")
         components.html(scroll_script(), height=0)
@@ -520,6 +535,8 @@ def _picks(
     if not cards:
         st.caption("No films were returned for these ratings.")
         return
+    history = _history_rows(ratings)
+    liked_by_id = _liked_by_item(_item_item_model(cold_path, cold=True), cards, history)
     _card_grid(
         cards,
         api_key,
@@ -528,6 +545,7 @@ def _picks(
         explain=True,
         reason_limit=2,
         genres_by_title=genres_by_title,
+        liked_by_id=liked_by_id,
     )
     sentence = str(stored.get("method_sentence") or "")
     if sentence:
@@ -568,6 +586,7 @@ def _viewer_result(
     result: dict[str, Any],
     api_key: str,
     genres_by_title: dict[str, str],
+    bundle: Any,
 ) -> None:
     summary = result["summary"]
     genres = " · ".join(summary["top_genres"]) if summary["top_genres"] else "No genre stands out"
@@ -589,17 +608,21 @@ def _viewer_result(
         key="compare_models",
         help="Full model, similar films, and a taste match, from the same ratings.",
     )
+    history = _bundle_history(bundle, int(summary["user_id"]))
+    model = getattr(bundle, "item_item", None)
     if not compare:
         st.markdown('<h2 class="section-title">Top 10</h2>', unsafe_allow_html=True)
         st.caption("The list from the full model.")
+        production = list(result["production"])
         _card_grid(
-            list(result["production"]),
+            production,
             api_key,
             grid_key="top10",
             kind="rich",
             explain=True,
             reason_limit=2,
             genres_by_title=genres_by_title,
+            liked_by_id=_liked_by_item(model, production, history),
         )
         return
     options = ("Full model", "Similar films", "Taste match")
@@ -632,6 +655,7 @@ def _viewer_result(
         )
         columns = st.columns(3)
         for column, (title, raw, col_key, cards) in zip(columns, blocks, strict=True):
+            liked_by_id = _liked_by_item(model, list(cards), history)
             with column, st.container(key=col_key):
                 st.markdown(f"### {title}")
                 st.caption(blurbs[raw])
@@ -645,6 +669,7 @@ def _viewer_result(
                         scope=f"{raw}-{index}",
                         reason_limit=1,
                         genres_by_title=genres_by_title,
+                        similar_titles=liked_by_id.get(int(card.get("item_id") or 0), []),
                     )
 
 
@@ -678,7 +703,9 @@ def _card_grid(
     explain: bool,
     reason_limit: int,
     genres_by_title: dict[str, str] | None = None,
+    liked_by_id: dict[int, list[str]] | None = None,
 ) -> None:
+    liked = liked_by_id or {}
     with st.container(key=grid_key):
         for index, card in enumerate(cards, start=1):
             _recommendation(
@@ -690,6 +717,7 @@ def _card_grid(
                 scope=f"{grid_key}-{index}",
                 reason_limit=reason_limit,
                 genres_by_title=genres_by_title,
+                similar_titles=liked.get(int(card.get("item_id") or 0), []),
             )
 
 
@@ -703,6 +731,7 @@ def _recommendation(
     scope: str = "card",
     reason_limit: int = 2,
     genres_by_title: dict[str, str] | None = None,
+    similar_titles: list[str] | None = None,
 ) -> None:
     from runtime import visible_details, visible_reasons
 
@@ -713,6 +742,8 @@ def _recommendation(
             limit=reason_limit,
             genres_by_title=genres_by_title,
             candidate_genres=str(card.get("genres") or ""),
+            similar_titles=similar_titles,
+            candidate_title=str(card.get("title") or ""),
         )
         if explain or kind == "compact"
         else []
@@ -754,6 +785,75 @@ def _recommendation(
                         bias = card.get("bias")
                         if bias is not None:
                             st.text(f"bias: {bias:+.4f}")
+
+
+def _history_rows(ratings: list[dict[str, Any]]) -> list[tuple[int, str, float]]:
+    return [
+        (int(row["item_id"]), str(row["title"]), float(row["rating"])) for row in ratings
+    ]
+
+
+def _bundle_history(bundle: Any, user_id: int) -> list[tuple[int, str, float]]:
+    try:
+        from movielens_recommender.serving.bundle import user_history_items
+        from movielens_recommender.serving.reasons import display_title
+    except Exception:
+        return []
+    try:
+        rows = user_history_items(bundle, int(user_id))
+    except Exception:
+        return []
+    return [
+        (int(item.item_id), display_title(str(item.title)), float(item.rating)) for item in rows
+    ]
+
+
+def _item_item_model(path_str: str, *, cold: bool) -> Any:
+    try:
+        bundle = load_cold(path_str) if cold else load_bundle(path_str)[0]
+    except Exception:
+        return None
+    return getattr(bundle, "item_item", None)
+
+
+def _liked_by_item(
+    model: Any,
+    cards: list[dict[str, Any]],
+    history: list[tuple[int, str, float]],
+) -> dict[int, list[str]]:
+    """Up to two rated films with positive similarity to each pick.
+
+    The order matches the explainer: similarity times the rating. This does
+    not rescore the list.
+    """
+    if model is None or not history or not hasattr(model, "neighbor_similarities"):
+        return {}
+    ids = [item_id for item_id, _title, _rating in history]
+    found: dict[int, list[str]] = {}
+    for card in cards:
+        item_id = int(card.get("item_id") or 0)
+        if not item_id:
+            continue
+        try:
+            sims = model.neighbor_similarities(item_id, ids)
+        except Exception:
+            continue
+        ranked: list[tuple[float, float, str]] = []
+        for other, title, rating in history:
+            sim = float(sims.get(int(other), 0.0))
+            if sim <= 0.0:
+                continue
+            ranked.append((sim * float(rating), sim, title))
+        ranked.sort(key=lambda row: (-row[0], -row[1], row[2]))
+        names: list[str] = []
+        for _score, _sim, title in ranked:
+            if title not in names:
+                names.append(title)
+            if len(names) == 2:
+                break
+        if names:
+            found[item_id] = names
+    return found
 
 
 def _escape(text: str) -> str:
