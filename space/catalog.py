@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -130,6 +131,90 @@ def movie_records(movies: Any) -> list[dict[str, Any]]:
             }
         )
     return records
+
+
+def rank_titles(
+    query: str,
+    records: Sequence[Mapping[str, Any]],
+    popularity_rank: Mapping[int, int],
+    *,
+    limit: int = 8,
+) -> list[dict[str, Any]]:
+    """Rank catalog titles for a search box.
+
+    Exact match, then prefix, then a word start, then a substring.
+    Ties go to the film with more ratings (a lower popularity rank).
+    """
+    needle = " ".join(str(query).casefold().split())
+    if len(needle) < 2 or limit <= 0:
+        return []
+    missing = len(popularity_rank) + 1
+    ranked: list[tuple[int, int, str, dict[str, Any]]] = []
+    for record in records:
+        title = str(record.get("title") or "")
+        tier = _match_tier(needle, title)
+        if tier is None:
+            continue
+        pop = popularity_rank.get(int(record["item_id"]), missing)
+        ranked.append((tier, pop, title.casefold(), dict(record)))
+    ranked.sort(key=lambda row: row[:3])
+    return [row[3] for row in ranked[:limit]]
+
+
+def popular_shelf(
+    records: Sequence[Mapping[str, Any]],
+    popularity_rank: Mapping[int, int],
+    *,
+    limit: int = 8,
+) -> list[dict[str, Any]]:
+    """Most-rated films, for the shelf shown before a genre is chosen."""
+    if limit <= 0:
+        return []
+    missing = len(popularity_rank) + 1
+    chosen = [dict(record) for record in records]
+    chosen.sort(
+        key=lambda row: (
+            popularity_rank.get(int(row["item_id"]), missing),
+            int(row["item_id"]),
+        )
+    )
+    return chosen[:limit]
+
+
+def suggested_user_ids(user_ids: Sequence[int], *, limit: int = 3) -> list[int]:
+    """A few real ids to offer before someone types one.
+
+    Prefer 1, 155, and 4000 when they exist. Fill any gap from the ends
+    and the middle of the ids that are actually in the snapshot.
+    """
+    ids = sorted({int(user_id) for user_id in user_ids})
+    if not ids or limit <= 0:
+        return []
+    preferred = (1, 155, 4000)
+    present = set(ids)
+    chosen = [item for item in preferred if item in present]
+    for item in (ids[0], ids[len(ids) // 2], ids[-1]):
+        if item not in chosen:
+            chosen.append(item)
+        if len(chosen) >= limit:
+            break
+    return chosen[:limit]
+
+
+def _match_tier(needle: str, title: str) -> int | None:
+    text = " ".join(title.casefold().split())
+    if not text:
+        return None
+    if text == needle:
+        return 0
+    if text.startswith(needle):
+        return 1
+    words = [word for word in re.split(r"[^0-9a-z]+", text) if word]
+    if any(word.startswith(needle) for word in words):
+        return 2
+    if needle in text:
+        return 3
+    return None
 
 
 def clean_year(value: Any) -> int | None:

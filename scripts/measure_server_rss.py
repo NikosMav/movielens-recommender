@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -43,7 +44,11 @@ WEIGHTS_URL = (
 )
 ML1M_SHA256 = "a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20"
 ML1M_URL = "https://files.grouplens.org/datasets/movielens/ml-1m.zip"
-CHROME = Path("/usr/local/bin/google-chrome")
+CHROME_CANDIDATES = (
+    Path("/usr/local/bin/google-chrome"),
+    Path("/usr/bin/google-chrome"),
+    Path("/usr/bin/google-chrome-stable"),
+)
 STAR_CLICKS = (4, 3, 4, 2, 3)
 
 
@@ -156,13 +161,15 @@ def _launch_browser(playwright: object):
         "headless": True,
         "args": ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
     }
-    if CHROME.is_file():
-        kwargs["executable_path"] = str(CHROME)
+    chrome = next((path for path in CHROME_CANDIDATES if path.is_file()), None)
+    if chrome is not None:
+        kwargs["executable_path"] = str(chrome)
     return playwright.chromium.launch(**kwargs)  # type: ignore[attr-defined]
 
 
 def _click_mode(page: object, name: str) -> None:
-    page.locator("[data-testid='stRadio']").get_by_text(name, exact=True).click(force=True)  # type: ignore[attr-defined]
+    option = page.locator("[data-testid='stRadioOption']").filter(has_text=name)  # type: ignore[attr-defined]
+    option.click(timeout=60_000)
 
 
 def _wait_text(page: object, text: str, timeout: int = 180_000) -> None:
@@ -170,51 +177,31 @@ def _wait_text(page: object, text: str, timeout: int = 180_000) -> None:
 
 
 def _open_existing(page: object, base: str) -> None:
-    page.goto(f"{base}?view=classic", wait_until="domcontentloaded", timeout=120_000)  # type: ignore[attr-defined]
-    page.locator("[data-testid='stRadio']").get_by_text("Existing user", exact=True).wait_for(  # type: ignore[attr-defined]
-        timeout=300_000
-    )
-    _wait_text(page, "Production model", timeout=300_000)
+    page.goto(base, wait_until="domcontentloaded", timeout=120_000)  # type: ignore[attr-defined]
+    _wait_text(page, "Find your next film", timeout=300_000)
+    _click_mode(page, "Explore a MovieLens user")
+    _wait_text(page, "Viewer ids in this snapshot", timeout=300_000)
+    page.get_by_role("button", name="Try 155", exact=True).click()  # type: ignore[attr-defined]
     _wait_text(page, "Top 10", timeout=300_000)
 
 
 def _rate_comedy_shelf(page: object) -> None:
-    _click_mode(page, "New user")
-    _wait_text(page, "Pick one or more genres")
-    page.locator("[data-testid='stMultiSelect']").click()  # type: ignore[attr-defined]
-    option = page.get_by_role("option", name="Comedy", exact=True)  # type: ignore[attr-defined]
-    option.wait_for(timeout=60_000)
-    option.click()
-    page.keyboard.press("Escape")  # type: ignore[attr-defined]
-    page.wait_for_function(  # type: ignore[attr-defined]
-        """() => document.querySelectorAll("[data-testid='stFeedback']").length >= 5""",
-        timeout=180_000,
-    )
+    _click_mode(page, "Discover")
+    _wait_text(page, "What have you watched?")
+    page.get_by_role("button", name="Comedy", exact=True).click()  # type: ignore[attr-defined]
+    _wait_text(page, "Genre shelf", timeout=180_000)
+    page.get_by_role("button", name=re.compile(r" out of 5$")).first.wait_for(timeout=180_000)  # type: ignore[attr-defined]
     for index, star in enumerate(STAR_CLICKS):
-        widget = page.locator("[data-testid='stFeedback']").nth(index)  # type: ignore[attr-defined]
-        widget.locator("button").nth(star).click()
-        page.wait_for_function(  # type: ignore[attr-defined]
-            """([index, star]) => {
-                const widgets = document.querySelectorAll("[data-testid='stFeedback']");
-                const widget = widgets[index];
-                if (!widget) return false;
-                const buttons = [...widget.querySelectorAll("button")];
-                let last = -1;
-                buttons.forEach((button, i) => {
-                    if (button.getAttribute("aria-checked") === "true") last = i;
-                });
-                return last === star;
-            }""",
-            arg=[index, star],
-            timeout=60_000,
-        )
+        score = star + 1
+        page.get_by_role("button", name=re.compile(rf"{score} out of 5$")).nth(index).click()  # type: ignore[attr-defined]
         if index + 1 < 3:
-            _wait_text(page, f"Add {3 - (index + 1)} more", timeout=60_000)
+            remaining = 3 - (index + 1)
+            word = "film" if remaining == 1 else "films"
+            _wait_text(page, f"Rate {remaining} more {word} to get picks.", timeout=60_000)
         else:
-            _wait_text(page, "Your ratings", timeout=60_000)
-    page.get_by_role("button", name="Get recommendations").click()  # type: ignore[attr-defined]
-    _wait_text(page, "Scored in", timeout=180_000)
-    _wait_text(page, "Top 10")
+            _wait_text(page, "You can get picks now", timeout=60_000)
+    page.get_by_role("button", name="Get my picks").click()  # type: ignore[attr-defined]
+    _wait_text(page, "Your next watch", timeout=180_000)
 
 
 def _walk(base: str, pid: int) -> None:
@@ -240,15 +227,15 @@ def _walk(base: str, pid: int) -> None:
             _rate_comedy_shelf(page_a)
             _log_rss(pid, "A new-user recommendations")
             _click_mode(page_b, "How good is it?")
-            _wait_text(page_b, "ml-1m model against model")
-            _click_mode(page_b, "New user")
-            _wait_text(page_b, "Pick one or more genres")
+            _wait_text(page_b, "NDCG@10")
+            _click_mode(page_b, "Discover")
+            _wait_text(page_b, "What have you watched?")
             _log_rss(pid, "B quality and new user")
             _click_mode(page_a, "How good is it?")
-            _wait_text(page_a, "ml-1m model against model")
-            _click_mode(page_a, "Existing user")
-            _wait_text(page_a, "Production model")
-            _click_mode(page_a, "New user")
+            _wait_text(page_a, "NDCG@10")
+            _click_mode(page_a, "Explore a MovieLens user")
+            _wait_text(page_a, "Top 10")
+            _click_mode(page_a, "Discover")
             _wait_text(page_a, "Your ratings")
             _click_mode(page_a, "How good is it?")
             _wait_text(page_a, "SASRec")

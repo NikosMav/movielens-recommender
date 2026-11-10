@@ -6,6 +6,7 @@ Captions format those values. They do not compute a new metric.
 
 from __future__ import annotations
 
+import html
 import json
 from pathlib import Path
 from typing import Any
@@ -195,6 +196,142 @@ def _model_row(metrics: dict[str, Any], name: str) -> dict[str, Any]:
     if "n_seeds" in block:
         row["n_seeds"] = block["n_seeds"]
     return row
+
+
+# Display labels. The stored id stays next to the label; it is not a new metric.
+MODEL_NAMES: dict[str, str] = {
+    "most_popular": "Most popular",
+    "als": "Matrix factorisation",
+    "als_tuned": "Matrix factorisation, tuned",
+    "ease": "EASE",
+    "rp3beta": "Graph similarity",
+    "item_item_cosine": "Similar films",
+    "item_item_cosine_tuned": "Similar films, tuned",
+    "two_tower": "Two-tower match",
+    "no_ranker": "Two-tower match alone",
+    "lambdarank": "Full model",
+    "sasrec": "Sequence model",
+    "sasrec_shuffled": "Shuffled sequence",
+}
+
+NDCG_SENTENCE = (
+    "NDCG@10 is a ranking score from 0 to 1. "
+    "Higher means the films a viewer actually liked sit closer to the top of the list."
+)
+
+
+def friendly_name(model_id: str) -> str:
+    """A short label for a stored model id. Unknown ids stay readable."""
+    return MODEL_NAMES.get(model_id, model_id.replace("_", " "))
+
+
+def rounded(value: Any) -> str:
+    """Three decimal places for a stored JSON number. Not a new measurement."""
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise TypeError(f"not a stored number: {value!r}")
+    return format(float(value), ".3f")
+
+
+def rank_models(models: list[dict[str, Any]]) -> dict[str, Any]:
+    """Pick the leader from stored NDCG@10 points. Ties break on the model id."""
+    ordered = sorted(models, key=lambda row: (-float(row["ndcg@10"]), str(row["model"])))
+    best = ordered[0]
+    second = ordered[1] if len(ordered) > 1 else None
+    lead = None if second is None else float(best["ndcg@10"]) - float(second["ndcg@10"])
+    overlap = False
+    if second is not None:
+        overlap = float(best["ci_low"]) <= float(second["ci_high"]) and float(
+            second["ci_low"]
+        ) <= float(best["ci_high"])
+    return {"best": best, "second": second, "lead": lead, "intervals_overlap": overlap}
+
+
+def lead_paragraph(models: list[dict[str, Any]], *, dataset: str) -> str:
+    """One plain sentence built only from the stored points and intervals."""
+    info = rank_models(models)
+    best = info["best"]
+    name = friendly_name(str(best["model"]))
+    raw = str(best["model"])
+    sentence = (
+        f"On {dataset}, {name} ({raw}) leads with NDCG@10 {rounded(best['ndcg@10'])} "
+        f"(uncertainty range {rounded(best['ci_low'])} to {rounded(best['ci_high'])})."
+    )
+    if info["second"] is None or info["lead"] is None:
+        return sentence
+    other = info["second"]
+    gap = (
+        f" That is {rounded(info['lead'])} above "
+        f"{friendly_name(str(other['model']))} ({other['model']})."
+    )
+    if info["intervals_overlap"]:
+        tail = " The two uncertainty ranges overlap, so this gap is within the stored uncertainty."
+    else:
+        tail = " The leader's uncertainty range sits above the next model's range."
+    return sentence + gap + tail
+
+
+def chart_rows(models: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Rows for the bar chart. Widths use the stored floats; labels are rounded later."""
+    winner = str(rank_models(models)["best"]["model"])
+    rows = []
+    for row in models:
+        model_id = str(row["model"])
+        rows.append(
+            {
+                "model": model_id,
+                "label": friendly_name(model_id),
+                "ndcg": float(row["ndcg@10"]),
+                "low": float(row["ci_low"]),
+                "high": float(row["ci_high"]),
+                "best": model_id == winner,
+            }
+        )
+    return rows
+
+
+def sasrec_lead(block: dict[str, Any]) -> str:
+    """Plain reading of the stored order check. The numbers are the JSON fields."""
+    if block["order_helps"]:
+        verdict = "Keeping the real watch order scores higher than a shuffled order."
+    else:
+        verdict = (
+            "Keeping the real watch order does not score higher than a shuffled order "
+            "on the stored check."
+        )
+    return (
+        f"{verdict} The stored difference in NDCG@10 is "
+        f"{rounded(block['real_minus_shuffled_mean'])} "
+        f"(uncertainty range {rounded(block['real_minus_shuffled_low'])} to "
+        f"{rounded(block['real_minus_shuffled_high'])})."
+    )
+
+
+def sample_sentence(block: dict[str, Any]) -> str:
+    """The stored ml-32M sample size, without treating the selection note as a score."""
+    return (
+        f"These scores use {int(block['n_sampled_users']):,} of "
+        f"{int(block['n_eligible_users']):,} eligible viewers."
+    )
+
+
+def detail_html(models: list[dict[str, Any]]) -> str:
+    """The stored figures, one block per model, using ``fmt`` so nothing is remeasured."""
+    blocks = []
+    for row in models:
+        seeds = ""
+        if "n_seeds" in row:
+            seeds = f"<p>Seeds recorded: {html.escape(fmt(row['n_seeds']))}</p>"
+        blocks.append(
+            "<section class='score-detail'>"
+            f"<h3>{html.escape(friendly_name(str(row['model'])))} "
+            f"<span class='bar-id'>{html.escape(str(row['model']))}</span></h3>"
+            f"<p>NDCG@10 {html.escape(fmt(row['ndcg@10']))}</p>"
+            "<p>Uncertainty range "
+            f"{html.escape(fmt(row['ci_low']))} to {html.escape(fmt(row['ci_high']))}"
+            f" (mean {html.escape(fmt(row['ci_mean']))})</p>"
+            f"{seeds}</section>"
+        )
+    return "".join(blocks)
 
 
 def _read_json(path: Path) -> dict[str, Any]:
