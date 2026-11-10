@@ -312,13 +312,15 @@ def _score_candidates(
     if len(candidates) == 0:
         empty = np.zeros(0, dtype=np.float64)
         no_rows = np.zeros((0, len(bundle.context.names)))
-        return [], empty, no_rows, ii_map, tt_map, (ii_rows, tt_rows)
+        pipeline = _pipeline_trace(bundle, [], empty, bundle.candidate_set, scored=False)
+        return [], empty, no_rows, ii_map, tt_map, (ii_rows, tt_rows), pipeline
     matrix = build_feature_matrix(bundle.context, uid, candidates, ii_map, tt_map)
     scores = np.asarray(bundle.booster.predict(matrix), dtype=np.float64)
     order = np.argsort(-scores, kind="mergesort")
     top_idx = [int(i) for i in order[:n]]
     top_items = [int(candidates[i]) for i in top_idx]
-    return top_items, scores[top_idx], matrix[top_idx], ii_map, tt_map, (ii_rows, tt_rows)
+    pipeline = _pipeline_trace(bundle, candidates, scores, bundle.candidate_set, scored=True)
+    return top_items, scores[top_idx], matrix[top_idx], ii_map, tt_map, (ii_rows, tt_rows), pipeline
 
 
 def rank_for_user(bundle: ServingBundle, user_id: int, *, n: int = 10) -> list[tuple[int, float]]:
@@ -327,7 +329,9 @@ def rank_for_user(bundle: ServingBundle, user_id: int, *, n: int = 10) -> list[t
     Same items and order as ``recommend_for_user(...)["production"]``. An unknown
     user id raises ``KeyError``.
     """
-    items, scores, _matrix, _ii_map, _tt_map, _rows = _score_candidates(bundle, user_id, n)
+    items, scores, _matrix, _ii_map, _tt_map, _rows, _pipeline = _score_candidates(
+        bundle, user_id, n
+    )
     return [(item, float(score)) for item, score in zip(items, scores, strict=True)]
 
 
@@ -343,8 +347,8 @@ def recommend_for_user(
     raises ``KeyError``; the two-tower has no embedding for them.
     """
     uid = int(user_id)
-    top_items, top_scores, top_matrix, ii_map, tt_map, (ii_rows, tt_rows) = _score_candidates(
-        bundle, uid, n
+    top_items, top_scores, top_matrix, ii_map, tt_map, (ii_rows, tt_rows), pipeline = (
+        _score_candidates(bundle, uid, n)
     )
     if not top_items:
         production: list[dict[str, Any]] = []
@@ -387,6 +391,36 @@ def recommend_for_user(
         "production": production,
         "item_item": [_card(bundle, item) for item, _score in ii_rows[:n]],
         "two_tower": [_card(bundle, item) for item, _score in tt_rows[:n]],
+        "pipeline": pipeline,
+    }
+    if pipeline["ranked_ids"][: len(production)] != [int(card["item_id"]) for card in production]:
+        raise AssertionError("the candidate order and the top list diverged")
+
+
+def _pipeline_trace(
+    bundle: ServingBundle,
+    candidates: list[int],
+    scores: np.ndarray,
+    source: str,
+    *,
+    scored: bool,
+) -> dict[str, Any]:
+    """The list this call scored, best first. The top-n cards are its prefix."""
+    if len(candidates) == 0:
+        ranked_ids: list[int] = []
+        ranked_scores: list[float] = []
+    else:
+        order = np.argsort(-np.asarray(scores, dtype=np.float64), kind="mergesort")
+        ranked_ids = [int(candidates[int(index)]) for index in order]
+        ranked_scores = [float(scores[int(index)]) for index in order]
+    return {
+        "n_catalog": int(len(bundle.movies)),
+        "n_candidates": len(candidates),
+        "n_scored": len(candidates) if scored else 0,
+        "ranked_ids": ranked_ids,
+        "ranked_scores": ranked_scores,
+        "scored_by_ranker": bool(scored and candidates),
+        "candidate_source": source,
     }
 
 

@@ -28,9 +28,16 @@ def test_plain_reasons_name_the_rated_film_and_drop_the_generic_pair():
         "Lines up with movies you have already rated",
     ]
     shown = phrases.plain_reasons(reasons)
-    assert shown == ["Because you liked Toy Story"]
+    assert shown[0] == phrases.POPULAR_LINE
+    assert "Toy Story" not in shown[0]
     assert all("neural" not in line and "neighbour" not in line for line in shown)
-    assert "Popular with viewers" not in shown
+    named = phrases.plain_reasons(
+        [
+            "Because you rated Toy Story highly",
+            "Popular with many viewers",
+        ]
+    )
+    assert named == ["Because you liked Toy Story"]
 
 
 def test_genre_line_names_the_shared_genre_and_the_film():
@@ -73,19 +80,20 @@ def test_popularity_is_shown_only_when_it_is_the_first_reason():
     dominant = phrases.plain_reasons(
         ["Popular with many viewers", "Widely rated by other viewers"]
     )
-    assert dominant == ["Popular with viewers"]
+    assert dominant == [phrases.POPULAR_LINE]
     later = phrases.plain_reasons(
         [
             "Popular with many viewers",
             "Because you rated Toy Story highly",
         ]
     )
-    assert later == ["Because you liked Toy Story", "Popular with viewers"]
+    assert later[0] == phrases.POPULAR_LINE
+    assert "Toy Story" not in " ".join(later)
     buried = phrases.plain_reasons(
         [
             "Ranked highly by the neural retriever for your taste profile",
-            "Widely rated by other viewers",
             "Because you rated Fargo highly",
+            "Widely rated by other viewers",
         ]
     )
     assert buried == ["Because you liked Fargo"]
@@ -99,17 +107,17 @@ def test_shared_genres_come_from_the_named_film_when_the_sentence_has_none():
     }
     wars = phrases.plain_reasons(
         [
+            "Because you rated Men in Black highly",
             "Popular with many viewers",
             "Lines up with movies you have already rated",
-            "Because you rated Men in Black highly",
         ],
         genres_by_title=lookup,
         candidate_genres="Action|Adventure|Sci-Fi",
     )
     ryan = phrases.plain_reasons(
         [
-            "Popular with many viewers",
             "Because you rated American Beauty highly",
+            "Popular with many viewers",
         ],
         genres_by_title=lookup,
         candidate_genres="Action|Drama|War",
@@ -126,9 +134,16 @@ def test_shared_genres_come_from_the_named_film_when_the_sentence_has_none():
 def test_two_contributors_share_the_first_line_and_the_second_line_varies():
     phrases = _phrases()
     reasons = [
-        "Popular with many viewers",
         "Because you rated Men in Black highly",
+        "Popular with many viewers",
     ]
+    weak = phrases.plain_reasons(
+        ["Popular with many viewers", "Because you rated American Beauty highly"],
+        similar_titles=["American Beauty", "Toy Story"],
+        candidate_title="The Matrix",
+    )
+    assert weak[0] == phrases.POPULAR_LINE
+    assert "American Beauty" not in " ".join(weak)
     lookup = {
         "Men in Black": "Action|Adventure|Comedy|Sci-Fi",
         "Toy Story": "Adventure|Animation|Children's|Comedy",

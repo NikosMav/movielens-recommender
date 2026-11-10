@@ -308,13 +308,78 @@ def _theme_css() -> str:
   overflow-wrap: anywhere;
   {_paint("color", light["ink"], dark["ink"])}
 }}
+.chart-group {{
+  margin: 0.9rem 0 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  {_paint("color", light["meta"], dark["meta"])}
+}}
 .bar-id {{
   display: inline-block;
   margin-left: 0.35rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 99px;
   font-family: Figtree, Arial, sans-serif;
-  font-size: 0.75rem;
+  font-size: 0.9rem;
   font-weight: 600;
+  {_line("border", light["border"], dark["border"])}
   {_paint("color", light["meta"], dark["meta"])}
+}}
+.poster.is-broken {{ display: none; }}
+.because-line {{
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}}
+.because-line .poster.evidence-thumb {{
+  width: 28px;
+  height: 42px;
+  flex: 0 0 28px;
+  object-fit: cover;
+  border-radius: 3px;
+}}
+.neighbour-grid {{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}}
+.neighbour p {{
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.25;
+}}
+.funnel-pad {{ height: 0.35rem; }}
+[data-testid="stPopoverBody"] {{
+  width: min(26rem, calc(100vw - 2rem));
+}}
+.funnel {{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.4rem 0 0.8rem;
+  padding: 0;
+  list-style: none;
+}}
+.funnel li {{
+  flex: 1 1 8rem;
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  {_line("border", light["border"], dark["border"])}
+}}
+.funnel strong {{ display: block; }}
+.funnel span {{
+  display: block;
+  font-size: 0.8rem;
+  {_paint("color", light["meta"], dark["meta"])}
+}}
+.stApp:has(.picks-stale) .st-key-picks {{
+  outline: 1px dashed {light["meta"]};
+  outline: 1px dashed light-dark({light["meta"]}, {dark["meta"]});
+  outline-offset: 6px;
+  border-radius: 12px;
 }}
 .bar-track {{
   position: relative;
@@ -896,13 +961,18 @@ def _theme_css() -> str:
     flex: 0 0 auto !important;
     min-width: max-content !important;
   }}
+  .st-key-ticket,
   [data-testid="stVerticalBlock"].st-key-ticket {{
-    position: static;
-    max-height: none;
+    position: static !important;
+    top: auto !important;
+    max-height: none !important;
   }}
   .intro {{ grid-template-columns: minmax(0, 1fr); }}
   .intro-art {{ order: -1; }}
   .bar-row {{ grid-template-columns: minmax(0, 1fr) auto; }}
+  .funnel {{ flex-direction: column; }}
+  .neighbour-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+  .because-line {{ align-items: flex-start; }}
   .bar-name {{ grid-column: 1 / -1; }}
   .st-key-compare-switch {{ display: block; }}
   .st-key-compare [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {{
@@ -974,12 +1044,19 @@ def hero_html() -> str:
     )
 
 
-def poster_html(title: str, poster_url: str | None) -> str:
+def poster_html(title: str, poster_url: str | None, *, extra_class: str = "") -> str:
     """An ``<img>`` for a URL, or initials on a gradient. Neither path reads image bytes."""
     if poster_url:
         src = html.escape(poster_url, quote=True)
         alt = html.escape(title, quote=True)
-        return f'<img class="poster" alt="" data-title="{alt}" width="76" height="114" src="{src}">'
+        classes = "poster" + (f" {extra_class}" if extra_class else "")
+        # A failed load drops its src once. The browser does not request it again.
+        return (
+            f'<img class="{classes}" alt="" data-title="{alt}" width="76" height="114" '
+            f'referrerpolicy="no-referrer" src="{src}" '
+            "onerror=\"this.onerror=null;this.removeAttribute('src');"
+            "this.classList.add('is-broken');\">"
+        )
     label = html.escape(title)
     hue = _poster_hue(title)
     hue_b = (hue * 5 + 83) % 360
@@ -1008,6 +1085,7 @@ def recommendation_card_html(
     rank: int | None = None,
     show_reasons: bool = True,
     kind: str = "row",
+    evidence_html: str = "",
 ) -> str:
     bits = []
     shown_year = _year_text(year)
@@ -1018,8 +1096,11 @@ def recommendation_card_html(
     meta = " · ".join(bits) if bits else "—"
     why = ""
     if show_reasons and reasons:
-        items = "".join(f"<li>{html.escape(text)}</li>" for text in reasons)
-        why = f'<ul class="pick-why">{items}</ul>'
+        items = []
+        for index, text in enumerate(reasons):
+            thumb = evidence_html if index == 0 and text.startswith("Because you liked") else ""
+            items.append(f'<li class="because-line">{thumb}{html.escape(text)}</li>')
+        why = f'<ul class="pick-why">{"".join(items)}</ul>'
     rank_html = ""
     if rank is not None:
         rank_html = f'<p class="pick-rank">{int(rank):02d}</p>'
@@ -1055,6 +1136,34 @@ def rated_line_html(
     )
 
 
+def neighbour_grid_html(films: list[dict]) -> str:
+    """Small posters for films already chosen. No extra requests beyond those URLs."""
+    cells = []
+    for film in films:
+        title = str(film.get("title") or "")
+        year = _year_text(film.get("year"))
+        label = f"{title} ({year})" if year else title
+        cells.append(
+            '<div class="neighbour">'
+            f"{poster_html(title, film.get('poster_url'))}"
+            f"<p>{html.escape(label)}</p></div>"
+        )
+    return f'<div class="neighbour-grid">{"".join(cells)}</div>'
+
+
+def funnel_html(steps: list[dict[str, str]]) -> str:
+    """The four stages for one request. Counts are the ones the caller passed in."""
+    items = []
+    for step in steps:
+        items.append(
+            "<li>"
+            f"<strong>{html.escape(step.get('name') or '')}</strong>"
+            f"<span>{html.escape(step.get('detail') or '')}</span>"
+            "</li>"
+        )
+    return f'<ol class="funnel">{"".join(items)}</ol>'
+
+
 def metric_chart_html(rows: list[dict], *, caption: str) -> str:
     """Bars and error whiskers from stored floats. Labels are those floats, rounded."""
     if not rows:
@@ -1066,7 +1175,12 @@ def metric_chart_html(rows: list[dict], *, caption: str) -> str:
         '<div class="chart" role="img" '
         'aria-label="NDCG at 10 for each model, with the stored uncertainty range">'
     ]
+    last_group = None
     for row in rows:
+        group = str(row.get("group") or "")
+        if group and group != last_group:
+            parts.append(f'<p class="chart-group">{html.escape(group)}</p>')
+            last_group = group
         ndcg = float(row["ndcg"])
         low = float(row["low"])
         high = float(row["high"])

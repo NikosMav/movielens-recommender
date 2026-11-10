@@ -1,10 +1,11 @@
 """Display copy for recommendation cards.
 
 The ranker sentences stay in the payload and in the technical disclosure.
-The main card shows at most two short lines. The first names one or two
-rated films the explanation already points at. The second adds a genre or,
-when there is no genre, popularity, and it does not repeat those titles.
-This module does not score anything and does not rewrite the stored sentences.
+The main card shows at most two short lines. The first follows the strongest
+stored reason: a film that reason names, or a plain popularity line when
+popularity leads. A later film name does not override that. The second line
+adds a genre and does not repeat those titles. This module does not score
+anything and does not rewrite the stored sentences.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ _POPULAR = frozenset(
         "Widely rated by other viewers",
     }
 )
+POPULAR_LINE = "A widely loved film that fits your mix"
 _NEIGHBOR = re.compile(
     r"^You rated (?P<title>.+) (?P<stars>\d+(?:\.\d+)?★)"
     r" and this is one of its nearest neighbou?rs$"
@@ -57,12 +59,12 @@ def plain_reasons(
 ) -> list[str]:
     """At most ``limit`` lines, specific to this pick.
 
-    The first line names the rated film the explanation already points at.
-    A second contributing film, when ``similar_titles`` includes one, is
-    joined on that same line. The next line adds a genre this film has and
-    does not repeat those titles. "Popular with viewers" is used only when
-    a popularity sentence is the first stored reason and there is no genre
-    to add.
+    The first line follows the first stored reason that says something
+    specific. Popularity leads with a plain sentence and does not borrow a
+    film from a later line or from ``similar_titles``. A film the leading
+    reason names is "Because you liked …". A second contributing film, when
+    ``similar_titles`` includes one and popularity did not lead, is joined
+    on that same line. The next line adds a genre and does not repeat titles.
     """
     if limit < 1:
         return []
@@ -70,6 +72,7 @@ def plain_reasons(
     affinity: list[str] = []
     plain_genres: list[str] = []
     popular_at: int | None = None
+    lead: str | None = None
     for index, raw in enumerate(reasons):
         text = " ".join(str(raw).split())
         if not text:
@@ -77,33 +80,53 @@ def plain_reasons(
         if text in _POPULAR:
             if popular_at is None:
                 popular_at = index
+            if lead is None:
+                lead = "popular"
             continue
         neighbor = _NEIGHBOR.match(text)
         if neighbor is not None:
             _remember(liked, neighbor.group("title"))
+            if lead is None:
+                lead = "film"
             continue
         because = _BECAUSE.match(text)
         if because is not None:
             _remember(liked, because.group("title"))
+            if lead is None:
+                lead = "film"
             continue
         genre_rated = _GENRE_RATED.match(text)
         if genre_rated is not None:
             _remember(affinity, genre_rated.group("genre"))
             _remember(liked, genre_rated.group("title"))
+            if lead is None:
+                lead = "film"
             continue
         genre_like = _GENRE_LIKE.match(text)
         if genre_like is not None:
             _remember(affinity, genre_like.group("genre"))
+            if lead is None:
+                lead = "genre"
             continue
         its = _ITS.match(text)
         if its is not None:
             _remember(plain_genres, its.group("genre"))
-    if similar_titles:
+            if lead is None:
+                lead = "genre"
+    # A neighbour list is a signal only when the stored reasons did not
+    # already say the film is here because it is popular.
+    if lead != "popular" and similar_titles:
         for title in similar_titles:
             _remember(liked, title)
+        if liked and lead is None:
+            lead = "film"
+    if lead == "popular":
+        liked = []
     named = liked[:2]
     lines: list[str] = []
-    if len(named) == 2:
+    if lead == "popular":
+        lines.append(POPULAR_LINE)
+    elif len(named) == 2:
         lines.append(f"Because you liked {named[0]} and {named[1]}")
     elif named:
         lines.append(f"Because you liked {named[0]}")
@@ -113,13 +136,11 @@ def plain_reasons(
         candidate_genres=candidate_genres,
         named=named,
         genres_by_title=genres_by_title,
-        popular=popular_at == 0,
+        popular=lead != "popular" and popular_at == 0,
         salt=candidate_title or (named[0] if named else ""),
     )
     if follow:
         lines.append(follow)
-    elif popular_at == 0 and not lines:
-        lines.append("Popular with viewers")
     chosen: list[str] = []
     for line in lines:
         if line in chosen:

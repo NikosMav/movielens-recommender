@@ -277,6 +277,7 @@ def create_app(
         monitor.observe_new_user([item for item, _rating in profile])
         with state.lock:
             result = recommend_new_user(bundle, profile, n=body.n)
+        result.pop("pipeline", None)
         return _plain(result)
 
     @app.get("/v1/movies/search")

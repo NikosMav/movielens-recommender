@@ -270,6 +270,7 @@ def test_star_wars_falls_back_to_the_part_after_colon_or_dash():
         "Star Wars: Episode V - The Empire Strikes Back",
         "Episode V - The Empire Strikes Back",
         "The Empire Strikes Back",
+        "Star Wars",
     ]
 
 
@@ -517,3 +518,54 @@ def test_fixture_posters_stay_off_the_tmdb_path(monkeypatch):
     assert "MOVIELENS_FAKE_POSTERS" not in source
     loading = (SPACE / "loading.py").read_text(encoding="utf-8")
     assert loading.index("MOVIELENS_FAKE_POSTERS") < loading.index("if not api_key:")
+
+
+def test_audit_titles_match_base_alias_and_original_title():
+    posters = _load("posters")
+    assert posters.candidate_queries("Star Wars: Episode IV - A New Hope")[-1] == "Star Wars"
+    assert "Star Trek II: The Wrath of Khan" in posters.candidate_queries(
+        "Star Trek: The Wrath of Khan"
+    )
+    assert "Babes in Toyland" in posters.candidate_queries("March of the Wooden Soldiers")
+    hits = {
+        ("Star Wars", "1977"): {
+            "title": "Star Wars",
+            "original_title": "Star Wars",
+            "release_date": "1977-05-25",
+            "poster_path": "/hope.jpg",
+            "popularity": 40,
+        },
+        ("Star Trek II: The Wrath of Khan", "1982"): {
+            "title": "Star Trek II: The Wrath of Khan",
+            "original_title": "Star Trek II: The Wrath of Khan",
+            "alternative_titles": ["Star Trek: The Wrath of Khan"],
+            "release_date": "1982-06-04",
+            "poster_path": "/khan.jpg",
+            "popularity": 20,
+        },
+        ("Babes in Toyland", "1934"): {
+            "title": "March of the Wooden Soldiers",
+            "original_title": "Babes in Toyland",
+            "alternative_titles": [{"title": "March of the Wooden Soldiers"}],
+            "release_date": "1934-12-14",
+            "poster_path": "/toy.jpg",
+            "popularity": 8,
+        },
+    }
+
+    def _open(request, _timeout):
+        query = _params(request)
+        year = query.get("primary_release_year", [None])[0]
+        text = query["query"][0]
+        row = hits.get((text, year))
+        results = [row] if row else []
+        return _Body(json.dumps({"results": results}).encode())
+
+    hope = posters.poster_url("Star Wars: Episode IV - A New Hope (1977)", 1977, "k", opener=_open)
+    khan = posters.poster_url("Star Trek: The Wrath of Khan (1982)", 1982, "k", opener=_open)
+    wooden = posters.poster_url("March of the Wooden Soldiers (1934)", 1934, "k", opener=_open)
+    assert hope.endswith("/hope.jpg")
+    assert khan.endswith("/khan.jpg")
+    assert wooden.endswith("/toy.jpg")
+    assert posters._safe_poster_path("/not-an-image") is False
+    assert posters._safe_poster_path("/ok.png") is True

@@ -105,6 +105,53 @@ def load_cold(path_str: str):
 
 
 @st.cache_data(show_spinner=False)
+def similar_films(path_str: str, item_id: int, cold: bool) -> dict[str, Any]:
+    """Six nearest films. Embeddings when the snapshot has them, else one similarity row."""
+    from value import NEIGHBOUR_COUNT, nearest_from_similarity, nearest_ids
+
+    bundle = load_cold(path_str) if cold else load_bundle(path_str)[0]
+    tower = getattr(bundle, "two_tower", None)
+    vectors = getattr(tower, "_item_vectors", None)
+    features = getattr(tower, "_features", None)
+    if vectors is not None and features is not None and int(item_id) in features.item_index:
+        found = nearest_ids(
+            vectors,
+            features.item_index,
+            [int(item) for item in features.item_ids],
+            int(item_id),
+            NEIGHBOUR_COUNT,
+        )
+        return {"source": "two-tower item embeddings", "item_ids": found}
+    model = getattr(bundle, "item_item", None)
+    similarity = getattr(model, "_similarity", None)
+    index = getattr(model, "_item_index", None)
+    catalog_ids = getattr(model, "_item_ids", None)
+    if similarity is not None and index is not None and catalog_ids is not None:
+        found = nearest_from_similarity(
+            similarity,
+            index,
+            [int(item) for item in catalog_ids],
+            int(item_id),
+            NEIGHBOUR_COUNT,
+        )
+        if found:
+            return {"source": "item–item similarity", "item_ids": found}
+    return {"source": "", "item_ids": []}
+
+
+@st.cache_data(show_spinner=False)
+def popularity_lookup(path_str: str, cold: bool) -> dict[int, float]:
+    """Catalog popularity percentile by item id. Higher means more ratings."""
+    from value import popularity_percentiles
+
+    bundle = load_cold(path_str) if cold else load_bundle(path_str)[0]
+    return popularity_percentiles(
+        [int(item) for item in bundle.context.item_ids],
+        [float(value) for value in bundle.context.popularity],
+    )
+
+
+@st.cache_data(show_spinner=False)
 def recommendations(path_str: str, user_id: int, n: int) -> dict[str, Any]:
     from movielens_recommender.serving.bundle import recommend_for_user
 
