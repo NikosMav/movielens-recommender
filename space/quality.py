@@ -251,17 +251,15 @@ def lead_paragraph(models: list[dict[str, Any]], *, dataset: str) -> str:
     info = rank_models(models)
     best = info["best"]
     name = friendly_name(str(best["model"]))
-    raw = str(best["model"])
     sentence = (
-        f"On {dataset}, {name} ({raw}) leads with NDCG@10 {rounded(best['ndcg@10'])} "
+        f"On {dataset}, {name} leads with NDCG@10 {rounded(best['ndcg@10'])} "
         f"(uncertainty range {rounded(best['ci_low'])} to {rounded(best['ci_high'])})."
     )
     if info["second"] is None or info["lead"] is None:
         return sentence
     other = info["second"]
     gap = (
-        f" That is {rounded(info['lead'])} above "
-        f"{friendly_name(str(other['model']))} ({other['model']})."
+        f" That is {rounded(info['lead'])} above {friendly_name(str(other['model']))}."
     )
     if info["intervals_overlap"]:
         tail = " The two uncertainty ranges overlap, so this gap is within the stored uncertainty."

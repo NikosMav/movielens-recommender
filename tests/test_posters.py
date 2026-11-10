@@ -487,3 +487,26 @@ def test_poster_cache_ttl_stays_one_day_in_memory():
     assert posters.POSTER_CACHE_TTL_SECONDS == 24 * 60 * 60
     assert "ttl=POSTER_CACHE_TTL_SECONDS" in loading
     assert "st.cache_data" in loading
+
+
+def test_fixture_posters_stay_off_the_tmdb_path(monkeypatch):
+    posters = _load("posters")
+    monkeypatch.setenv("MOVIELENS_FAKE_POSTERS", "1")
+    calls = {"n": 0}
+
+    def _open(*_args, **_kwargs):
+        calls["n"] += 1
+        raise AssertionError("the fixture flag must not change poster_url")
+
+    assert posters.poster_url("Toy Story", 1995, "", opener=_open) is None
+    assert calls["n"] == 0
+    first = posters.fixture_poster("Toy Story")
+    second = posters.fixture_poster("Toy Story")
+    assert first == second
+    assert first.startswith("data:image/svg+xml,")
+    assert "image.tmdb.org" not in first
+    assert "api_key" not in first
+    source = (SPACE / "posters.py").read_text(encoding="utf-8")
+    assert "MOVIELENS_FAKE_POSTERS" not in source
+    loading = (SPACE / "loading.py").read_text(encoding="utf-8")
+    assert loading.index("MOVIELENS_FAKE_POSTERS") < loading.index("if not api_key:")

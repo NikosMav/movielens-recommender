@@ -11,12 +11,14 @@ from cards import (
     hero_html,
     metric_chart_html,
     poster_html,
+    rated_line_html,
     recommendation_card_html,
     scroll_script,
 )
 from catalog import (
     clean_year,
     genre_parts,
+    movie_records,
     popular_shelf,
     present_genres,
     rank_titles,
@@ -119,68 +121,73 @@ def _discover_body(cold_path: str, api_key: str) -> None:
     ratings = _ratings()
     rated = {int(row["item_id"]): int(row["rating"]) for row in ratings}
 
-    with st.container(key="workbench"):
-        picker, ticket = st.columns([1.15, 0.85])
-        with picker:
-            st.markdown(
-                '<h2 class="section-title">What have you watched?</h2>',
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                '<p class="muted">Search for a title, or browse a genre, then tap a star.</p>',
-                unsafe_allow_html=True,
-            )
-            query = st.text_input(
-                "Search for a movie",
-                key="movie_query",
-                placeholder="Search for a movie",
-            )
-            st.caption("Try a title")
-            chips = st.columns(len(_STARTERS))
-            for column, title in zip(chips, _STARTERS, strict=True):
-                column.button(title, key=f"chip-{title}", on_click=_set_query, args=(title,))
-            hits = rank_titles(query, records, ranks)
-            if query.strip() and len(" ".join(query.split())) >= 2 and not hits:
-                st.caption("No title matches that search.")
-            if hits:
-                st.markdown("**Matches**")
-                _film_list(hits, rated, api_key)
-            genres = present_genres(records)
-            selected = st.pills(
-                "Genres",
-                genres,
-                selection_mode="multi",
-                default=[],
-                key="shelf_genres",
-            )
-            chosen = list(selected or [])
-            if chosen:
-                shelf = select_grid(records, chosen, ranks)
-                heading = "Genre shelf"
-            else:
-                shelf = popular_shelf(records, ranks)
-                heading = "Popular films"
-            shown = {int(record["item_id"]) for record in hits}
-            shelf = [record for record in shelf if int(record["item_id"]) not in shown]
-            if shelf:
-                st.markdown(f"**{heading}**")
-                st.markdown(
-                    '<p class="sr-only">Filled stars show the current rating. '
-                    "Each button names the film and the score.</p>",
-                    unsafe_allow_html=True,
-                )
-                _film_list(shelf, rated, api_key)
-            elif chosen:
-                st.caption("No films in the snapshot match those genres.")
-        with ticket:
-            _ticket(ratings, by_id, cold_path)
+    st.markdown(
+        '<h2 class="section-title">What have you watched?</h2>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<p class="muted">Search for a title, or browse a genre, then tap a star.</p>',
+        unsafe_allow_html=True,
+    )
+    query = st.text_input(
+        "Search for a movie",
+        key="movie_query",
+        placeholder="Search for a movie",
+    )
+    st.caption("Try a title")
+    with st.container(key="starters"):
+        chips = st.columns(len(_STARTERS))
+        for column, title in zip(chips, _STARTERS, strict=True):
+            column.button(title, key=f"chip-{title}", on_click=_set_query, args=(title,))
+    hits = rank_titles(query, records, ranks)
+    if query.strip() and len(" ".join(query.split())) >= 2 and not hits:
+        st.caption("No title matches that search.")
+    if hits:
+        st.markdown("**Matches**")
+        _poster_grid(hits, rated, api_key, grid_key="matches")
+    genres = present_genres(records)
+    selected = st.pills(
+        "Genres",
+        genres,
+        selection_mode="multi",
+        default=[],
+        key="shelf_genres",
+    )
+    chosen = list(selected or [])
+    if chosen:
+        shelf = select_grid(records, chosen, ranks)
+        heading = "Genre shelf"
+    else:
+        shelf = popular_shelf(records, ranks)
+        heading = "Popular films"
+    shown = {int(record["item_id"]) for record in hits}
+    shelf = [record for record in shelf if int(record["item_id"]) not in shown]
+    if shelf:
+        st.markdown(f"**{heading}**")
+        st.markdown(
+            '<p class="sr-only">The star row names the film. '
+            "Filled stars show the current rating.</p>",
+            unsafe_allow_html=True,
+        )
+        _poster_grid(shelf, rated, api_key, grid_key="shelf")
+    elif chosen:
+        st.caption("No films in the snapshot match those genres.")
+    with st.container(key="ticket"):
+        _ticket(ratings, by_id, cold_path, api_key)
 
-    _picks(ratings, api_key)
+    genres_by_title = {
+        str(record["title"]): str(record.get("genres") or "") for record in records
+    }
+    _picks(ratings, api_key, genres_by_title)
 
 
 @st.fragment
 def _explore_body(prod_path: str, api_key: str) -> None:
-    _bundle, summaries = load_bundle(prod_path)
+    bundle, summaries = load_bundle(prod_path)
+    genres_by_title = {
+        str(record["title"]): str(record.get("genres") or "")
+        for record in movie_records(bundle.movies)
+    }
     user_ids = sorted(int(user_id) for user_id in summaries)
     st.markdown(
         '<h1 class="display">Explore a MovieLens user</h1>',
@@ -213,14 +220,15 @@ def _explore_body(prod_path: str, api_key: str) -> None:
             _load_viewer(prod_path, summaries, int(entered), lo, hi)
     if suggestions:
         st.caption("Try a viewer")
-        cols = st.columns(len(suggestions))
-        for column, user_id in zip(cols, suggestions, strict=True):
-            column.button(
-                f"Try {user_id}",
-                key=f"try-{user_id}",
-                on_click=_queue_viewer,
-                args=(int(user_id),),
-            )
+        with st.container(key="tries"):
+            cols = st.columns(len(suggestions))
+            for column, user_id in zip(cols, suggestions, strict=True):
+                column.button(
+                    f"Try {user_id}",
+                    key=f"try-{user_id}",
+                    on_click=_queue_viewer,
+                    args=(int(user_id),),
+                )
     requested = st.session_state.pop("explore_requested", None)
     if isinstance(requested, int):
         _load_viewer(prod_path, summaries, requested, lo, hi)
@@ -233,7 +241,7 @@ def _explore_body(prod_path: str, api_key: str) -> None:
         return
     if error:
         st.caption("The list below is still the previous viewer.")
-    _viewer_result(result, api_key)
+    _viewer_result(result, api_key, genres_by_title)
 
 
 def _quality_body(path_str: str) -> None:
@@ -249,19 +257,23 @@ def _quality_body(path_str: str) -> None:
         "MovieLens 1M",
         view["ml1m"]["models"],
         "MovieLens 1M",
-        "Whiskers are the stored uncertainty range. Grey text is the stored model id.",
+        "The marks on each bar are the stored uncertainty range. "
+        "The grey chip is the stored model id.",
     )
     _dataset_block(
         "MovieLens 32M",
         view["ml32m"]["models"],
         "MovieLens 32M",
-        "Same stored fields, on the larger set.",
+        "The same models, scored on the larger set of viewers.",
     )
     st.markdown(sample_sentence(view["ml32m"]))
-    st.markdown('<h2 class="section-title">Sequence model (SASRec)</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 class="section-title">Sequence model</h2>', unsafe_allow_html=True)
     st.markdown(sasrec_lead(view["sasrec"]))
     st.markdown(
-        metric_chart_html(_sasrec_rows(view["sasrec"]), caption="Stored NDCG@10."),
+        metric_chart_html(
+            _sasrec_rows(view["sasrec"]),
+            caption="The stored ranking score for the real watch order and a shuffled order.",
+        ),
         unsafe_allow_html=True,
     )
     with st.expander("Detailed scores"):
@@ -333,6 +345,21 @@ def _remove_rating(item_id: int) -> None:
     st.session_state["new_user_ratings"] = [
         row for row in _ratings() if int(row["item_id"]) != int(item_id)
     ]
+    st.session_state.pop(f"rate-{int(item_id)}", None)
+
+
+def _star_label(score: int) -> str:
+    return f"{int(score)} out of 5"
+
+
+def _apply_rating(item_id: int, title: str) -> None:
+    raw = st.session_state.get(f"rate-{int(item_id)}")
+    if raw is None:
+        st.session_state["new_user_ratings"] = [
+            row for row in _ratings() if int(row["item_id"]) != int(item_id)
+        ]
+        return
+    _set_rating(int(item_id), str(title), int(raw))
 
 
 def _set_query(title: str) -> None:
@@ -344,41 +371,52 @@ def _queue_viewer(user_id: int) -> None:
     st.session_state["explore_requested"] = int(user_id)
 
 
-def _film_list(records: list[dict[str, Any]], rated: dict[int, int], api_key: str) -> None:
-    for record in records:
-        item_id = int(record["item_id"])
-        st.markdown(
-            recommendation_card_html(
-                title=str(record["title"]),
-                year=record.get("year"),
-                genres=str(record.get("genres") or ""),
-                reasons=[],
-                poster_url=poster_for(str(record["title"]), record.get("year"), api_key),
-                show_reasons=False,
-            ),
-            unsafe_allow_html=True,
-        )
-        _stars(item_id, str(record["title"]), rated.get(item_id))
+def _poster_grid(
+    records: list[dict[str, Any]],
+    rated: dict[int, int],
+    api_key: str,
+    *,
+    grid_key: str,
+) -> None:
+    with st.container(key=grid_key):
+        for record in records:
+            item_id = int(record["item_id"])
+            title = str(record["title"])
+            with st.container(key=f"film-{grid_key}-{item_id}"):
+                st.markdown(
+                    recommendation_card_html(
+                        title=title,
+                        year=record.get("year"),
+                        genres=str(record.get("genres") or ""),
+                        reasons=[],
+                        poster_url=poster_for(title, record.get("year"), api_key),
+                        show_reasons=False,
+                        kind="poster",
+                    ),
+                    unsafe_allow_html=True,
+                )
+                _stars(item_id, title, rated.get(item_id))
 
 
 def _stars(item_id: int, title: str, current: int | None) -> None:
-    with st.container(key=f"stars-{item_id}"):
-        columns = st.columns(5)
-        for score, column in zip(range(1, 6), columns, strict=True):
-            selected = current is not None and score <= int(current)
-            column.button(
-                f"Rate {title} {score} out of 5",
-                key=f"star-{item_id}-{score}",
-                type="primary" if selected else "secondary",
-                on_click=_set_rating,
-                args=(item_id, title, score),
-            )
+    st.segmented_control(
+        f"Rate {title}",
+        [1, 2, 3, 4, 5],
+        default=None if current is None else int(current),
+        key=f"rate-{int(item_id)}",
+        on_change=_apply_rating,
+        args=(int(item_id), title),
+        label_visibility="collapsed",
+        format_func=_star_label,
+        width="content",
+    )
 
 
 def _ticket(
     ratings: list[dict[str, Any]],
     by_id: dict[int, dict[str, Any]],
     cold_path: str,
+    api_key: str,
 ) -> None:
     filled = min(_MIN_RATINGS, len(ratings))
     bars = "".join(
@@ -394,14 +432,24 @@ def _ticket(
     if not ratings:
         st.caption("No ratings yet. They stay in this browser session.")
     for row in ratings:
+        item_id = int(row["item_id"])
         title = str(row["title"])
-        st.markdown(f"**{title}** · {int(row['rating'])}★")
-        st.button(
-            f"Remove {title}",
-            key=f"remove-{int(row['item_id'])}",
-            on_click=_remove_rating,
-            args=(int(row["item_id"]),),
-        )
+        record = by_id.get(item_id, {})
+        with st.container(key=f"rated-{item_id}"):
+            st.markdown(
+                rated_line_html(
+                    title=title,
+                    rating=int(row["rating"]),
+                    poster_url=poster_for(title, record.get("year"), api_key),
+                ),
+                unsafe_allow_html=True,
+            )
+            st.button(
+                f"Remove {title}",
+                key=f"remove-{item_id}",
+                on_click=_remove_rating,
+                args=(item_id,),
+            )
     remaining = _MIN_RATINGS - len(ratings)
     if remaining == 1:
         st.caption("Rate 1 more film to get picks.")
@@ -440,7 +488,11 @@ def _score(
     st.session_state["picks_nonce"] = int(st.session_state.get("picks_nonce") or 0) + 1
 
 
-def _picks(ratings: list[dict[str, Any]], api_key: str) -> None:
+def _picks(
+    ratings: list[dict[str, Any]],
+    api_key: str,
+    genres_by_title: dict[str, str],
+) -> None:
     stored = st.session_state.get("new_user_result")
     if not stored:
         return
@@ -468,8 +520,15 @@ def _picks(ratings: list[dict[str, Any]], api_key: str) -> None:
     if not cards:
         st.caption("No films were returned for these ratings.")
         return
-    for index, card in enumerate(cards, start=1):
-        _recommendation(card, api_key, rank=index, explain=True)
+    _card_grid(
+        cards,
+        api_key,
+        grid_key="picks",
+        kind="rich",
+        explain=True,
+        reason_limit=2,
+        genres_by_title=genres_by_title,
+    )
     sentence = str(stored.get("method_sentence") or "")
     if sentence:
         with st.expander("How this list was built"):
@@ -505,7 +564,11 @@ def _load_viewer(
     }
 
 
-def _viewer_result(result: dict[str, Any], api_key: str) -> None:
+def _viewer_result(
+    result: dict[str, Any],
+    api_key: str,
+    genres_by_title: dict[str, str],
+) -> None:
     summary = result["summary"]
     genres = " · ".join(summary["top_genres"]) if summary["top_genres"] else "No genre stands out"
     st.markdown(
@@ -528,28 +591,61 @@ def _viewer_result(result: dict[str, Any], api_key: str) -> None:
     )
     if not compare:
         st.markdown('<h2 class="section-title">Top 10</h2>', unsafe_allow_html=True)
-        st.caption("The list from the full model. Stored id: production.")
-        for index, card in enumerate(result["production"], start=1):
-            _recommendation(card, api_key, rank=index, explain=True)
-        return
-    with st.container(key="compare"):
-        columns = st.columns(3)
-        blocks = (
-            ("Full model", "production", result["production"], True),
-            ("Similar films", "item_item", result["item_item"], False),
-            ("Taste match", "two_tower", result["two_tower"], False),
+        st.caption("The list from the full model.")
+        _card_grid(
+            list(result["production"]),
+            api_key,
+            grid_key="top10",
+            kind="rich",
+            explain=True,
+            reason_limit=2,
+            genres_by_title=genres_by_title,
         )
-        blurbs = {
-            "production": "The list this viewer would get.",
-            "item_item": "Films close to ones they rated highly.",
-            "two_tower": "A learned match between this viewer and each film.",
-        }
-        for column, (title, raw, cards, explain) in zip(columns, blocks, strict=True):
-            with column:
+        return
+    options = ("Full model", "Similar films", "Taste match")
+    with st.container(key="compare-switch"):
+        choice = st.segmented_control(
+            "Which list",
+            options,
+            default="Full model",
+            key="compare_tab",
+        )
+    mode = {
+        "Full model": "production",
+        "Similar films": "item_item",
+        "Taste match": "two_tower",
+    }.get(choice or "Full model", "production")
+    blocks = (
+        ("Full model", "production", "col-production", result["production"]),
+        ("Similar films", "item_item", "col-item-item", result["item_item"]),
+        ("Taste match", "two_tower", "col-two-tower", result["two_tower"]),
+    )
+    blurbs = {
+        "production": "The list this viewer would get.",
+        "item_item": "Films close to ones they rated highly.",
+        "two_tower": "A learned match between this viewer and each film.",
+    }
+    with st.container(key="compare"):
+        st.markdown(
+            f'<div class="compare-pick" data-mode="{mode}" hidden></div>',
+            unsafe_allow_html=True,
+        )
+        columns = st.columns(3)
+        for column, (title, raw, col_key, cards) in zip(columns, blocks, strict=True):
+            with column, st.container(key=col_key):
                 st.markdown(f"### {title}")
-                st.caption(f"{blurbs[raw]} Stored id: {raw}.")
+                st.caption(blurbs[raw])
                 for index, card in enumerate(cards, start=1):
-                    _recommendation(card, api_key, rank=index, explain=explain)
+                    _recommendation(
+                        card,
+                        api_key,
+                        rank=index,
+                        explain=False,
+                        kind="compact",
+                        scope=f"{raw}-{index}",
+                        reason_limit=1,
+                        genres_by_title=genres_by_title,
+                    )
 
 
 def _history_row(row: dict[str, Any], api_key: str) -> None:
@@ -573,41 +669,91 @@ def _history_row(row: dict[str, Any], api_key: str) -> None:
     )
 
 
-def _recommendation(card: dict[str, Any], api_key: str, *, rank: int, explain: bool) -> None:
+def _card_grid(
+    cards: list[dict[str, Any]],
+    api_key: str,
+    *,
+    grid_key: str,
+    kind: str,
+    explain: bool,
+    reason_limit: int,
+    genres_by_title: dict[str, str] | None = None,
+) -> None:
+    with st.container(key=grid_key):
+        for index, card in enumerate(cards, start=1):
+            _recommendation(
+                card,
+                api_key,
+                rank=index,
+                explain=explain,
+                kind=kind,
+                scope=f"{grid_key}-{index}",
+                reason_limit=reason_limit,
+                genres_by_title=genres_by_title,
+            )
+
+
+def _recommendation(
+    card: dict[str, Any],
+    api_key: str,
+    *,
+    rank: int,
+    explain: bool,
+    kind: str = "rich",
+    scope: str = "card",
+    reason_limit: int = 2,
+    genres_by_title: dict[str, str] | None = None,
+) -> None:
     from runtime import visible_details, visible_reasons
 
     original = visible_reasons(list(card.get("reasons") or []))
-    shown = plain_reasons(original) if explain else []
-    st.markdown(
-        recommendation_card_html(
-            title=str(card["title"]),
-            year=card.get("year"),
-            genres=str(card.get("genres") or ""),
-            reasons=shown,
-            poster_url=poster_for(str(card["title"]), card.get("year"), api_key),
-            rank=rank,
-            show_reasons=explain,
-        ),
-        unsafe_allow_html=True,
+    shown = (
+        plain_reasons(
+            original,
+            limit=reason_limit,
+            genres_by_title=genres_by_title,
+            candidate_genres=str(card.get("genres") or ""),
+        )
+        if explain or kind == "compact"
+        else []
     )
-    if not explain:
-        return
-    details = visible_details(list(card.get("details") or []))
-    label = f"Why this pick? {card['title']}"
-    with st.expander(label):
-        if not original and not details:
-            st.markdown("No separate note was recorded for this title.")
+    if not explain and kind != "compact":
+        shown = []
+    item_id = int(card.get("item_id") or rank)
+    with st.container(key=f"rec-{scope}-{item_id}"):
+        st.markdown(
+            recommendation_card_html(
+                title=str(card["title"]),
+                year=card.get("year"),
+                genres=str(card.get("genres") or ""),
+                reasons=shown,
+                poster_url=poster_for(str(card["title"]), card.get("year"), api_key),
+                rank=rank,
+                show_reasons=bool(shown),
+                kind=kind,
+            ),
+            unsafe_allow_html=True,
+        )
+        if not explain:
             return
-        for text in dict.fromkeys(original):
-            st.markdown(text)
-        if details or card.get("bias") is not None:
-            with st.expander("Score details"):
-                st.caption("Contributions to the score. They are not a reason to watch the film.")
-                for row in details:
-                    st.text(f"{row['feature']}: {row['contribution']:+.4f}")
-                bias = card.get("bias")
-                if bias is not None:
-                    st.text(f"bias: {bias:+.4f}")
+        details = visible_details(list(card.get("details") or []))
+        with st.container(key=f"why-{scope}-{item_id}"):
+            with st.expander("Why?"):
+                if not original and not details:
+                    st.markdown("No separate note was recorded for this title.")
+                    return
+                for text in dict.fromkeys(original):
+                    st.markdown(text)
+                if details or card.get("bias") is not None:
+                    with st.expander("Score details"):
+                        st.caption(
+                            "Contributions to the score. They are not a reason to watch the film."
+                        )
+                        for row in details:
+                            st.text(f"{row['feature']}: {row['contribution']:+.4f}")
+                        bias = card.get("bias")
+                        if bias is not None:
+                            st.text(f"bias: {bias:+.4f}")
 
 
 def _escape(text: str) -> str:

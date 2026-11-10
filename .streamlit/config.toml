@@ -1,0 +1,4 @@
+# Viewer chrome for the public demo. No theme section, so
+# Settings > Theme still chooses light or dark.
+[client]
+toolbarMode = "minimal"

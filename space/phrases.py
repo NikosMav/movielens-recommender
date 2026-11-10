@@ -1,53 +1,35 @@
 """Display copy for recommendation cards.
 
 The ranker sentences stay in the payload and in the technical disclosure.
-The main card shows a shorter wording, at most two lines, without the
-retriever jargon. This module does not score anything.
+The main card shows at most two short lines drawn from those sentences:
+the rated film they name, a shared genre, and popularity only when that
+sentence is the first (strongest) stored reason. This module does not
+score anything and does not rewrite the stored sentences.
 """
 
 from __future__ import annotations
 
 import re
 
-_EXACT = {
-    "Ranked highly by the neural retriever for your taste profile": (
-        "Matches films you tend to like"
-    ),
-    "Lines up with movies you have already rated": "Similar to films you have already rated",
-    "Close to movies you have already rated": "Similar to films you have already rated",
-    "Both the neighbourhood model and the neural retriever suggested it": (
-        "More than one model ranked it highly"
-    ),
-    "Popular with many viewers": "Popular with many viewers",
-    "Widely rated by other viewers": "Lots of people have rated this",
-    "Popular with viewers similar to you": "Popular with viewers like you",
-    "Recently active in other viewers' ratings": "People have been rating this recently",
-    "Its release year fits the films you rate": "The release year fits what you rate",
-    "Your rating history is a pattern this ranker scores up": "Fits the way you rate films",
-}
-
-_GENERIC = frozenset(
+_POPULAR = frozenset(
     {
         "Popular with many viewers",
-        "Lots of people have rated this",
-        "Popular with viewers like you",
-        "People have been rating this recently",
-        "The release year fits what you rate",
-        "Fits the way you rate films",
+        "Widely rated by other viewers",
     }
 )
-
 _NEIGHBOR = re.compile(
     r"^You rated (?P<title>.+) (?P<stars>\d+(?:\.\d+)?★)"
     r" and this is one of its nearest neighbou?rs$"
 )
-_RATED = re.compile(
+_BECAUSE = re.compile(
     r"^Because you rated (?P<title>.+?)(?: (?P<stars>\d+(?:\.\d+)?★)| highly)$"
 )
-_BANNED = (
-    (re.compile(r"neural retriever", re.IGNORECASE), "taste model"),
-    (re.compile(r"nearest neighbou?rs", re.IGNORECASE), "similar films"),
+_GENRE_RATED = re.compile(
+    r"^Matches your liking for (?P<genre>.+?) — you rated "
+    r"(?P<title>.+) (?P<stars>\d+(?:\.\d+)?★)$"
 )
+_GENRE_LIKE = re.compile(r"^Matches your liking for (?P<genre>.+)$")
+_ITS = re.compile(r"^It's an? (?P<genre>.+) film$")
 
 _METHOD = {
     "most_popular": "This list is the films people have rated most often.",
@@ -64,60 +46,113 @@ def plain_method(method: str) -> str:
     return _METHOD.get(method, "This list is based on the films you rated.")
 
 
-def plain_reasons(reasons: list[str], *, limit: int = 2) -> list[str]:
-    """At most ``limit`` distinct lines. Specific lines come before generic ones."""
+def plain_reasons(
+    reasons: list[str],
+    *,
+    limit: int = 2,
+    genres_by_title: dict[str, str] | None = None,
+    candidate_genres: str = "",
+) -> list[str]:
+    """At most ``limit`` lines, specific to this pick.
+
+    A named film becomes "Because you liked {title}". A genre sentence
+    becomes "Shares {genre} with {title}" when the stored sentence names
+    both, otherwise it names the genre. "Popular with viewers" is included
+    only when a popularity sentence is the first stored reason.
+    """
     if limit < 1:
         return []
-    specific: list[str] = []
-    generic: list[str] = []
-    stories: dict[tuple[str, str], int] = {}
-    for raw in reasons:
-        text = _to_plain(str(raw))
+    liked: list[str] = []
+    affinity: list[tuple[str, str | None]] = []
+    plain_genres: list[str] = []
+    popular_at: int | None = None
+    for index, raw in enumerate(reasons):
+        text = " ".join(str(raw).split())
         if not text:
             continue
-        bucket = generic if text in _GENERIC else specific
-        _place(bucket, text, _story(text), stories if bucket is specific else None)
-    chosen: list[str] = []
-    for text in specific + generic:
-        if text in chosen:
+        if text in _POPULAR:
+            if popular_at is None:
+                popular_at = index
             continue
-        chosen.append(text)
+        neighbor = _NEIGHBOR.match(text)
+        if neighbor is not None:
+            _remember(liked, neighbor.group("title"))
+            continue
+        because = _BECAUSE.match(text)
+        if because is not None:
+            _remember(liked, because.group("title"))
+            continue
+        genre_rated = _GENRE_RATED.match(text)
+        if genre_rated is not None:
+            genre = genre_rated.group("genre").strip()
+            title = genre_rated.group("title").strip()
+            affinity.append((genre, title))
+            _remember(liked, title)
+            continue
+        genre_like = _GENRE_LIKE.match(text)
+        if genre_like is not None:
+            affinity.append((genre_like.group("genre").strip(), None))
+            continue
+        its = _ITS.match(text)
+        if its is not None:
+            plain_genres.append(its.group("genre").strip())
+    lines: list[str] = []
+    title = liked[0] if liked else None
+    if title:
+        lines.append(f"Because you liked {title}")
+    if affinity:
+        lines.append(_share_line(affinity, title))
+    elif plain_genres:
+        lines.append(_its_line(plain_genres[0]))
+    elif title and genres_by_title:
+        shared = _shared_genres(candidate_genres, genres_by_title.get(title, ""))
+        if shared:
+            shown = shared[:2]
+            genre_text = shown[0] if len(shown) == 1 else f"{shown[0]} and {shown[1]}"
+            lines.append(f"Shares {genre_text} with {title}")
+    # Popularity is the strongest stored family only when it is the first reason.
+    # A named film and a shared genre already fill the two lines.
+    if popular_at == 0 and len(lines) < limit:
+        lines.insert(0, "Popular with viewers")
+    chosen: list[str] = []
+    for line in lines:
+        if line in chosen:
+            continue
+        chosen.append(line)
         if len(chosen) >= limit:
             break
     return chosen
 
 
-def _place(
-    bucket: list[str],
-    text: str,
-    story: tuple[str, str] | None,
-    stories: dict[tuple[str, str], int] | None,
-) -> None:
-    if stories is not None and story is not None and story in stories:
-        index = stories[story]
-        if "★" in text and "★" not in bucket[index]:
-            bucket[index] = text
-        return
-    if text in bucket:
-        return
-    bucket.append(text)
-    if stories is not None and story is not None:
-        stories[story] = len(bucket) - 1
+def _remember(titles: list[str], title: str) -> None:
+    cleaned = " ".join(title.split())
+    if cleaned and cleaned not in titles:
+        titles.append(cleaned)
 
 
-def _to_plain(text: str) -> str:
-    match = _NEIGHBOR.match(text)
-    if match is not None:
-        text = f"Because you rated {match.group('title')} {match.group('stars')}"
-    else:
-        text = _EXACT.get(text, text)
-    for pattern, replacement in _BANNED:
-        text = pattern.sub(replacement, text)
-    return " ".join(text.split())
+def _share_line(affinity: list[tuple[str, str | None]], fallback: str | None) -> str:
+    genre, partner = affinity[0]
+    extra = next((name for name, _who in affinity[1:] if name != genre), None)
+    genre_text = genre if extra is None else f"{genre} and {extra}"
+    who = partner or fallback or "films you rated"
+    return f"Shares {genre_text} with {who}"
 
 
-def _story(text: str) -> tuple[str, str] | None:
-    match = _RATED.match(text)
-    if match is None:
-        return None
-    return ("rated", match.group("title"))
+def _its_line(genre: str) -> str:
+    article = "an" if genre[:1].lower() in "aeiou" else "a"
+    return f"It's {article} {genre} film"
+
+
+def _genre_names(genres: str) -> list[str]:
+    names: list[str] = []
+    for part in str(genres).split("|"):
+        name = part.strip()
+        if not name or name == "(no genres listed)" or name in names:
+            continue
+        names.append(name)
+    return names
+
+
+def _shared_genres(candidate: str, liked: str) -> list[str]:
+    liked_names = set(_genre_names(liked))
+    return [name for name in _genre_names(candidate) if name in liked_names]

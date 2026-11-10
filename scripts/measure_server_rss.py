@@ -190,10 +190,10 @@ def _rate_comedy_shelf(page: object) -> None:
     _wait_text(page, "What have you watched?")
     page.get_by_role("button", name="Comedy", exact=True).click()  # type: ignore[attr-defined]
     _wait_text(page, "Genre shelf", timeout=180_000)
-    page.get_by_role("button", name=re.compile(r" out of 5$")).first.wait_for(timeout=180_000)  # type: ignore[attr-defined]
+    page.get_by_role("radio", name=re.compile(r" out of 5$")).first.wait_for(timeout=180_000)  # type: ignore[attr-defined]
     for index, star in enumerate(STAR_CLICKS):
         score = star + 1
-        page.get_by_role("button", name=re.compile(rf"{score} out of 5$")).nth(index).click()  # type: ignore[attr-defined]
+        page.get_by_role("radio", name=re.compile(rf"{score} out of 5$")).nth(index).click()  # type: ignore[attr-defined]
         if index + 1 < 3:
             remaining = 3 - (index + 1)
             word = "film" if remaining == 1 else "films"

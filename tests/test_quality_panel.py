@@ -125,7 +125,8 @@ def test_panel_values_equal_the_json_files():
     assert quality.rounded(best["ci_low"]) in lead
     assert quality.rounded(best["ci_high"]) in lead
     assert quality.friendly_name(best["model"]) in lead
-    assert best["model"] in lead
+    assert f"({best['model']})" not in lead
+    assert f"({info['second']['model']})" not in lead
     assert quality.rounded(info["lead"]) in lead
     chart = quality.chart_rows(view["ml1m"]["models"])
     assert chart[0]["ndcg"] == view["ml1m"]["models"][0]["ndcg@10"]

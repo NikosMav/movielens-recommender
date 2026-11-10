@@ -9,6 +9,7 @@ declared first for a browser that does not understand ``light-dark()``.
 from __future__ import annotations
 
 import html
+import os
 import re
 from pathlib import Path
 
@@ -47,6 +48,22 @@ _ARTICLES = frozenset(
     {"the", "a", "an", "le", "la", "les", "el", "il", "das", "der", "die", "l"}
 )
 _WORD = re.compile(r"[A-Za-z0-9]+")
+# Masks, so the star colour follows the theme. The graphic fills the 44px target
+# and the row gap stays 4px, which keeps the stars contiguous.
+_STAR_FILLED = (
+    "data:image/svg+xml,"
+    "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E"
+    "%3Cpath fill='%23000' d='M12 1.6l2.9 6.7 7.3.7-5.5 4.8 1.7 7.2L12 17.3"
+    " 5.6 21l1.7-7.2L1.8 9l7.3-.7z'/%3E%3C/svg%3E"
+)
+_STAR_EMPTY = (
+    "data:image/svg+xml,"
+    "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E"
+    "%3Cpath fill='%23000' fill-rule='evenodd' d='M12 1.6l2.9 6.7 7.3.7-5.5 4.8"
+    " 1.7 7.2L12 17.3 5.6 21l1.7-7.2L1.8 9l7.3-.7z"
+    "M12 5.5l1.6 3.8 4.2.4-3.2 2.8.9 4.1L12 14.8 8.5 16.6l.9-4.1-3.2-2.8 4.2-.4z'"
+    "/%3E%3C/svg%3E"
+)
 
 
 def _paint(prop: str, light: str, dark: str) -> str:
@@ -77,7 +94,7 @@ def _theme_css() -> str:
   {_paint("background", light["app"], dark["app"])}
 }}
 .block-container {{
-  max-width: 1120px;
+  max-width: 1560px;
   padding-top: 6rem;
   padding-left: 1.25rem;
   padding-right: 1.25rem;
@@ -294,12 +311,12 @@ def _theme_css() -> str:
 }}
 .bar-track {{
   position: relative;
-  height: 0.7rem;
+  height: 0.85rem;
   border-radius: 99px;
   background: {light["card"]};
   background: light-dark({light["card"]}, {dark["card"]});
   {_line("border", light["border"], dark["border"])}
-  overflow: hidden;
+  overflow: visible;
 }}
 .bar-fill {{
   display: block;
@@ -314,15 +331,16 @@ def _theme_css() -> str:
 }}
 .bar-ci {{
   position: absolute;
-  top: -0.18rem;
-  height: calc(100% + 0.36rem);
-  border-left: 2px solid {light["ink"]};
-  border-right: 2px solid {light["ink"]};
-  border-left-color: {light["ink"]};
-  border-right-color: {light["ink"]};
-  border-left-color: light-dark({light["ink"]}, {dark["ink"]});
-  border-right-color: light-dark({light["ink"]}, {dark["ink"]});
-  box-sizing: border-box;
+  top: -7px;
+  height: calc(100% + 14px);
+  min-width: 8px;
+  background: #111111;
+  background: light-dark(#111111, #ffe08a);
+  border-radius: 2px;
+  box-shadow: 0 0 0 2px #ffffff;
+  box-shadow: 0 0 0 2px light-dark(#ffffff, #13111a);
+  z-index: 2;
+  pointer-events: none;
 }}
 .bar-value {{
   font-variant-numeric: tabular-nums;
@@ -413,6 +431,11 @@ def _theme_css() -> str:
   box-shadow: 0 0 0 1px #392975;
   box-shadow: 0 0 0 1px light-dark(#392975, #d4c6ff);
 }}
+.stApp [data-testid="stTextInput"]:focus-within [data-testid="stTextInputRootElement"],
+.stApp [data-testid="stNumberInput"]:focus-within [data-testid="stNumberInputRootElement"] {{
+  border-color: #392975 !important;
+  border-color: light-dark(#392975, #d4c6ff) !important;
+}}
 .stApp [data-testid="stExpander"] {{
   {_paint("background", light["card"], dark["card"])}
   {_line("border", light["border"], dark["border"])}
@@ -421,35 +444,260 @@ def _theme_css() -> str:
 .stApp [data-testid="stExpander"] details summary p {{
   {_paint("color", light["kicker"], dark["kicker"])}
 }}
-[class*="st-key-stars-"] [data-testid="stHorizontalBlock"] {{
-  flex-wrap: nowrap;
-  gap: 0.3rem;
+.pick-poster {{
+  flex-direction: column;
+  align-items: stretch;
 }}
-[class*="st-key-stars-"] [data-testid="stColumn"] {{
-  min-width: 0 !important;
-}}
-[class*="st-key-stars-"] button {{
-  min-height: 2.75rem;
+.pick-poster .poster,
+.pick-poster .poster.placeholder {{
   width: 100%;
-  padding-inline: 0.1rem;
+  height: auto;
+  aspect-ratio: 2 / 3;
+  min-height: 0;
+}}
+.pick-rich .poster,
+.pick-rich .poster.placeholder {{
+  width: 132px;
+  height: 198px;
+}}
+.pick-compact .poster,
+.pick-compact .poster.placeholder {{
+  width: 120px;
+  height: 180px;
+}}
+.pick-poster .pick-title {{
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.6em;
+}}
+.pick-why {{
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
 }}
-[class*="st-key-stars-"] button p {{
+.rated-line {{
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: center;
+  min-width: 0;
+}}
+.rated-line .poster {{
+  width: 40px;
+  height: 60px;
+  font-size: 0.85rem;
+}}
+.rated-line .pick-title {{
+  font-size: 0.95rem;
+  margin: 0;
+}}
+.rated-line .history-stars {{
+  margin: 0.1rem 0 0;
+}}
+[class*="st-key-film-"],
+[class*="st-key-rec-"] {{
+  {_paint("background", light["card"], dark["card"])}
+  {_line("border", light["border"], dark["border"])}
+  border-radius: 12px;
+  padding: 0.5rem 0 0.3rem;
+  height: 100%;
+  box-sizing: border-box;
+  container-type: inline-size;
+  container-name: film;
+  min-width: 0;
+}}
+[class*="st-key-rec-"] {{
+  padding: 0.65rem 0.7rem 0.45rem;
+}}
+[class*="st-key-film-"] {{
+  display: flex !important;
+  flex-direction: column !important;
+}}
+[class*="st-key-film-"] > [class*="st-key-rate-"] {{
+  margin-top: auto;
+}}
+[class*="st-key-film-"] .pick,
+[class*="st-key-rec-"] .pick {{
+  border-top: 0;
+  padding: 0.15rem 0.15rem 0.35rem;
+}}
+[class*="st-key-rate-"] {{
+  width: max-content;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}}
+[class*="st-key-rate-"] [data-testid="stButtonGroup"] {{
+  width: max-content;
+  max-width: 100%;
+}}
+[class*="st-key-rate-"] [role="radiogroup"] {{
+  gap: 4px !important;
+  column-gap: 4px !important;
+  width: max-content !important;
+  max-width: 100%;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}}
+[class*="st-key-rate-"] button {{
+  position: relative;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: hidden;
+}}
+[class*="st-key-rate-"] button [data-testid="stMarkdownContainer"] {{
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip-path: inset(50%);
+  white-space: nowrap !important;
+}}
+[class*="st-key-rate-"] button::before {{
+  content: "";
+  display: block;
+  width: 40px;
+  height: 40px;
+  background: {light["meta"]};
+  background: light-dark({light["meta"]}, {dark["meta"]});
+  -webkit-mask: url("{_STAR_EMPTY}") center / contain no-repeat;
+  mask: url("{_STAR_EMPTY}") center / contain no-repeat;
+}}
+[class*="st-key-rate-"] button:has(~ button[data-selected="true"])::before,
+[class*="st-key-rate-"] button[data-selected="true"]::before,
+[class*="st-key-rate-"] button:hover::before,
+[class*="st-key-rate-"] button:has(~ button:hover)::before,
+[class*="st-key-rate-"] button[data-hovered="true"]::before,
+[class*="st-key-rate-"] button:has(~ button[data-hovered="true"])::before {{
+  background: {light["kicker"]};
+  background: light-dark({light["kicker"]}, {dark["kicker"]});
+  -webkit-mask-image: url("{_STAR_FILLED}");
+  mask-image: url("{_STAR_FILLED}");
+}}
+[class*="st-key-rate-"] button:focus-visible {{
+  outline: 2px solid {light["kicker"]};
+  outline: 2px solid light-dark({light["kicker"]}, {dark["kicker"]});
+  outline-offset: 2px;
+}}
+@container film (max-width: 220px) {{
+  [class*="st-key-film-"] > [class*="st-key-rate-"],
+  [class*="st-key-rate-"],
+  [class*="st-key-rate-"] [data-testid="stButtonGroup"],
+  [class*="st-key-rate-"] [role="radiogroup"] {{
+    width: 100% !important;
+    max-width: 100% !important;
+  }}
+  [class*="st-key-rate-"] [role="radiogroup"] {{
+    display: flex !important;
+    justify-content: center !important;
+  }}
+  [class*="st-key-rate-"] button {{
+    flex: 1 1 0 !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }}
+  [class*="st-key-rate-"] button::before {{
+    width: 100%;
+    height: 32px;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+  }}
+}}
+[class*="st-key-why-"] {{
+  width: max-content;
+  max-width: 100%;
+}}
+[class*="st-key-why-"] [data-testid="stExpander"] {{
+  border: 0;
+  background: transparent;
+}}
+[class*="st-key-why-"] details summary {{
+  min-height: 0 !important;
+  padding: 0.1rem 0 !important;
+  font-size: 0.85rem;
+}}
+[data-testid="stVerticalBlock"][class*="st-key-rated-"] {{
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+  flex-wrap: nowrap !important;
+}}
+[data-testid="stVerticalBlock"][class*="st-key-rated-"]
+  > [data-testid="stElementContainer"]:first-child {{
+  flex: 0 1 auto;
+  min-width: 0;
+}}
+[data-testid="stVerticalBlock"][class*="st-key-rated-"]
+  > [data-testid="stElementContainer"]:last-child {{
+  flex: 0 0 auto;
+  width: auto !important;
+}}
+[class*="st-key-rated-"] button {{
+  width: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 !important;
+  overflow: hidden;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}}
+[class*="st-key-rated-"] button p {{
   font-size: 0 !important;
   line-height: 0;
   margin: 0;
 }}
-[class*="st-key-stars-"] [data-testid="stBaseButton-primary"] p::before {{
-  content: "★";
+[class*="st-key-rated-"] button p::before {{
+  content: "×";
   font-size: 1.35rem;
   line-height: 1;
-  color: #ffffff;
+  color: {light["ink"]};
+  color: light-dark({light["ink"]}, {dark["ink"]});
 }}
-[class*="st-key-stars-"] [data-testid="stBaseButton-secondary"] p::before {{
-  content: "☆";
-  font-size: 1.35rem;
-  line-height: 1;
-  {_paint("color", light["kicker"], dark["kicker"])}
+[class*="st-key-rated-"] button:hover p::before {{
+  color: {light["kicker"]};
+  color: light-dark({light["kicker"]}, {dark["kicker"]});
+}}
+.st-key-ticket {{
+  max-width: 32rem;
+}}
+.st-key-starters [data-testid="stHorizontalBlock"],
+.st-key-tries [data-testid="stHorizontalBlock"] {{
+  justify-content: flex-start !important;
+  gap: 0.5rem !important;
+  flex-wrap: wrap !important;
+}}
+.st-key-starters [data-testid="stHorizontalBlock"] > [data-testid="stColumn"],
+.st-key-tries [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {{
+  width: auto !important;
+  flex: 0 0 auto !important;
+  min-width: 0 !important;
+}}
+.st-key-compare-switch {{
+  display: none;
 }}
 .stApp [data-testid="stButtonGroup"] [role="toolbar"] {{
   flex-wrap: wrap !important;
@@ -466,15 +714,23 @@ def _theme_css() -> str:
   border-color: light-dark({light["border"]}, {dark["border"]});
   border-radius: 999px;
 }}
-.stApp [data-testid="stButtonGroup"] button[aria-pressed="true"] {{
+.stApp [data-testid="stButtonGroup"] button[aria-pressed="true"],
+.stApp [data-testid="stButtonGroup"] button[data-selected="true"] {{
   background: #392975;
   background: light-dark(#392975, #6b59c4);
   color: #ffffff;
   border-color: #392975;
   border-color: light-dark(#392975, #6b59c4);
 }}
-.stApp [data-testid="stButtonGroup"] button[aria-pressed="true"] p {{
+.stApp [data-testid="stButtonGroup"] button[aria-pressed="true"] p,
+.stApp [data-testid="stButtonGroup"] button[data-selected="true"] p {{
   color: #ffffff;
+}}
+.stApp [data-testid="stCheckbox"] label > div:not([data-testid]):has(svg) {{
+  background: #392975 !important;
+  background: light-dark(#392975, #6b59c4) !important;
+  border-color: #392975 !important;
+  border-color: light-dark(#392975, #6b59c4) !important;
 }}
 .stApp [data-testid="stCheckbox"] label,
 .stApp [data-testid="stWidgetLabel"] p {{
@@ -487,6 +743,56 @@ def _theme_css() -> str:
 }}
 .stApp [data-testid="stAlert"] p {{
   {_paint("color", light["ink"], dark["ink"])}
+}}
+[data-testid="stVerticalBlock"].st-key-shelf,
+[data-testid="stVerticalBlock"].st-key-matches,
+.st-key-shelf > [data-testid="stVerticalBlockBorderWrapper"] > [data-testid="stVerticalBlock"],
+.st-key-matches > [data-testid="stVerticalBlockBorderWrapper"] > [data-testid="stVerticalBlock"],
+.st-key-shelf > [data-testid="stVerticalBlock"],
+.st-key-matches > [data-testid="stVerticalBlock"] {{
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: stretch;
+}}
+[data-testid="stVerticalBlock"].st-key-picks,
+[data-testid="stVerticalBlock"].st-key-top10,
+.st-key-picks > [data-testid="stVerticalBlockBorderWrapper"] > [data-testid="stVerticalBlock"],
+.st-key-top10 > [data-testid="stVerticalBlockBorderWrapper"] > [data-testid="stVerticalBlock"],
+.st-key-picks > [data-testid="stVerticalBlock"],
+.st-key-top10 > [data-testid="stVerticalBlock"] {{
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: stretch;
+}}
+@media (min-width: 900px) {{
+  [data-testid="stVerticalBlock"].st-key-shelf,
+  [data-testid="stVerticalBlock"].st-key-matches,
+  .st-key-shelf > [data-testid="stVerticalBlockBorderWrapper"] > [data-testid="stVerticalBlock"],
+  .st-key-matches > [data-testid="stVerticalBlockBorderWrapper"] > [data-testid="stVerticalBlock"],
+  .st-key-shelf > [data-testid="stVerticalBlock"],
+  .st-key-matches > [data-testid="stVerticalBlock"] {{
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }}
+  [data-testid="stVerticalBlock"].st-key-picks,
+  [data-testid="stVerticalBlock"].st-key-top10,
+  .st-key-picks > [data-testid="stVerticalBlockBorderWrapper"] > [data-testid="stVerticalBlock"],
+  .st-key-top10 > [data-testid="stVerticalBlockBorderWrapper"] > [data-testid="stVerticalBlock"],
+  .st-key-picks > [data-testid="stVerticalBlock"],
+  .st-key-top10 > [data-testid="stVerticalBlock"] {{
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }}
+}}
+@media (min-width: 1500px) {{
+  [data-testid="stVerticalBlock"].st-key-shelf,
+  [data-testid="stVerticalBlock"].st-key-matches,
+  .st-key-shelf > [data-testid="stVerticalBlockBorderWrapper"] > [data-testid="stVerticalBlock"],
+  .st-key-matches > [data-testid="stVerticalBlockBorderWrapper"] > [data-testid="stVerticalBlock"],
+  .st-key-shelf > [data-testid="stVerticalBlock"],
+  .st-key-matches > [data-testid="stVerticalBlock"] {{
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }}
 }}
 @media (max-width: 800px) {{
   .block-container {{
@@ -506,24 +812,20 @@ def _theme_css() -> str:
   .intro-art {{ order: -1; }}
   .bar-row {{ grid-template-columns: minmax(0, 1fr) auto; }}
   .bar-name {{ grid-column: 1 / -1; }}
-  .st-key-workbench [data-testid="stHorizontalBlock"] {{ flex-wrap: wrap; }}
-  .st-key-workbench [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {{
-    width: 100% !important;
-    flex: 1 1 100% !important;
-    min-width: 0 !important;
-  }}
-  .st-key-compare [data-testid="stHorizontalBlock"] {{ flex-wrap: wrap; }}
+  .st-key-compare-switch {{ display: block; }}
   .st-key-compare [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {{
+    display: none !important;
     width: 100% !important;
     flex: 1 1 100% !important;
     min-width: 0 !important;
   }}
-}}
-@media (max-width: 800px) {{
-  .st-key-workbench [class*="st-key-stars-"] [data-testid="stColumn"],
-  .st-key-compare [class*="st-key-stars-"] [data-testid="stColumn"] {{
-    width: 20% !important;
-    flex: 1 1 20% !important;
+  .stApp:has(.compare-pick[data-mode="production"])
+    .st-key-compare [data-testid="stColumn"]:has(.st-key-col-production),
+  .stApp:has(.compare-pick[data-mode="item_item"])
+    .st-key-compare [data-testid="stColumn"]:has(.st-key-col-item-item),
+  .stApp:has(.compare-pick[data-mode="two_tower"])
+    .st-key-compare [data-testid="stColumn"]:has(.st-key-col-two-tower) {{
+    display: block !important;
   }}
 }}
 </style>
@@ -604,6 +906,7 @@ def recommendation_card_html(
     poster_url: str | None,
     rank: int | None = None,
     show_reasons: bool = True,
+    kind: str = "row",
 ) -> str:
     bits = []
     shown_year = _year_text(year)
@@ -619,14 +922,34 @@ def recommendation_card_html(
     rank_html = ""
     if rank is not None:
         rank_html = f'<p class="pick-rank">{int(rank):02d}</p>'
+    style = kind if kind in {"poster", "rich", "compact", "row"} else "row"
     return (
-        '<div class="pick">'
+        f'<div class="pick pick-{style}">'
         f"{poster_html(title, poster_url)}"
         '<div class="pick-body">'
         f"{rank_html}"
         f'<p class="pick-title">{html.escape(title)}</p>'
         f'<p class="pick-meta">{html.escape(meta)}</p>'
         f"{why}"
+        "</div></div>"
+    )
+
+
+def rated_line_html(
+    *,
+    title: str,
+    rating: int,
+    poster_url: str | None,
+) -> str:
+    """A compact rating row: thumb, title, and the stars already given."""
+    filled = max(0, min(5, int(rating)))
+    stars = "★" * filled + "☆" * (5 - filled)
+    return (
+        '<div class="rated-line">'
+        f"{poster_html(title, poster_url)}"
+        "<div>"
+        f'<p class="pick-title">{html.escape(title)}</p>'
+        f'<p class="history-stars" aria-hidden="true">{stars}</p>'
         "</div></div>"
     )
 
@@ -685,6 +1008,11 @@ def footer_html(*, logo_svg: str, api_key_set: bool) -> str:
         extra = (
             "Poster images load in your browser from image.tmdb.org. "
             "This server stores the image address only."
+        )
+    elif os.environ.get("MOVIELENS_FAKE_POSTERS", "").strip() == "1":
+        extra = (
+            "Poster pictures on this page are generated locally for layout checks. "
+            "No poster request is sent without it."
         )
     else:
         extra = (

@@ -84,6 +84,41 @@ ATTRIBUTION_LINK = "https://www.themoviedb.org/"
 
 Opener = Callable[..., Any]
 
+_FIXTURE_ARTICLES = frozenset({"a", "an", "the"})
+
+
+def fixture_poster(title: str) -> str:
+    """A generated poster image for layout checks. No network and no TMDB call.
+
+    The caller decides when to use it. ``poster_url`` and ``lookup_poster``
+    never call this.
+    """
+    words = [
+        word
+        for word in re.findall(r"[A-Za-z0-9]+", title)
+        if word.casefold() not in _FIXTURE_ARTICLES
+    ]
+    if not words:
+        mark = "•"
+    elif len(words) == 1:
+        mark = words[0][:2].upper()
+    else:
+        mark = (words[0][0] + words[1][0]).upper()
+    hue = sum(ord(char) for char in title) % 360
+    hue_2 = (hue + 36) % 360
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="360" viewBox="0 0 240 360">'
+        "<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>"
+        f"<stop offset='0' stop-color='hsl({hue} 42% 46%)'/>"
+        f"<stop offset='1' stop-color='hsl({hue_2} 48% 28%)'/>"
+        "</linearGradient></defs>"
+        "<rect width='240' height='360' fill='url(#g)'/>"
+        "<text x='120' y='196' text-anchor='middle' fill='#f6f3ff' "
+        "font-family='Georgia, serif' font-size='72'>"
+        f"{mark}</text></svg>"
+    )
+    return "data:image/svg+xml," + urllib.parse.quote(svg)
+
 
 def poster_url(
     title: str,

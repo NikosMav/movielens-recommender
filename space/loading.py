@@ -17,6 +17,7 @@ import streamlit as st
 from catalog import clean_year, movie_records, popularity_order
 from posters import (
     POSTER_CACHE_TTL_SECONDS,
+    fixture_poster,
     lookup_poster,
     mark_transient,
     transient_blocked,
@@ -141,7 +142,12 @@ def poster_for(title: str, year: object, api_key: str) -> str | None:
 
     Confirmed misses are cached as an empty string. Rate limits and network
     errors are remembered for a short window and then tried again.
+
+    ``MOVIELENS_FAKE_POSTERS=1`` returns a generated image and does not call
+    TMDB. Production never sets it. The lookup below is unchanged.
     """
+    if os.environ.get("MOVIELENS_FAKE_POSTERS", "").strip() == "1":
+        return fixture_poster(title)
     if not api_key:
         return None
     cleaned = clean_year(year)

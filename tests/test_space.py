@@ -390,7 +390,7 @@ def _copy_space(dest: Path) -> Path:
 def _reason_text(app) -> str:
     chunks: list[str] = []
     for expander in app.expander:
-        if not str(expander.label).startswith("Why this pick?"):
+        if str(expander.label) != "Why?":
             continue
         chunks.extend(block.value for block in expander.markdown)
         chunks.extend(block.value for block in expander.text)
@@ -510,10 +510,8 @@ def test_copied_space_app_starts_from_synthetic_snapshots(
     shelf = "\n".join(block.value for block in app.markdown)
     assert "Movie 4" in shelf
     assert "No poster" in shelf
-    rated_button = next(
-        button for button in app.button if button.label == "Rate Movie 4 5 out of 5"
-    )
-    rated_button.click().run(timeout=120)
+    rated = next(widget for widget in app.segmented_control if widget.label == "Rate Movie 4")
+    rated.set_value(5).run(timeout=120)
     assert not app.exception
     rated = "\n".join(block.value for block in list(app.markdown) + list(app.caption))
     assert "Your ratings" in rated

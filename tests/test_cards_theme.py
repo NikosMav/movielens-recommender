@@ -86,7 +86,12 @@ def test_css_follows_streamlit_color_scheme_and_does_not_force_a_theme():
     assert 'data-testid="stApp"' in css
     # Setting color-scheme here would ignore Settings > Theme.
     assert "color-scheme" not in css
-    assert not (ROOT / ".streamlit" / "config.toml").is_file()
+    config = ROOT / ".streamlit" / "config.toml"
+    text = config.read_text(encoding="utf-8")
+    assert 'toolbarMode = "minimal"' in text
+    assert "[theme]" not in text
+    assert "color-scheme" not in text
+    assert "base =" not in text
     sys.path.insert(0, str(SPACE))
     try:
         footer = cards.footer_html(logo_svg="<svg viewBox='0 0 1 1'></svg>", api_key_set=False)
