@@ -424,23 +424,38 @@ def beyond_definitions(payload: dict[str, Any]) -> list[tuple[str, str]]:
     return rows
 
 
-def serving_latency_lines(payload: dict[str, Any]) -> list[str]:
-    """Stored medians and 95th percentiles. Not the time for one click."""
+_LATENCY_PHRASE = {
+    "new_user_five_ratings": "for a new user",
+    "known_user_ranked": "for a known user",
+    "known_user_explained": "for a known user with explanations",
+}
+
+
+def serving_latency_notes(payload: dict[str, Any]) -> list[tuple[str, str]]:
+    """Rounded sentence, and the stored median and 95th percentile for a tooltip."""
     latency = payload.get("latency")
     if not isinstance(latency, dict):
         return []
-    lines = []
+    notes = []
     for key, label in _SERVING_LATENCIES:
         block = latency.get(key)
         if not isinstance(block, dict):
             continue
         if "p50_ms" not in block or "p95_ms" not in block:
             continue
-        lines.append(
-            f"{label}: median {fmt(block['p50_ms'])} ms, "
-            f"95th percentile {fmt(block['p95_ms'])} ms."
+        phrase = _LATENCY_PHRASE.get(key, label[:1].lower() + label[1:])
+        visible = f"About {round(float(block['p50_ms']))} ms {phrase}"
+        tip = (
+            f"median {fmt(block['p50_ms'])} ms, "
+            f"95th percentile {fmt(block['p95_ms'])} ms"
         )
-    return lines
+        notes.append((visible, tip))
+    return notes
+
+
+def serving_latency_lines(payload: dict[str, Any]) -> list[str]:
+    """Rounded sentences. The precise stored values are the second half of each note."""
+    return [visible for visible, _tip in serving_latency_notes(payload)]
 
 
 def _read_json(path: Path) -> dict[str, Any]:

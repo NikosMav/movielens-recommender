@@ -40,7 +40,7 @@ from loading import (
     results_dir,
     similar_films,
 )
-from phrases import plain_method, plain_reasons
+from phrases import cap_popular, plain_method, plain_reasons, reason_choice
 from quality import (
     NDCG_SENTENCE,
     beyond_definitions,
@@ -56,7 +56,7 @@ from quality import (
     sample_sentence,
     sasrec_caption,
     sasrec_lead,
-    serving_latency_lines,
+    serving_latency_notes,
 )
 
 _SECTIONS = ("Discover", "Explore a MovieLens user", "How good is it?")
@@ -423,6 +423,28 @@ def _restore_shared_ratings(cold_path: str, by_id: dict[int, dict[str, Any]]) ->
         _score(cold_path, rows, by_id)
 
 
+def _beyond_table(rows: list[dict[str, Any]]) -> str:
+    labels = ("Model", "Coverage", "Novelty", "Diversity", "Long-tail share")
+    head = "".join(f"<th>{_escape(label)}</th>" for label in labels)
+    body = []
+    for row in rows:
+        cells = (
+            friendly_name(str(row["model"])),
+            rounded(row["coverage@10"]),
+            rounded(row["novelty@10"]),
+            rounded(row["intra_list_diversity@10"]),
+            rounded(row["long_tail_share@10"]),
+        )
+        body.append("<tr>" + "".join(f"<td>{_escape(cell)}</td>" for cell in cells) + "</tr>")
+    return (
+        '<div class="beyond-table"><table><thead><tr>'
+        + head
+        + "</tr></thead><tbody>"
+        + "".join(body)
+        + "</tbody></table></div>"
+    )
+
+
 def _beyond_panel() -> None:
     payload = _read_json("beyond-accuracy/ml-1m.json")
     if not payload or "models" not in payload:
@@ -430,25 +452,7 @@ def _beyond_panel() -> None:
     rows = beyond_rows(payload)
     st.markdown('<h2 class="section-title">Beyond accuracy</h2>', unsafe_allow_html=True)
     st.markdown(beyond_takeaway(rows))
-    header = (
-        "| Model | Coverage | Novelty | Diversity | Long-tail share |\n"
-        "| --- | --- | --- | --- | --- |"
-    )
-    body = [
-        "| "
-        + " | ".join(
-            [
-                friendly_name(str(row["model"])),
-                rounded(row["coverage@10"]),
-                rounded(row["novelty@10"]),
-                rounded(row["intra_list_diversity@10"]),
-                rounded(row["long_tail_share@10"]),
-            ]
-        )
-        + " |"
-        for row in rows
-    ]
-    st.markdown("\n".join([header, *body]))
+    st.markdown(_beyond_table(rows), unsafe_allow_html=True)
     definitions = beyond_definitions(payload)
     if definitions:
         with st.expander("What these mean"):
@@ -461,13 +465,7 @@ def _committed_funnel() -> None:
 
     st.markdown('<h2 class="section-title">How it works</h2>', unsafe_allow_html=True)
     st.markdown(funnel_html(funnel_steps(None)), unsafe_allow_html=True)
-    payload = _read_json("serving/ml-1m.json") or {}
-    lines = serving_latency_lines(payload)
-    if not lines:
-        return
-    st.caption("Committed serving measurement, not the time for this click.")
-    for line in lines:
-        st.markdown(line)
+    _latency_notes(_read_json("serving/ml-1m.json") or {})
 
 
 def _live_funnel(pipeline: dict[str, Any] | None) -> None:
@@ -475,14 +473,21 @@ def _live_funnel(pipeline: dict[str, Any] | None) -> None:
 
     with st.expander("How it works"):
         st.markdown(funnel_html(funnel_steps(pipeline)), unsafe_allow_html=True)
-        st.caption("The counts are from this request.")
-        payload = _read_json("serving/ml-1m.json") or {}
-        lines = serving_latency_lines(payload)
-        if lines:
-            st.caption("Committed serving measurement, not the time for this click.")
-            for line in lines:
-                st.markdown(line)
-            st.markdown("<div class='funnel-pad'></div>", unsafe_allow_html=True)
+        _latency_notes(_read_json("serving/ml-1m.json") or {})
+        st.markdown("<div class='funnel-pad'></div>", unsafe_allow_html=True)
+
+
+def _latency_notes(payload: dict[str, Any]) -> None:
+    notes = serving_latency_notes(payload)
+    if not notes:
+        return
+    st.caption("Committed serving measurement, not the time for this click.")
+    rows = []
+    for visible, tip in notes:
+        rows.append(
+            f'<p class="latency" title="{_escape(tip)}">{_escape(visible)}</p>'
+        )
+    st.markdown("".join(rows), unsafe_allow_html=True)
 
 
 def _rated_label(count: int) -> str:
@@ -719,8 +724,7 @@ def _picks(
         hide_unrated=stale,
         history=history,
     )
-    _why_not(records, ranks, ratings, pipeline)
-    _copy_link(ratings)
+    _pick_tools(records, ranks, ratings, pipeline)
     _live_funnel(pipeline)
     sentence = str(stored.get("method_sentence") or "")
     if sentence:
@@ -843,6 +847,16 @@ def _viewer_result(
                 if raw == "two_tower"
                 else _liked_by_item(model, list(cards), history)
             )
+            prepared = (
+                [[] for _card in cards]
+                if raw == "two_tower"
+                else _prepared_lines(
+                    list(cards),
+                    liked_by_id,
+                    genres_by_title,
+                    reason_limit=1,
+                )
+            )
             with column, st.container(key=col_key):
                 st.markdown(f"### {title}")
                 st.caption(blurbs[raw])
@@ -856,7 +870,7 @@ def _viewer_result(
                         scope=f"{raw}-{index}",
                         reason_limit=1,
                         genres_by_title=genres_by_title,
-                        similar_titles=liked_by_id.get(int(card.get("item_id") or 0), []),
+                        prepared=prepared[index - 1],
                         show_line=raw != "two_tower",
                         films_path=prod_path,
                         cold=False,
@@ -894,14 +908,19 @@ def _card_grid(
     explain: bool,
     reason_limit: int,
     genres_by_title: dict[str, str] | None = None,
-    liked_by_id: dict[int, list[str]] | None = None,
+    liked_by_id: dict[int, list[tuple[str, float]]] | None = None,
     films_path: str = "",
     cold: bool = False,
     rated_titles: set[str] | None = None,
     hide_unrated: bool = False,
     history: list[tuple[int, str, float]] | None = None,
 ) -> None:
-    liked = liked_by_id or {}
+    prepared = _prepared_lines(
+        cards,
+        liked_by_id or {},
+        genres_by_title,
+        reason_limit=reason_limit,
+    )
     with st.container(key=grid_key):
         for index, card in enumerate(cards, start=1):
             _recommendation(
@@ -913,7 +932,7 @@ def _card_grid(
                 scope=f"{grid_key}-{index}",
                 reason_limit=reason_limit,
                 genres_by_title=genres_by_title,
-                similar_titles=liked.get(int(card.get("item_id") or 0), []),
+                prepared=prepared[index - 1],
                 films_path=films_path,
                 cold=cold,
                 rated_titles=rated_titles,
@@ -932,7 +951,7 @@ def _recommendation(
     scope: str = "card",
     reason_limit: int = 2,
     genres_by_title: dict[str, str] | None = None,
-    similar_titles: list[str] | None = None,
+    prepared: list[str] | None = None,
     show_line: bool = True,
     films_path: str = "",
     cold: bool = False,
@@ -943,18 +962,19 @@ def _recommendation(
     from runtime import visible_details, visible_reasons
 
     original = visible_reasons(list(card.get("reasons") or []))
-    shown = (
-        plain_reasons(
-            original,
+    if prepared is not None:
+        shown = list(prepared)
+    elif show_line and (explain or kind == "compact"):
+        shown = plain_reasons(
+            visible_reasons(list(card.get("reasons") or [])),
             limit=reason_limit,
             genres_by_title=genres_by_title,
             candidate_genres=str(card.get("genres") or ""),
-            similar_titles=similar_titles,
             candidate_title=str(card.get("title") or ""),
+            candidate_year=card.get("year"),
         )
-        if show_line and (explain or kind == "compact")
-        else []
-    )
+    else:
+        shown = []
     if not explain and kind != "compact":
         shown = []
     if hide_unrated and shown:
@@ -1031,20 +1051,49 @@ def _item_item_model(path_str: str, *, cold: bool) -> Any:
     return getattr(bundle, "item_item", None)
 
 
+def _prepared_lines(
+    cards: list[dict[str, Any]],
+    liked_by_id: dict[int, list[tuple[str, float]]],
+    genres_by_title: dict[str, str] | None,
+    *,
+    reason_limit: int,
+) -> list[list[str]]:
+    from runtime import visible_reasons
+
+    choices = []
+    for card in cards:
+        pairs = liked_by_id.get(int(card.get("item_id") or 0), [])
+        choices.append(
+            reason_choice(
+                visible_reasons(list(card.get("reasons") or [])),
+                limit=reason_limit,
+                genres_by_title=genres_by_title,
+                candidate_genres=str(card.get("genres") or ""),
+                similar=pairs,
+                candidate_year=card.get("year"),
+            )
+        )
+    return cap_popular(choices)
+
+
 def _liked_by_item(
     model: Any,
     cards: list[dict[str, Any]],
     history: list[tuple[int, str, float]],
-) -> dict[int, list[str]]:
-    """Up to two rated films with positive similarity to each pick.
+) -> dict[int, list[tuple[str, float]]]:
+    """Rated films with positive similarity to each pick, closest first.
 
-    The order matches the explainer: similarity times the rating. This does
-    not rescore the list.
+    The order matches the explainer: similarity times the rating. The best
+    cosine is kept even when it is not in that top pair, so a real neighbour
+    is not dropped. This does not rescore the list.
     """
+    from phrases import MEANINGFUL_SIM
+
     if model is None or not history or not hasattr(model, "neighbor_similarities"):
         return {}
-    ids = [item_id for item_id, _title, _rating in history]
-    found: dict[int, list[str]] = {}
+    pool = [row for row in history if float(row[2]) >= 3.0] or list(history)
+    ids = [item_id for item_id, _title, _rating in pool]
+    found: dict[int, list[tuple[str, float]]] = {}
     for card in cards:
         item_id = int(card.get("item_id") or 0)
         if not item_id:
@@ -1054,20 +1103,30 @@ def _liked_by_item(
         except Exception:
             continue
         ranked: list[tuple[float, float, str]] = []
-        for other, title, rating in history:
+        for other, title, rating in pool:
             sim = float(sims.get(int(other), 0.0))
             if sim <= 0.0:
                 continue
             ranked.append((sim * float(rating), sim, title))
         ranked.sort(key=lambda row: (-row[0], -row[1], row[2]))
-        names: list[str] = []
-        for _score, _sim, title in ranked:
-            if title not in names:
-                names.append(title)
-            if len(names) == 2:
+        pairs: list[tuple[str, float]] = []
+        best: tuple[str, float] | None = None
+        for _score, sim, title in ranked:
+            if best is None or sim > best[1]:
+                best = (title, sim)
+            if any(name == title for name, _sim in pairs):
+                continue
+            pairs.append((title, sim))
+            if len(pairs) == 2:
                 break
-        if names:
-            found[item_id] = names
+        if (
+            best is not None
+            and best[1] >= MEANINGFUL_SIM
+            and best[0] not in {name for name, _sim in pairs}
+        ):
+            pairs.append(best)
+        if pairs:
+            found[item_id] = pairs
     return found
 
 
@@ -1080,7 +1139,7 @@ def _reranked_cards(
     """Position 0 keeps the measured cards. Above 0, reorder the scored candidates."""
     from value import embedding_rows, rerank_candidates
 
-    adventurous = float(st.session_state.get("adventurous") or 0.0)
+    adventurous = _adventurous_value()
     if adventurous <= 0.0 or not pipeline:
         return cards
     ids = [int(item) for item in pipeline.get("ranked_ids") or []]
@@ -1126,18 +1185,35 @@ def _reranked_cards(
     return shown or cards
 
 
-def _list_controls(cards: list[dict[str, Any]], cold_path: str) -> None:
-    from value import list_facts, readout_sentence, unevaluated_note
+_FAMILIARITY = ("Familiar", "Closer", "In between", "Further", "Adventurous")
+_FAMILIARITY_VALUE = {
+    "Familiar": 0.0,
+    "Closer": 0.25,
+    "In between": 0.5,
+    "Further": 0.75,
+    "Adventurous": 1.0,
+}
 
-    st.slider(
+
+def _adventurous_value() -> float:
+    label = st.session_state.get("familiarity", "Familiar")
+    if isinstance(label, int | float) and not isinstance(label, bool):
+        return float(label)
+    return float(_FAMILIARITY_VALUE.get(str(label), 0.0))
+
+
+def _list_controls(cards: list[dict[str, Any]], cold_path: str) -> None:
+    from value import list_facts, readout_parts, unevaluated_note
+
+    if "familiarity" not in st.session_state:
+        st.session_state["familiarity"] = "Familiar"
+    st.select_slider(
         "Familiar or adventurous",
-        min_value=0.0,
-        max_value=1.0,
-        step=0.05,
-        key="adventurous",
-        help="0 keeps the measured list. Higher prefers less popular, less similar films.",
+        options=list(_FAMILIARITY),
+        key="familiarity",
+        help="Familiar keeps the measured list. Adventurous prefers less popular films.",
     )
-    note = unevaluated_note(float(st.session_state.get("adventurous") or 0.0))
+    note = unevaluated_note(_adventurous_value())
     if note:
         st.caption(note)
     found = popularity_lookup(cold_path, True) if cold_path else {}
@@ -1147,22 +1223,41 @@ def _list_controls(cards: list[dict[str, Any]], cold_path: str) -> None:
         if card.get("item_id") and int(card["item_id"]) in found
     ]
     facts = list_facts([str(card.get("genres") or "") for card in cards], percentiles)
-    st.caption(readout_sentence(facts))
+    visible, tip = readout_parts(facts)
+    st.markdown(
+        f'<p class="list-readout" title="{_escape(tip)}">{_escape(visible)}</p>',
+        unsafe_allow_html=True,
+    )
 
 
-def _why_not(
+def _pick_tools(
     records: list[dict[str, Any]],
     ranks: dict[int, int],
     ratings: list[dict[str, Any]],
     pipeline: dict[str, Any] | None,
 ) -> None:
-    from value import why_not
+    from value import encode_ratings, why_not
 
-    query = st.text_input(
-        "Why not this film?",
-        key="why_not_query",
-        placeholder="Why not this film?",
-    )
+    field, action = st.columns([3, 1], vertical_alignment="bottom")
+    with field:
+        query = st.text_input(
+            "Why not this film?",
+            key="why_not_query",
+            placeholder="e.g. Titanic",
+        )
+    with action:
+        copied = st.button("Copy link", disabled=not ratings, key="copy-link")
+    if copied and ratings:
+        encoded = encode_ratings(
+            [(int(row["item_id"]), int(row["rating"])) for row in ratings]
+        )
+        st.query_params["view"] = "discover"
+        st.query_params["ratings"] = encoded
+        base = (st.context.url or "").rstrip("?")
+        share = f"view=discover&ratings={encoded}"
+        link = f"{base}?{share}" if base else f"?{share}"
+        st.caption("Link copied")
+        st.code(link, language=None)
     if len(" ".join(str(query).split())) < 2:
         return
     hits = rank_titles(query, records, ranks, limit=1)
@@ -1180,19 +1275,6 @@ def _why_not(
             ranked_ids=ranked,
         )
     )
-
-
-def _copy_link(ratings: list[dict[str, Any]]) -> None:
-    from value import encode_ratings
-
-    if not ratings or not st.button("Copy link"):
-        return
-    encoded = encode_ratings(
-        [(int(row["item_id"]), int(row["rating"])) for row in ratings]
-    )
-    st.query_params["view"] = "discover"
-    st.query_params["ratings"] = encoded
-    st.caption("The address bar is the link. It stores movie ids and stars only.")
 
 
 def _more_like_this(

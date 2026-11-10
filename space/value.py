@@ -238,16 +238,37 @@ def list_facts(
     return {"genre_count": len(seen), "mean_popularity_percentile": mean}
 
 
-def readout_sentence(facts: Mapping[str, Any]) -> str:
-    """Describes the list on screen. It is not an evaluation score."""
+def popularity_phrase(mean: float | None) -> str:
+    """A plain description of how well known the films on screen are."""
+    if mean is None:
+        return ""
+    if mean >= 90:
+        return "Mostly very popular films"
+    if mean >= 75:
+        return "Mostly popular films"
+    if mean >= 45:
+        return "A mix of popular and lesser-known films"
+    return "Mostly lesser-known films"
+
+
+def readout_parts(facts: Mapping[str, Any]) -> tuple[str, str]:
+    """Visible sentence, and the numbers plus disclaimer for a tooltip."""
     count = int(facts["genre_count"])
     genre_word = "genre" if count == 1 else "genres"
-    parts = [f"This list: {count} distinct {genre_word}"]
+    visible = f"This list: {count} distinct {genre_word}."
+    phrase = popularity_phrase(facts.get("mean_popularity_percentile"))
+    if phrase:
+        visible = f"{visible} {phrase}."
+    tip = "These describe the films on screen. They are not evaluation scores."
     mean = facts.get("mean_popularity_percentile")
     if mean is not None:
-        parts.append(f"average popularity percentile {mean:.0f}")
-    sentence = ", ".join(parts) + "."
-    return sentence + " These describe the films on screen. They are not evaluation scores."
+        tip = f"Average popularity percentile {mean:.0f}. {tip}"
+    return visible, tip
+
+
+def readout_sentence(facts: Mapping[str, Any]) -> str:
+    """Describes the list on screen. It is not an evaluation score."""
+    return readout_parts(facts)[0]
 
 
 def why_not(
@@ -311,45 +332,42 @@ def decode_ratings(text: str) -> list[tuple[int, int]]:
 
 
 def cites_unrated(line: str, rated_titles: set[str]) -> bool:
-    """True when a because-line names a film that is no longer rated."""
+    """True when a line names a film that is no longer rated."""
     prefix = "Because you liked "
-    if not line.startswith(prefix):
-        return False
-    named = line[len(prefix) :]
-    parts = named.rsplit(" and ", 1) if " and " in named else [named]
-    return any(part not in rated_titles for part in parts)
+    if line.startswith(prefix):
+        named = line[len(prefix) :]
+        parts = named.rsplit(" and ", 1) if " and " in named else [named]
+        return any(part not in rated_titles for part in parts)
+    marker = " with "
+    if marker in line:
+        return line.rsplit(marker, 1)[1] not in rated_titles
+    return False
 
 
 def funnel_steps(pipeline: Mapping[str, Any] | None) -> list[dict[str, str]]:
-    """Four stages. Counts come from the request; the names follow its source."""
+    """Catalog, candidates, ranked, and the ten on screen.
+
+    Live counts come from the request. Without a request the stages stay
+    unnamed so the diagram does not invent a number.
+    """
     if not pipeline:
         return [
-            {"name": "Catalog", "detail": "Every film the snapshot can recommend"},
-            {"name": "Two-tower candidates", "detail": "A short list retrieved for this person"},
-            {"name": "LambdaRank", "detail": "Scores those candidates"},
-            {"name": "Top 10", "detail": "The list on screen"},
+            {"name": "Catalog", "detail": "films"},
+            {"name": "Candidates", "detail": ""},
+            {"name": "Ranked", "detail": ""},
+            {"name": "Your top 10", "detail": ""},
         ]
-    source = str(pipeline.get("candidate_source") or "")
-    source_name = {
-        "two_tower": "Two-tower candidates",
-        "cold-start union": "Candidates",
-        "popularity": "Popularity list",
-        "item–item": "Item–item candidates",
-        "history_two_tower": "Two-tower candidates",
-    }.get(source, "Candidates")
-    scored = int(pipeline.get("n_scored") or 0)
+    catalog = int(pipeline.get("n_catalog") or 0)
+    candidates = int(pipeline.get("n_candidates") or 0)
     if pipeline.get("scored_by_ranker"):
-        scored_detail = f"{scored} films scored"
+        ranked = f"{int(pipeline.get('n_scored') or 0):,}"
     else:
-        scored_detail = "The ranker did not score this request"
+        ranked = "Not scored"
     return [
-        {"name": "Catalog", "detail": f"{int(pipeline.get('n_catalog') or 0)} films"},
-        {
-            "name": source_name,
-            "detail": f"{int(pipeline.get('n_candidates') or 0)} candidates",
-        },
-        {"name": "LambdaRank", "detail": scored_detail},
-        {"name": "Top 10", "detail": "The measured list, before any slider"},
+        {"name": "Catalog", "detail": f"{catalog:,} films"},
+        {"name": "Candidates", "detail": f"{candidates:,}"},
+        {"name": "Ranked", "detail": ranked},
+        {"name": "Your top 10", "detail": "10"},
     ]
 
 

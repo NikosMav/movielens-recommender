@@ -342,8 +342,8 @@ def _theme_css() -> str:
 }}
 .neighbour-grid {{
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(8.4rem, 1fr));
+  gap: 0.55rem 0.7rem;
 }}
 .neighbour p {{
   margin: 0.25rem 0 0;
@@ -356,24 +356,97 @@ def _theme_css() -> str:
 }}
 .funnel {{
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0.35rem;
   margin: 0.4rem 0 0.8rem;
   padding: 0;
   list-style: none;
 }}
-.funnel li {{
-  flex: 1 1 8rem;
+.funnel-step {{
+  flex: 1 1 0;
   margin: 0;
-  padding: 0.45rem 0.6rem;
+  padding: 0.55rem 0.65rem;
   border-radius: 8px;
+  background: {light["card"]};
+  background: light-dark({light["card"]}, {dark["card"]});
   {_line("border", light["border"], dark["border"])}
 }}
-.funnel strong {{ display: block; }}
-.funnel span {{
+.funnel-arrow {{
+  flex: 0 0 auto;
+  align-self: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 1.15rem;
+  line-height: 1;
+  {_paint("color", light["kicker"], dark["kicker"])}
+}}
+.funnel strong {{ display: block; font-size: 0.95rem; }}
+.funnel-step span {{
   display: block;
-  font-size: 0.8rem;
+  margin-top: 0.15rem;
+  font-size: 0.85rem;
   {_paint("color", light["meta"], dark["meta"])}
+}}
+.latency {{
+  margin: 0.15rem 0;
+  cursor: help;
+  {_paint("color", light["pitch"], dark["pitch"])}
+}}
+.beyond-table {{
+  overflow-x: auto;
+  margin: 0.4rem 0 1rem;
+}}
+.beyond-table table {{
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}}
+.beyond-table th,
+.beyond-table td {{
+  padding: 0.4rem 0.55rem;
+  text-align: left;
+  white-space: nowrap;
+  {_line("border-bottom", light["border"], dark["border"])}
+}}
+@media (max-width: 800px) {{
+  .beyond-table table {{ font-size: 0.78rem; }}
+  .beyond-table th,
+  .beyond-table td {{ padding: 0.3rem 0.3rem; }}
+  .beyond-table th {{ white-space: normal; }}
+  .beyond-table th:first-child,
+  .beyond-table td:first-child {{ white-space: normal; }}
+}}
+.beyond-table th {{
+  font-weight: 600;
+}}
+.list-readout {{
+  margin: 0.2rem 0 0.6rem;
+  cursor: help;
+  {_paint("color", light["meta"], dark["meta"])}
+}}
+.st-key-familiarity [data-testid="stSliderThumbValue"] {{
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+  white-space: nowrap;
+}}
+.st-key-familiarity [data-testid="stSliderTickBar"] {{
+  opacity: 1 !important;
+  color: {light["ink"]};
+  color: light-dark({light["ink"]}, {dark["ink"]});
+}}
+.st-key-familiarity [data-testid="stSlider"] div:has(> [data-testid="stSliderThumbValue"]) {{
+  background-color: #392975 !important;
+  background-color: light-dark(#392975, #6b59c4) !important;
 }}
 .stApp:has(.picks-stale) .st-key-picks {{
   outline: 1px dashed {light["meta"]};
@@ -970,7 +1043,12 @@ def _theme_css() -> str:
   .intro {{ grid-template-columns: minmax(0, 1fr); }}
   .intro-art {{ order: -1; }}
   .bar-row {{ grid-template-columns: minmax(0, 1fr) auto; }}
-  .funnel {{ flex-direction: column; }}
+  [data-testid="stLayoutWrapper"]:has(> .st-key-topbar) {{ z-index: 60; }}
+  .st-key-ticket,
+  [data-testid="stVerticalBlock"].st-key-ticket {{ z-index: 0 !important; }}
+  .funnel {{ flex-direction: column; align-items: stretch; }}
+  .funnel-step {{ flex: 1 1 auto; }}
+  .funnel-arrow {{ transform: rotate(90deg); align-self: center; }}
   .neighbour-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
   .because-line {{ align-items: flex-start; }}
   .bar-name {{ grid-column: 1 / -1; }}
@@ -1152,11 +1230,13 @@ def neighbour_grid_html(films: list[dict]) -> str:
 
 
 def funnel_html(steps: list[dict[str, str]]) -> str:
-    """The four stages for one request. Counts are the ones the caller passed in."""
-    items = []
-    for step in steps:
+    """Boxes and arrows. Counts are the ones the caller passed in."""
+    items: list[str] = []
+    for index, step in enumerate(steps):
+        if index:
+            items.append('<li class="funnel-arrow" aria-hidden="true"><span>→</span></li>')
         items.append(
-            "<li>"
+            '<li class="funnel-step">'
             f"<strong>{html.escape(step.get('name') or '')}</strong>"
             f"<span>{html.escape(step.get('detail') or '')}</span>"
             "</li>"

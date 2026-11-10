@@ -77,6 +77,30 @@ def test_stale_reason_hides_a_film_that_is_no_longer_rated():
     assert value.cites_unrated("Because you liked Toy Story and Fargo", kept)
     assert not value.cites_unrated("Because you liked Toy Story", kept)
     assert not value.cites_unrated("A widely loved film that fits your mix", kept)
+    assert value.cites_unrated("Shares Drama with Fargo", kept)
+    assert not value.cites_unrated("Shares Comedy with Toy Story", kept)
+    steps = value.funnel_steps(
+        {
+            "n_catalog": 3883,
+            "n_candidates": 325,
+            "n_scored": 325,
+            "scored_by_ranker": True,
+        }
+    )
+    assert [step["name"] for step in steps] == [
+        "Catalog",
+        "Candidates",
+        "Ranked",
+        "Your top 10",
+    ]
+    assert steps[0]["detail"] == "3,883 films"
+    assert steps[1]["detail"] == "325"
+    visible, tip = value.readout_parts(
+        {"genre_count": 10, "mean_popularity_percentile": 100}
+    )
+    assert "Mostly very popular films" in visible
+    assert "100" not in visible
+    assert "100" in tip
 
 
 def test_cold_start_nudge_cites_the_file_only_when_the_flags_match():
@@ -103,9 +127,11 @@ def test_beyond_takeaway_names_the_stored_leader_of_each_column():
     assert quality.plain_negative_result(True) == "Did not beat the baseline"
     assert quality.plain_excludes_zero(True) == "Interval excludes zero"
     serving = json.loads((ROOT / "results/serving/ml-1m.json").read_text(encoding="utf-8"))
-    lines = quality.serving_latency_lines(serving)
-    assert lines
-    assert all("median" in line and "95th percentile" in line for line in lines)
+    notes = quality.serving_latency_notes(serving)
+    assert notes
+    assert notes[0][0] == "About 137 ms for a new user"
+    assert all("median" in tip and "95th percentile" in tip for _visible, tip in notes)
+    assert "136.66" in notes[0][1]
 
 
 def test_failed_poster_image_does_not_retry():

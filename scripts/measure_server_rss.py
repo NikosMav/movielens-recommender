@@ -216,11 +216,11 @@ def _rate_comedy_shelf(page: object) -> None:
     page.get_by_label("Why not this film?").fill("Toy")  # type: ignore[attr-defined]
     _wait_text(page, "Toy", timeout=60_000)
     page.get_by_role("button", name="Copy link").click()  # type: ignore[attr-defined]
-    _wait_text(page, "address bar", timeout=60_000)
+    _wait_text(page, "Link copied", timeout=60_000)
     how = page.get_by_text("How it works", exact=True).first  # type: ignore[attr-defined]
     how.scroll_into_view_if_needed()
     how.click()
-    _wait_text(page, "films scored", timeout=60_000)
+    _wait_text(page, "Your top 10", timeout=60_000)
     page.get_by_role("button", name="Rate Animation").click()  # type: ignore[attr-defined]
     _wait_text(page, "Update picks", timeout=60_000)
 
