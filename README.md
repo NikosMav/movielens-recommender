@@ -63,10 +63,12 @@ streamlit run app/streamlit_app.py
 
 `build-artifacts` downloads ml-1m if `data/` does not have it, reads the tuned hyperparameters from `results/tuning/`, and writes a serving snapshot to `artifacts/ml-1m/`. `cold-start` writes the new-user snapshot to `artifacts/ml-1m/cold_start/` and the measured table to `results/cold-start/ml-1m.json`. Nothing under `artifacts/` is committed.
 
-The page has two modes:
+The local research page (`app/streamlit_app.py`) has two modes:
 
 - **Existing user.** Pick an ml-1m user. The list is the production pipeline: validation-chosen candidates re-ranked by LambdaRank with the ADR-0009 demographic features. Each title opens a plain-language explanation, and a checkbox shows the item–item and two-tower lists side by side (ADR-0010).
-- **New user.** Search titles and rate at least three (about five is a good start). The page says which method produced the list for that profile size. It does not ask for gender, age, occupation, or ZIP, and it does not save the profile (ADR-0012). The Community Cloud page, below, uses a genre shelf and a filtering title list instead of that search box.
+- **New user.** Search titles and rate at least three (about five is a good start). The page says which method produced the list for that profile size. It does not ask for gender, age, occupation, or ZIP, and it does not save the profile (ADR-0012).
+
+The public page is the Community Cloud app below. It has the same three jobs in one navigation (ADR-0024).
 
 ### Run the React frontend
 
@@ -74,9 +76,13 @@ For the local React and Astryx frontend, follow the [frontend setup guide](front
 
 ## Streamlit Community Cloud
 
-The [public demo](https://nikosmav-movielens-recommender.streamlit.app/) runs on [Streamlit Community Cloud](https://share.streamlit.io/). It opens on the Astryx Discover page for movie search, star ratings, and personalized picks. Model Lab compares the three ranked lists for an existing profile.
+The [public demo](https://nikosmav-movielens-recommender.streamlit.app/) runs on [Streamlit Community Cloud](https://share.streamlit.io/). One page has three sections (ADR-0024):
 
-Open **Genre shelves, posters and evaluation** to reach the original Streamlit interface. It supports genre browsing and optional TMDB posters via the Streamlit secret TMDB_API_KEY. Without that secret, each card uses a placeholder. The **How good is it?** view reads the committed results JSON (ADR-0022).
+- **Discover.** Search a title or browse a genre shelf, rate films you have seen, and get ten picks with a short reason.
+- **Explore a MovieLens user.** Look up a viewer id. The default list is the full model. A checkbox compares it with similar films and a taste match.
+- **How good is it?** A plain summary and a bar chart. Every number is read from the committed results JSON (ADR-0022).
+
+Posters use the Streamlit secret `TMDB_API_KEY` when it is set. Without that secret, each card uses a placeholder. The page follows Streamlit's System, Light, and Dark setting.
 
 ![Live page, new user: a Comedy shelf with stars on each card](docs/demo/streamlit-new-user.png)
 

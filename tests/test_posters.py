@@ -188,7 +188,8 @@ def test_network_error_stops_the_ladder():
         raise OSError("offline")
 
     assert posters.poster_url("Toy Story", 1995, "test-key", opener=_open) is None
-    assert calls["n"] == 2
+    # Empty answer, then the next year fails four times and the ladder stops.
+    assert calls["n"] == 1 + posters.MAX_ATTEMPTS
 
 
 def test_trailing_articles_become_reading_order_queries():
@@ -405,9 +406,114 @@ def test_poster_query_script_lists_a_sample_without_network():
     assert "The Matrix" not in chosen.stdout
 
 
+def test_rate_limit_is_retried_and_then_returns_the_poster():
+    from email.message import Message
+    from urllib.error import HTTPError
+
+    posters = _load("posters")
+    calls = {"n": 0}
+    waits: list[float] = []
+
+    def _open(request, _timeout):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            headers = Message()
+            headers["Retry-After"] = "2"
+            raise HTTPError(request.full_url, 429, "Too Many Requests", headers, None)
+        body = json.dumps(
+            {
+                "results": [
+                    {
+                        "title": "Toy Story",
+                        "original_title": "Toy Story",
+                        "release_date": "1995-11-22",
+                        "poster_path": "/toy.jpg",
+                        "popularity": 80,
+                    }
+                ]
+            }
+        ).encode()
+        return _Body(body)
+
+    url, definitive = posters.lookup_poster(
+        "Toy Story",
+        1995,
+        "test-key",
+        opener=_open,
+        sleeper=waits.append,
+    )
+    assert url == "https://image.tmdb.org/t/p/w185/toy.jpg"
+    assert definitive is True
+    assert calls["n"] == 3
+    assert waits == [2.0, 2.0]
+
+
+def test_parallel_searches_stay_within_the_flight_cap():
+    import threading
+    import time
+
+    posters = _load("posters")
+    current = {"n": 0}
+    peak = {"n": 0}
+    lock = threading.Lock()
+
+    def _open(_request, _timeout):
+        with lock:
+            current["n"] += 1
+            peak["n"] = max(peak["n"], current["n"])
+        time.sleep(0.05)
+        with lock:
+            current["n"] -= 1
+        return _Body(b'{"results":[]}')
+
+    threads = [
+        threading.Thread(
+            target=posters.poster_url,
+            args=(f"Film {index}", 1995, "test-key"),
+            kwargs={"opener": _open},
+        )
+        for index in range(6)
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert peak["n"] <= posters.MAX_IN_FLIGHT
+
+
 def test_poster_cache_ttl_stays_one_day_in_memory():
     posters = _load("posters")
-    app = (SPACE / "app.py").read_text(encoding="utf-8")
+    loading = (SPACE / "loading.py").read_text(encoding="utf-8")
     assert posters.POSTER_CACHE_TTL_SECONDS == 24 * 60 * 60
-    assert "ttl=POSTER_CACHE_TTL_SECONDS" in app
-    assert "st.cache_data" in app
+    assert "ttl=POSTER_CACHE_TTL_SECONDS" in loading
+    assert "st.cache_data" in loading
+
+
+def test_fixture_posters_stay_off_the_tmdb_path(monkeypatch):
+    posters = _load("posters")
+    monkeypatch.setenv("MOVIELENS_FAKE_POSTERS", "1")
+    calls = {"n": 0}
+
+    def _open(*_args, **_kwargs):
+        calls["n"] += 1
+        raise AssertionError("the fixture flag must not change poster_url")
+
+    assert posters.poster_url("Toy Story", 1995, "", opener=_open) is None
+    assert calls["n"] == 0
+    first = posters.fixture_poster("Toy Story")
+    second = posters.fixture_poster("Toy Story")
+    assert first == second
+    assert first.startswith("data:image/svg+xml,")
+    assert "image.tmdb.org" not in first
+    assert "api_key" not in first
+    assert "30%" in first
+    neighbours = [
+        posters.fixture_poster("Star Wars: Episode IV - A New Hope"),
+        posters.fixture_poster("Star Wars: Episode V - The Empire Strikes Back"),
+        posters.fixture_poster("Star Wars: Episode VI - Return of the Jedi"),
+    ]
+    assert len(set(neighbours)) == 3
+    source = (SPACE / "posters.py").read_text(encoding="utf-8")
+    assert "MOVIELENS_FAKE_POSTERS" not in source
+    loading = (SPACE / "loading.py").read_text(encoding="utf-8")
+    assert loading.index("MOVIELENS_FAKE_POSTERS") < loading.index("if not api_key:")

@@ -63,12 +63,19 @@ def test_space_readme_and_requirements_pin():
     assert "HF_TOKEN" not in root_readme
     assert (SPACE / "app.py").is_file()
     app_source = (SPACE / "app.py").read_text(encoding="utf-8")
-    assert "st.text_input" not in app_source
-    assert "Find a title" in app_source
+    page_source = "\n".join(
+        path.read_text(encoding="utf-8") for path in sorted(SPACE.glob("*.py"))
+    )
+    assert "Genre shelves, posters and evaluation" not in page_source
+    assert "view=classic" not in page_source
+    assert "Find your next film" in page_source
+    assert "Explore a MovieLens user" in page_source
+    assert "How good is it?" in page_source
     assert "Loading both recommenders" in app_source
     assert "Opening this view" in app_source
-    assert "@st.cache_resource" in app_source
-    assert "@st.cache_data" in app_source
+    assert "@st.cache_resource" in page_source
+    assert "@st.cache_data" in page_source
+    assert "ttl=POSTER_CACHE_TTL_SECONDS" in page_source
     assert (SPACE / "runtime.py").is_file()
     assert (SPACE / "packages.txt").read_text(encoding="utf-8").strip() == "libgomp1"
     assert (SPACE.parent / "packages.txt").read_text(encoding="utf-8").strip() == "libgomp1"
@@ -383,7 +390,7 @@ def _copy_space(dest: Path) -> Path:
 def _reason_text(app) -> str:
     chunks: list[str] = []
     for expander in app.expander:
-        if expander.label != "Why this result?":
+        if str(expander.label) != "Why?":
             continue
         chunks.extend(block.value for block in expander.markdown)
         chunks.extend(block.value for block in expander.text)
@@ -476,50 +483,46 @@ def test_copied_space_app_starts_from_synthetic_snapshots(
 
     copy = _copy_space(tmp_path / "space")
     app = AppTest.from_file(str(copy / "app.py"))
-    app.run()
-    assert not app.exception
-    assert len(app.get("component_instance")) == 1
-
-    app.button[0].click().run()
+    app.run(timeout=120)
     assert not app.exception
     assert calls["n"] == 0
-    labels = [radio.label for radio in app.radio]
-    assert "Who is this for?" in labels
     text = "\n".join(block.value for block in list(app.markdown) + list(app.caption))
-    assert "Existing user" in text or app.radio
+    assert "Find your next film" in text
     assert "10.1145/2827872" in text
     assert "GroupLens" in text
+    assert len(app.get("component_instance")) == 0
+
+    app.radio[0].set_value("Explore a MovieLens user").run(timeout=120)
+    assert not app.exception
+    assert calls["n"] == 0
+    tried = [button for button in app.button if button.label.startswith("Try ")]
+    assert tried
+    tried[0].click().run(timeout=120)
+    assert not app.exception
     reasons = _reason_text(app).lower()
     for word in _DEMO_REASON:
         assert word not in reasons
 
-    app.radio[0].set_value("New user").run()
+    app.radio[0].set_value("Discover").run(timeout=120)
     assert not app.exception
-    assert calls["n"] == 0
-    new_user = "\n".join(block.value for block in list(app.markdown) + list(app.caption))
-    assert "New-user model" in new_user
-    assert list(app.text_input) == []
-    assert any(box.label == "Find a title" for box in app.selectbox)
-    app.multiselect[0].set_value(["Comedy"]).run()
+    app.pills[0].set_value(["Comedy"]).run(timeout=120)
     assert not app.exception
     shelf = "\n".join(block.value for block in app.markdown)
     assert "Movie 4" in shelf
     assert "No poster" in shelf
-    assert len(list(app.feedback)) == 1
-    app.feedback[0].set_value(4).run()
+    rated = next(widget for widget in app.segmented_control if widget.label == "Rate Movie 4")
+    rated.set_value(5).run(timeout=120)
     assert not app.exception
     rated = "\n".join(block.value for block in list(app.markdown) + list(app.caption))
     assert "Your ratings" in rated
-    assert "Add 2 more rating(s) to continue." in rated
+    assert "Rate 2 more films to get picks." in rated
 
-    app.radio[0].set_value("How good is it?").run()
+    app.radio[0].set_value("How good is it?").run(timeout=120)
     assert not app.exception
     panel = "\n".join(block.value for block in list(app.markdown) + list(app.caption))
     assert "0.127264" in panel
     assert "Every number on this page is read from the committed results JSON." in panel
-    app.button[0].click().run()
-    assert not app.exception
-    assert len(app.get("component_instance")) == 1
+    assert calls["n"] == 0
 
 
 def test_copied_space_app_without_weights_does_not_download(tmp_path, monkeypatch):

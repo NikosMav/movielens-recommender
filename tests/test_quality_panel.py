@@ -117,3 +117,20 @@ def test_panel_values_equal_the_json_files():
             assert shown["interval low"] == quality.fmt(source["ci_low"])
             assert shown["interval high"] == quality.fmt(source["ci_high"])
             assert shown["interval mean"] == quality.fmt(source["ci_mean"])
+
+    lead = quality.lead_paragraph(view["ml1m"]["models"], dataset="MovieLens 1M")
+    info = quality.rank_models(view["ml1m"]["models"])
+    best = info["best"]
+    assert quality.rounded(best["ndcg@10"]) in lead
+    assert quality.rounded(best["ci_low"]) in lead
+    assert quality.rounded(best["ci_high"]) in lead
+    assert quality.friendly_name(best["model"]) in lead
+    assert f"({best['model']})" not in lead
+    assert f"({info['second']['model']})" not in lead
+    assert quality.rounded(info["lead"]) in lead
+    chart = quality.chart_rows(view["ml1m"]["models"])
+    assert chart[0]["ndcg"] == view["ml1m"]["models"][0]["ndcg@10"]
+    assert any(row["best"] and row["model"] == best["model"] for row in chart)
+    assert quality.rounded(view["ml1m"]["models"][0]["ndcg@10"]) == format(
+        float(view["ml1m"]["models"][0]["ndcg@10"]), ".3f"
+    )

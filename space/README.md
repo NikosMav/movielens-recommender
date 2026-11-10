@@ -1,12 +1,8 @@
 # MovieLens recommender
 
-The public entrypoint opens the Astryx frontend for MovieLens ml-1m. Streamlit hosts the compiled component and scores requests with the same prebuilt snapshots as the original interface. The **Genre shelves, posters and evaluation** control opens that interface.
+The public entrypoint is one Streamlit page with three sections (ADR-0024). Discover is the cold start: search, a genre shelf, and ten picks. Explore a MovieLens user is an existing profile, with a checkbox that compares three models. How good is it? reads the committed `results/` JSON when the page opens.
 
-**Existing user.** Pick an ml-1m user. Candidates come from the validation-chosen retriever and LightGBM LambdaRank re-ranks them.
-
-**New user.** Pick genres and rate a few films on the cards. The list is the cold-start ranker. A title can also be found from one filtering list. The page does not ask for gender, age, occupation, or ZIP, and it does not show those attributes as reasons.
-
-**How good is it?** The headline NDCG figures are read from the committed `results/` JSON when the page opens.
+The page does not ask for gender, age, occupation, or ZIP, and it does not show those attributes as reasons.
 
 MovieLens ml-1m is downloaded from [GroupLens](https://grouplens.org/datasets/movielens/) when the app starts. This repository does not redistribute the ratings, the movie titles, or the user file. GroupLens and the University of Minnesota do not endorse this demo. Cite F. Maxwell Harper and Joseph A. Konstan. 2015. The MovieLens Datasets: History and Context. ACM Transactions on Interactive Intelligent Systems 5, 4, Article 19. DOI [10.1145/2827872](https://doi.org/10.1145/2827872).
 

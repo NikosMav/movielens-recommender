@@ -17,6 +17,9 @@ from __future__ import annotations
 
 import json
 import re
+import threading
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
@@ -26,8 +29,18 @@ TMDB_SEARCH_URL = "https://api.themoviedb.org/3/search/movie"
 TMDB_IMAGE_ROOT = "https://image.tmdb.org/t/p/w185"
 # One day. TMDB's terms forbid keeping API information for longer than 6 months.
 POSTER_CACHE_TTL_SECONDS = 24 * 60 * 60
+# Two searches in flight, then a short gap, so a shelf does not burst the API.
+MAX_IN_FLIGHT = 2
+MIN_GAP_SECONDS = 0.25
+MAX_ATTEMPTS = 4
+_TRANSIENT_SECONDS = 30
 _RESPONSE_LIMIT = 1_000_000
 _USER_AGENT = "movielens-recommender-demo"
+_RETRYABLE_HTTP = frozenset({429, 500, 502, 503, 504})
+_GATE = threading.BoundedSemaphore(MAX_IN_FLIGHT)
+_PACE_LOCK = threading.Lock()
+_NEXT_REQUEST_AT = 0.0
+_TRANSIENT_UNTIL: dict[tuple[str, int], float] = {}
 
 # Same trailing articles as ``display_title``. Longer tokens come first so
 # "An" is not consumed by "A", and "Les" is not consumed by "Le".
@@ -71,6 +84,51 @@ ATTRIBUTION_LINK = "https://www.themoviedb.org/"
 
 Opener = Callable[..., Any]
 
+_FIXTURE_ARTICLES = frozenset({"a", "an", "the"})
+
+
+def poster_hue(title: str) -> int:
+    """A stable hue. One changed character moves it, so neighbours do not match."""
+    value = 17
+    for char in str(title):
+        value = (value * 33 + ord(char)) & 0xFFFFFFFF
+    return value % 360
+
+
+def fixture_poster(title: str) -> str:
+    """A generated poster image for layout checks. No network and no TMDB call.
+
+    The caller decides when to use it. ``poster_url`` and ``lookup_poster``
+    never call this.
+    """
+    words = [
+        word
+        for word in re.findall(r"[A-Za-z0-9]+", title)
+        if word.casefold() not in _FIXTURE_ARTICLES
+    ]
+    if not words:
+        mark = "•"
+    elif len(words) == 1:
+        mark = words[0][:2].upper()
+    else:
+        mark = (words[0][0] + words[1][0]).upper()
+    hue = poster_hue(title)
+    hue_2 = (hue * 5 + 83) % 360
+    # Lightness stays at or below 30 so the initials stay readable on a light page.
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="360" viewBox="0 0 240 360">'
+        "<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>"
+        f"<stop offset='0' stop-color='hsl({hue} 38% 30%)'/>"
+        f"<stop offset='1' stop-color='hsl({hue_2} 44% 16%)'/>"
+        "</linearGradient></defs>"
+        "<rect width='240' height='360' fill='url(#g)'/>"
+        "<text x='120' y='196' text-anchor='middle' fill='#f7f4ff' "
+        "stroke='#140f22' stroke-width='2' paint-order='stroke' "
+        "font-family='Georgia, serif' font-size='72'>"
+        f"{mark}</text></svg>"
+    )
+    return "data:image/svg+xml," + urllib.parse.quote(svg)
+
 
 def poster_url(
     title: str,
@@ -78,6 +136,7 @@ def poster_url(
     api_key: str,
     *,
     opener: Opener | None = None,
+    sleeper: Callable[[float], None] | None = None,
 ) -> str | None:
     """Return a browser-loadable poster URL, or ``None`` for the placeholder.
 
@@ -85,21 +144,42 @@ def poster_url(
     points at ``image.tmdb.org`` and does not contain the API key. A missing
     or blank key returns before the opener is called.
     """
+    url, _definitive = lookup_poster(title, year, api_key, opener=opener, sleeper=sleeper)
+    return url
+
+
+def lookup_poster(
+    title: str,
+    year: int | None,
+    api_key: str,
+    *,
+    opener: Opener | None = None,
+    sleeper: Callable[[float], None] | None = None,
+) -> tuple[str | None, bool]:
+    """Return ``(url, definitive)``.
+
+    ``definitive`` is true when the API answered and there is no poster, or
+    when there is nothing to search. A rate limit or a network failure is
+    not definitive: the caller should try again later instead of storing a miss.
+    """
     key = (api_key or "").strip()
     if not key or not str(title).strip():
-        return None
+        return None, True
     queries = candidate_queries(title)
     keys = _match_keys(queries)
     if not queries or not keys:
-        return None
+        return None, True
     open_ = opener or _urlopen
+    pause = sleeper if sleeper is not None else (time.sleep if opener is None else _no_sleep)
     prefer = int(year) if year is not None else None
+    paced = opener is None
     for release_year in _year_attempts(prefer):
         for query in queries:
-            try:
-                payload = _search(query, release_year, key, open_)
-            except Exception:
-                return None
+            payload = _search_with_retries(
+                query, release_year, key, open_, pause, paced=paced
+            )
+            if payload is None:
+                return None, False
             path = _matching_poster_path(
                 keys,
                 payload,
@@ -107,8 +187,79 @@ def poster_url(
                 prefer_year=prefer,
             )
             if path is not None:
-                return TMDB_IMAGE_ROOT + path
+                return TMDB_IMAGE_ROOT + path, True
+    return None, True
+
+
+def transient_blocked(title: str, year_key: int) -> bool:
+    """True when this title failed recently and should not be requested again yet."""
+    until = _TRANSIENT_UNTIL.get((title, int(year_key)))
+    return until is not None and time.monotonic() < until
+
+
+def mark_transient(title: str, year_key: int) -> None:
+    """Remember a transient failure for a short window. Hits are not stored here."""
+    _TRANSIENT_UNTIL[(title, int(year_key))] = time.monotonic() + _TRANSIENT_SECONDS
+
+
+def _no_sleep(_seconds: float) -> None:
     return None
+
+
+def _search_with_retries(
+    title: str,
+    year: int | None,
+    api_key: str,
+    opener: Opener,
+    sleeper: Callable[[float], None],
+    *,
+    paced: bool,
+) -> dict[str, Any] | None:
+    """Try one query a few times. ``None`` means the ladder should stop."""
+    for attempt in range(MAX_ATTEMPTS):
+        try:
+            with _GATE:
+                if paced:
+                    _pace(sleeper)
+                return _search(title, year, api_key, opener)
+        except urllib.error.HTTPError as exc:
+            if exc.code not in _RETRYABLE_HTTP or attempt + 1 == MAX_ATTEMPTS:
+                return None
+            sleeper(_backoff(attempt, _retry_after(exc)))
+        except (TimeoutError, urllib.error.URLError, OSError):
+            if attempt + 1 == MAX_ATTEMPTS:
+                return None
+            sleeper(_backoff(attempt, None))
+    return None
+
+
+def _pace(sleeper: Callable[[float], None]) -> None:
+    global _NEXT_REQUEST_AT
+    with _PACE_LOCK:
+        now = time.monotonic()
+        wait = _NEXT_REQUEST_AT - now
+        _NEXT_REQUEST_AT = max(now, _NEXT_REQUEST_AT) + MIN_GAP_SECONDS
+    if wait > 0:
+        sleeper(wait)
+
+
+def _backoff(attempt: int, retry_after: float | None) -> float:
+    if retry_after is not None:
+        return min(max(retry_after, 0.0), 8.0)
+    return min(0.4 * (2**attempt), 8.0)
+
+
+def _retry_after(exc: urllib.error.HTTPError) -> float | None:
+    headers = getattr(exc, "headers", None)
+    if headers is None or not hasattr(headers, "get"):
+        return None
+    raw = headers.get("Retry-After")
+    if raw is None:
+        return None
+    try:
+        return float(str(raw).strip())
+    except ValueError:
+        return None
 
 
 def candidate_queries(title: str) -> list[str]:
