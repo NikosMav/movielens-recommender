@@ -655,7 +655,13 @@ def _viewer_result(
         )
         columns = st.columns(3)
         for column, (title, raw, col_key, cards) in zip(columns, blocks, strict=True):
-            liked_by_id = _liked_by_item(model, list(cards), history)
+            # Taste match is the two-tower list. Item–item closeness is not
+            # that model's signal, so those cards stay a title and a poster.
+            liked_by_id = (
+                {}
+                if raw == "two_tower"
+                else _liked_by_item(model, list(cards), history)
+            )
             with column, st.container(key=col_key):
                 st.markdown(f"### {title}")
                 st.caption(blurbs[raw])
@@ -670,6 +676,7 @@ def _viewer_result(
                         reason_limit=1,
                         genres_by_title=genres_by_title,
                         similar_titles=liked_by_id.get(int(card.get("item_id") or 0), []),
+                        show_line=raw != "two_tower",
                     )
 
 
@@ -732,6 +739,7 @@ def _recommendation(
     reason_limit: int = 2,
     genres_by_title: dict[str, str] | None = None,
     similar_titles: list[str] | None = None,
+    show_line: bool = True,
 ) -> None:
     from runtime import visible_details, visible_reasons
 
@@ -745,7 +753,7 @@ def _recommendation(
             similar_titles=similar_titles,
             candidate_title=str(card.get("title") or ""),
         )
-        if explain or kind == "compact"
+        if show_line and (explain or kind == "compact")
         else []
     )
     if not explain and kind != "compact":

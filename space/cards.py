@@ -755,6 +755,12 @@ def _theme_css() -> str:
   flex: 0 0 auto !important;
   min-width: 0 !important;
 }}
+.st-key-compare [data-testid="stHorizontalBlock"] {{
+  align-items: flex-start !important;
+}}
+.st-key-compare [class*="st-key-rec-"] {{
+  height: auto;
+}}
 .st-key-compare-switch {{
   display: none;
 }}
@@ -883,6 +889,12 @@ def _theme_css() -> str:
     width: 100% !important;
     flex: 1 1 100% !important;
     min-width: 0 !important;
+  }}
+  .st-key-starters [data-testid="stHorizontalBlock"] > [data-testid="stColumn"],
+  .st-key-tries [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {{
+    width: auto !important;
+    flex: 0 0 auto !important;
+    min-width: max-content !important;
   }}
   [data-testid="stVerticalBlock"].st-key-ticket {{
     position: static;
