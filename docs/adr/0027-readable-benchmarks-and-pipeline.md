@@ -9,13 +9,13 @@ Accepted.
 The quality page starts with a focused comparison of the full model,
 item similarity, two-tower retrieval, and popularity. The highest stored
 scoring model is always included, even if a future model wins outside that
-set. All recorded variants remain in an expandable comparison, and model
+set. All models from the existing comparison remain in an expandable chart, and model
 IDs and exact values remain in Detailed scores.
 
 Charts start at zero, use a labelled scale with headroom, and distinguish
 score dots from thin uncertainty whiskers. Their geometry uses the stored
 floating-point values; display labels round to three decimal places.
-The highest score is labelled as a stored point, without treating that label
+The highest score is labelled within the displayed comparison, without treating that label
 as a significance test. Overlapping ranges are described as overlapping.
 
 The pipeline diagram explains the four stages and uses live counts only when

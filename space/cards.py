@@ -1464,7 +1464,7 @@ def metric_chart_html(rows: list[dict], *, caption: str) -> str:
         parts.append(
             f'<div class="bar-row{best}" role="listitem" aria-label="{tip}">'
             f'<div class="bar-name">{label}'
-            + ('<span class="best-label">Highest stored score</span>' if best else '')
+            + ('<span class="best-label">Highest shown score</span>' if best else '')
             + '</div>'
             f'<div class="bar-track" title="{tip}" aria-hidden="true">'
             f'<span class="bar-fill" style="width:{width:.2f}%"></span>'

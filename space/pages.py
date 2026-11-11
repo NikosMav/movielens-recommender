@@ -341,7 +341,7 @@ def _dataset_block(title: str, models: list[dict[str, Any]], dataset: str, note:
     if len(overview) < len(models):
         with st.expander(f"Compare all {len(models)} models · {title}"):
             st.markdown(
-                metric_chart_html(chart_rows(models), caption="All recorded model variants."),
+                metric_chart_html(chart_rows(models), caption="All models in this comparison."),
                 unsafe_allow_html=True,
             )
 

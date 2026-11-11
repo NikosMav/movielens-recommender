@@ -278,7 +278,8 @@ def lead_paragraph(models: list[dict[str, Any]], *, dataset: str) -> str:
     best = info["best"]
     name = friendly_name(str(best["model"]))
     sentence = (
-        f"{name} has the highest stored score on {dataset}: {rounded(best['ndcg@10'])} "
+        f"On {dataset}, {name} has the highest score in this comparison: "
+        f"{rounded(best['ndcg@10'])} "
         f"(range {rounded(best['ci_low'])}–{rounded(best['ci_high'])})."
     )
     if info["second"] is None or info["lead"] is None:
