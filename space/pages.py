@@ -76,6 +76,7 @@ _BRAND = (
 
 
 def _sync_nav() -> None:
+    st.session_state["nav_scroll_pending"] = True
     slug = _SLUGS[str(st.session_state.get("nav") or "Discover")]
     if st.query_params.get("view") != slug:
         st.query_params["view"] = slug
@@ -140,15 +141,20 @@ def _discover_body(cold_path: str, api_key: str) -> None:
         unsafe_allow_html=True,
     )
     with st.container(key="workbench"):
-        browse, side = st.columns([1.7, 0.9], gap="medium")
+        side, browse = st.columns([0.9, 1.7], gap="medium")
+        with side:
+            with st.container(key="ticket"):
+                _ticket(ratings, by_id, cold_path, api_key)
         with browse:
             query = st.text_input(
                 "Search for a movie",
                 key="movie_query",
-                placeholder="Search for a movie",
+                placeholder="e.g. The Matrix, Toy Story, Fargo",
             )
-            st.caption(_cold_start_nudge())
-            st.caption("Or start from a few well-known films")
+            st.caption("Search the MovieLens 1M catalog: films released through 2000.")
+            st.caption(
+                "Or try a sample profile. This replaces your ratings with up to four 5-star films."
+            )
             _taste_sets(by_id)
             st.caption("Try a title")
             with st.container(key="starters"):
@@ -159,7 +165,7 @@ def _discover_body(cold_path: str, api_key: str) -> None:
                     )
             hits = rank_titles(query, records, ranks)
             if query.strip() and len(" ".join(query.split())) >= 2 and not hits:
-                st.caption("No title matches that search.")
+                st.caption("No match in this catalog. Try another title or browse a genre below.")
             if hits:
                 st.markdown("**Matches**")
                 with st.container(key="matches-frame"):
@@ -196,9 +202,6 @@ def _discover_body(cold_path: str, api_key: str) -> None:
                     )
             elif chosen:
                 st.caption("No films in the snapshot match those genres.")
-        with side:
-            with st.container(key="ticket"):
-                _ticket(ratings, by_id, cold_path, api_key)
 
     genres_by_title = {
         str(record["title"]): str(record.get("genres") or "") for record in records
@@ -381,7 +384,7 @@ def _taste_sets(by_id: dict[int, dict[str, Any]]) -> None:
     columns = st.columns(len(shown))
     for column, (label, ids) in zip(columns, shown, strict=True):
         column.button(
-            f"Rate {label}",
+            f"Try {label} sample",
             key=f"taste-{label}",
             on_click=_rate_taste,
             args=(ids, by_id),
@@ -389,7 +392,9 @@ def _taste_sets(by_id: dict[int, dict[str, Any]]) -> None:
 
 
 def _rate_taste(item_ids: list[int], by_id: dict[int, dict[str, Any]]) -> None:
-    rows = _ratings()
+    rows: list[dict[str, Any]] = []
+    for row in _ratings():
+        st.session_state.pop(f"rate-{int(row['item_id'])}", None)
     for item_id in item_ids:
         record = by_id.get(int(item_id))
         if record is None:
@@ -405,6 +410,10 @@ def _restore_shared_ratings(cold_path: str, by_id: dict[int, dict[str, Any]]) ->
         return
     st.session_state["share_restored"] = True
     from value import decode_ratings
+
+    mix = str(st.query_params.get("mix") or "0")
+    if mix in {"0", "1", "2", "3", "4"}:
+        st.session_state["familiarity"] = _FAMILIARITY[int(mix)]
 
     pairs = decode_ratings(str(st.query_params.get("ratings") or ""))
     rows: list[dict[str, Any]] = []
@@ -607,25 +616,27 @@ def _ticket(
     )
     if not ratings:
         st.caption("No ratings yet. They stay in this browser session.")
-    for row in ratings:
-        item_id = int(row["item_id"])
-        title = str(row["title"])
-        record = by_id.get(item_id, {})
-        with st.container(key=f"rated-{item_id}"):
-            st.markdown(
-                rated_line_html(
-                    title=title,
-                    rating=int(row["rating"]),
-                    poster_url=poster_for(title, record.get("year"), api_key),
-                ),
-                unsafe_allow_html=True,
-            )
-            st.button(
-                f"Remove {title}",
-                key=f"remove-{item_id}",
-                on_click=_remove_rating,
-                args=(item_id,),
-            )
+    if ratings:
+        with st.expander("Review or remove ratings"):
+            for row in ratings:
+                item_id = int(row["item_id"])
+                title = str(row["title"])
+                record = by_id.get(item_id, {})
+                with st.container(key=f"rated-{item_id}"):
+                    st.markdown(
+                        rated_line_html(
+                            title=title,
+                            rating=int(row["rating"]),
+                            poster_url=poster_for(title, record.get("year"), api_key),
+                        ),
+                        unsafe_allow_html=True,
+                    )
+                    st.button(
+                        f"Remove {title}",
+                        key=f"remove-{item_id}",
+                        on_click=_remove_rating,
+                        args=(item_id,),
+                    )
     remaining = _MIN_RATINGS - len(ratings)
     if remaining == 1:
         st.caption("Rate 1 more film to get picks.")
@@ -688,14 +699,14 @@ def _picks(
     if stale and len(ratings) < _MIN_RATINGS:
         st.warning("These picks need at least 3 ratings. Add a film to refresh them.")
     elif stale:
-        st.warning(
-            "These picks used your earlier ratings. Update picks to match the list above."
-        )
-    else:
-        method = str(stored.get("method") or "")
-        st.caption(
-            plain_method(method) if method else "Ranked from the films you rated."
-        )
+        st.warning("These picks used your earlier ratings. Update picks to match the list above.")
+    if stale:
+        if st.button("Refresh my picks", type="primary", disabled=len(ratings) < _MIN_RATINGS):
+            _score(cold_path, ratings, by_id)
+            st.rerun(scope="fragment")
+        return
+    method = str(stored.get("method") or "")
+    st.caption(plain_method(method) if method else "Ranked from the films you rated.")
     if st.session_state.get("scroll_nonce") != st.session_state.get("picks_nonce"):
         st.session_state["scroll_nonce"] = st.session_state.get("picks_nonce")
         components.html(scroll_script(), height=0)
@@ -724,7 +735,7 @@ def _picks(
         hide_unrated=stale,
         history=history,
     )
-    _pick_tools(records, ranks, ratings, pipeline)
+    _pick_tools(records, ranks, ratings, pipeline, shown)
     _live_funnel(pipeline)
     sentence = str(stored.get("method_sentence") or "")
     if sentence:
@@ -977,6 +988,10 @@ def _recommendation(
         shown = []
     if not explain and kind != "compact":
         shown = []
+    if history is not None:
+        from value import qualify_likes
+
+        shown = qualify_likes(shown, {title for _item, title, stars in history if stars >= 4})
     if hide_unrated and shown:
         from value import cites_unrated
 
@@ -1091,7 +1106,9 @@ def _liked_by_item(
 
     if model is None or not history or not hasattr(model, "neighbor_similarities"):
         return {}
-    pool = [row for row in history if float(row[2]) >= 3.0] or list(history)
+    pool = [row for row in history if float(row[2]) >= 4.0]
+    if not pool:
+        return {}
     ids = [item_id for item_id, _title, _rating in pool]
     found: dict[int, list[tuple[str, float]]] = {}
     for card in cards:
@@ -1235,8 +1252,9 @@ def _pick_tools(
     ranks: dict[int, int],
     ratings: list[dict[str, Any]],
     pipeline: dict[str, Any] | None,
+    shown: list[dict[str, Any]],
 ) -> None:
-    from value import encode_ratings, why_not
+    from value import share_url, why_not
 
     field, action = st.columns([3, 1], vertical_alignment="bottom")
     with field:
@@ -1246,25 +1264,32 @@ def _pick_tools(
             placeholder="e.g. Titanic",
         )
     with action:
-        copied = st.button("Copy link", disabled=not ratings, key="copy-link")
-    if copied and ratings:
-        encoded = encode_ratings(
-            [(int(row["item_id"]), int(row["rating"])) for row in ratings]
+        share_open = st.checkbox("Share these picks", key="share-picks")
+    if share_open:
+        pairs = [(int(row["item_id"]), int(row["rating"])) for row in ratings]
+        link = share_url(st.context.url or "", pairs, mix=round(_adventurous_value() * 4))
+        st.caption(
+            "Copy this link with the copy button on the code box. It includes your ratings "
+            "and slider setting. Anyone with the link can see them."
         )
-        st.query_params["view"] = "discover"
-        st.query_params["ratings"] = encoded
-        base = (st.context.url or "").rstrip("?")
-        share = f"view=discover&ratings={encoded}"
-        link = f"{base}?{share}" if base else f"?{share}"
-        st.caption("Link copied")
         st.code(link, language=None)
     if len(" ".join(str(query).split())) < 2:
         return
-    hits = rank_titles(query, records, ranks, limit=1)
+    hits = rank_titles(query, records, ranks, limit=10)
     if not hits:
         st.caption("No title matches that search.")
         return
-    hit = hits[0]
+    hit_id = st.selectbox(
+        "Which film?",
+        [int(hit["item_id"]) for hit in hits],
+        format_func=lambda item: next(
+            f"{hit['title']} ({hit.get('year') or 'year unknown'})"
+            for hit in hits
+            if int(hit["item_id"]) == item
+        ),
+        key="why-not-film",
+    )
+    hit = next(hit for hit in hits if int(hit["item_id"]) == hit_id)
     ranked = [] if not pipeline else [int(item) for item in pipeline.get("ranked_ids") or []]
     rated_ids = {int(row["item_id"]) for row in ratings}
     st.markdown(
@@ -1273,6 +1298,8 @@ def _pick_tools(
             item_id=int(hit["item_id"]),
             rated_ids=rated_ids,
             ranked_ids=ranked,
+            shown_ids=[int(card["item_id"]) for card in shown],
+            adjusted=_adventurous_value() > 0,
         )
     )
 
@@ -1326,9 +1353,9 @@ def _evidence_html(
 ) -> str:
     if not shown or not shown[0].startswith("Because you liked ") or not history:
         return ""
-    named = shown[0].removeprefix("Because you liked ").split(" and ", 1)[0]
+    named = shown[0].removeprefix("Because you liked ")
     for _item_id, title, _rating in history:
-        if title != named:
+        if title != named and not named.startswith(title + " and "):
             continue
         return poster_html(
             title,

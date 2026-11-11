@@ -10,12 +10,13 @@ import sys
 from pathlib import Path
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 _SPACE_DIR = Path(__file__).resolve().parent
 if str(_SPACE_DIR) not in sys.path:
     sys.path.insert(0, str(_SPACE_DIR))
 
-from cards import THEME_CSS, footer_html, load_logo_svg  # noqa: E402
+from cards import THEME_CSS, footer_html, load_logo_svg, section_scroll_script  # noqa: E402
 from loading import (  # noqa: E402
     resolve_snapshots,
     tmdb_api_key,
@@ -95,6 +96,8 @@ def main() -> None:
         else:
             render_quality()
     _footer(api_key)
+    if st.session_state.pop("nav_scroll_pending", False):
+        components.html(section_scroll_script(), height=0)
 
 
 main()

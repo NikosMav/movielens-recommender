@@ -5,7 +5,11 @@ uses the new-user model and keeps ratings in page memory. Model Lab uses an
 existing profile from the production snapshot to show the recent training
 ratings and three ranked lists.
 
-## Build for Streamlit Cloud
+## Archived Streamlit component build
+
+The public demo now uses the native Streamlit page in `space/app.py` and
+`space/pages.py` (ADR-0024). It does not mount this Astryx component. The
+standalone React frontend remains available for the local FastAPI service.
 
 Run the following from this directory after installing dependencies.
 
@@ -14,9 +18,8 @@ npm run build:streamlit
 ```
 
 Commit the generated bundle in `space/astryx_ui` alongside source changes.
-Streamlit Cloud serves that build from the Python entrypoint and handles movie
-requests over the Streamlit component connection. CI verifies that the bundle
-matches its source. The separate local build uses FastAPI.
+`space/astryx_app.py` contains the optional component bridge. CI verifies that
+the archived bundle matches its source. The separate local build uses FastAPI.
 
 ## Run locally
 

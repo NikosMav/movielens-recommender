@@ -142,6 +142,12 @@ def test_failed_poster_image_does_not_retry():
     assert 'referrerpolicy="no-referrer"' in html
 
 
+def test_missing_evidence_poster_keeps_its_thumbnail_size_class():
+    cards = _load("cards")
+    html = cards.poster_html("Toy Story", None, extra_class="evidence-thumb")
+    assert 'class="poster evidence-thumb placeholder"' in html
+
+
 def test_results_table_script_does_not_rewrite_the_engineering_section():
     spec = importlib.util.spec_from_file_location(
         "make_results_table_prefix", ROOT / "scripts" / "make_results_table.py"

@@ -306,6 +306,11 @@ GitHub Actions runs ruff and pytest on Python 3.10 and 3.12 with the CPU PyTorch
 
 Work landed in stages. Each decision has an ADR in `docs/adr/`. Experiments were registered before they ran. Reported numbers come from the committed `results/*.json` files, and the Results section below is generated from those files. GitHub Actions runs the tests before a change merges.
 
+The [demo review](docs/reviews/2026-11-11-demo-review.md) records comparisons with
+other movie discovery tools, two interface review rounds, and a saved-snapshot
+probe of what the adventurous slider changes. Those behavioral checks are
+separate from the offline ranking metrics.
+
 ## License and data terms
 
 The code is MIT ([LICENSE](LICENSE)). The MovieLens data is not included: the scripts download it, and it stays under the [GroupLens terms of use](https://grouplens.org/datasets/movielens/) for every dataset used here, ml-32M included. The Community Cloud app downloads ml-1m the same way and does not commit it (ADR-0020).

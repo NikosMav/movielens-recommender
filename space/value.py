@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from typing import Any
+from urllib.parse import urlencode, urlsplit, urlunsplit
 
 import numpy as np
 
@@ -34,8 +35,7 @@ def neighbour_caption(source: str) -> str:
         return "Nearest films in the two-tower item embeddings."
     if source == "item–item similarity":
         return (
-            "Nearest films by item–item similarity. "
-            "Item embeddings were not in the loaded weights."
+            "Nearest films by item–item similarity. Item embeddings were not in the loaded weights."
         )
     return "No similar films were available."
 
@@ -278,23 +278,34 @@ def why_not(
     rated_ids: set[int],
     ranked_ids: Sequence[int],
     top_n: int = 10,
+    shown_ids: Sequence[int] | None = None,
+    adjusted: bool = False,
 ) -> str:
     """Where one film sat in the candidate list this request actually scored."""
     name = " ".join(str(title).split()) or "This film"
     if int(item_id) in rated_ids:
         return f"{name} is already in your ratings, so the list leaves it out."
+    if shown_ids is not None and int(item_id) in shown_ids:
+        position = list(shown_ids).index(int(item_id)) + 1
+        return f"{name} is number {position} in the list you are viewing."
+    adjustment = (
+        f"{name} is not in the list you are viewing. "
+        "The slider changes the selection from the retrieved candidates. "
+        if adjusted
+        else ""
+    )
     try:
         rank = list(ranked_ids).index(int(item_id)) + 1
     except ValueError:
-        return f"{name} was not among the candidates retrieved for this list."
+        return adjustment + f"{name} was not among the candidates retrieved for this list."
     total = len(list(ranked_ids))
     if rank <= int(top_n):
         return (
-            f"{name} is rank {rank} of {total} candidates. "
+            adjustment + f"{name} is rank {rank} of {total} candidates before slider adjustment. "
             f"The measured model places it in the top {int(top_n)}."
         )
     return (
-        f"{name} is rank {rank} of {total} candidates, "
+        adjustment + f"{name} is rank {rank} of {total} candidates before slider adjustment, "
         f"below the top {int(top_n)}."
     )
 
@@ -309,6 +320,17 @@ def encode_ratings(pairs: Sequence[tuple[int, int]]) -> str:
             raise ValueError("ratings are positive movie ids and stars from 1 to 5")
         parts.append(f"{item}-{score}")
     return ".".join(parts)
+
+
+def share_url(base_url: str, pairs: Sequence[tuple[int, int]], *, mix: int = 0) -> str:
+    """One public URL, including a reproducible slider setting and no stale query."""
+    if mix not in range(5):
+        raise ValueError("mix must be an integer from 0 to 4")
+    parsed = urlsplit(base_url)
+    # Community Cloud runs the app inside a /~/+/ iframe. Share the public page.
+    path = parsed.path.split("/~/", 1)[0] or "/"
+    params = {"view": "discover", "ratings": encode_ratings(pairs), "mix": str(mix)}
+    return urlunsplit((parsed.scheme, parsed.netloc, path, urlencode(params), ""))
 
 
 def decode_ratings(text: str) -> list[tuple[int, int]]:
@@ -336,12 +358,27 @@ def cites_unrated(line: str, rated_titles: set[str]) -> bool:
     prefix = "Because you liked "
     if line.startswith(prefix):
         named = line[len(prefix) :]
-        parts = named.rsplit(" and ", 1) if " and " in named else [named]
-        return any(part not in rated_titles for part in parts)
+        if named in rated_titles:
+            return False
+        return not any(
+            named.startswith(title + " and ") and named[len(title) + 5 :] in rated_titles
+            for title in rated_titles
+        )
     marker = " with "
     if marker in line:
         return line.rsplit(marker, 1)[1] not in rated_titles
     return False
+
+
+def qualify_likes(lines: Sequence[str], liked_titles: set[str]) -> list[str]:
+    """A low rating establishes that a film was rated, not that it was liked."""
+    prefix = "Because you liked "
+    return [
+        "Similar to films you rated: " + line[len(prefix) :]
+        if line.startswith(prefix) and cites_unrated(line, liked_titles)
+        else line
+        for line in lines
+    ]
 
 
 def funnel_steps(pipeline: Mapping[str, Any] | None) -> list[dict[str, str]]:
