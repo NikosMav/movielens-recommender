@@ -151,3 +151,25 @@ pages._pick_tools([], {}, [{"item_id": 1, "rating": 5}], None, [])
     assert "mix=0" in app.code[0].value
     assert "ratings" not in app.query_params
     assert not any("Link copied" in caption.value for caption in app.caption)
+
+
+def test_missing_candidate_trace_does_not_offer_an_ineffective_slider():
+    app = _app('''
+import pages
+pages._list_controls([], "", can_adjust=False)
+''')
+    assert not app.exception
+    assert not app.slider
+    assert not app.select_slider
+    assert "cannot be adjusted" in app.caption[0].value
+
+
+def test_missing_candidate_trace_does_not_invent_a_why_not_answer():
+    app = _app('''
+import pages
+pages._pick_tools([], {}, [{"item_id": 1, "rating": 5}], None, [])
+''')
+    app.text_input[0].set_value("Toy Story").run()
+    assert not app.exception
+    assert any("Candidate details are unavailable" in caption.value for caption in app.caption)
+    assert not any("not among the candidates" in mark.value for mark in app.markdown)
