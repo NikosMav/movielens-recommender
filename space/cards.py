@@ -133,7 +133,7 @@ def _theme_css() -> str:
   margin-bottom: 0.5rem;
   {_line("border-bottom", light["border"], dark["border"])}
 }}
-.brand {{
+.stApp a.brand {{
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
@@ -333,12 +333,15 @@ def _theme_css() -> str:
   align-items: center;
   gap: 0.45rem;
 }}
-.because-line .poster.evidence-thumb {{
+.pick .because-line .poster.evidence-thumb {{
   width: 28px;
+  min-width: 28px;
+  max-width: 28px;
   height: 42px;
   flex: 0 0 28px;
   object-fit: cover;
   border-radius: 3px;
+  font-size: 0.65rem;
 }}
 .neighbour-grid {{
   display: grid;
@@ -852,7 +855,10 @@ def _theme_css() -> str:
   width: 100%;
   box-sizing: border-box;
 }}
-.st-key-workbench [data-testid="stColumn"]:last-child
+.st-key-workbench [data-testid="stColumn"]:has(.st-key-ticket) {{
+  order: 2;
+}}
+.st-key-workbench [data-testid="stColumn"]:has(.st-key-ticket)
   [data-testid="stLayoutWrapper"]:has(> .st-key-ticket) {{
   flex: 1 1 auto !important;
   align-items: flex-start !important;
@@ -969,6 +975,19 @@ def _theme_css() -> str:
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }}
 }}
+@container gridframe (max-width: 480px) {{
+  [data-testid="stVerticalBlock"].st-key-shelf,
+  [data-testid="stVerticalBlock"].st-key-matches {{
+    grid-template-columns: minmax(0, 1fr);
+  }}
+  .pick-poster {{ flex-direction: row; }}
+  .pick-poster .poster,
+  .pick-poster .poster.placeholder {{
+    width: 76px;
+    height: 114px;
+    flex: 0 0 76px;
+  }}
+}}
 @container gridframe (min-width: 920px) {{
   [data-testid="stVerticalBlock"].st-key-shelf,
   [data-testid="stVerticalBlock"].st-key-matches {{
@@ -1016,7 +1035,7 @@ def _theme_css() -> str:
   .st-key-topbar [data-testid="stRadio"] div[role="radiogroup"] {{
     justify-content: flex-start;
   }}
-  .st-key-viewer-bar [data-testid="stHorizontalBlock"] {{ flex-wrap: nowrap !important; }}
+  .st-key-viewer-bar [data-testid="stHorizontalBlock"] {{ flex-wrap: wrap !important; }}
   .st-key-viewer-bar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {{
     width: 11.5rem !important;
     min-width: 11.5rem !important;
@@ -1027,6 +1046,9 @@ def _theme_css() -> str:
     width: 100% !important;
     flex: 1 1 100% !important;
     min-width: 0 !important;
+  }}
+  .st-key-workbench [data-testid="stColumn"]:has(.st-key-ticket) {{
+    order: 0;
   }}
   .st-key-starters [data-testid="stHorizontalBlock"] > [data-testid="stColumn"],
   .st-key-tries [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {{
@@ -1041,7 +1063,7 @@ def _theme_css() -> str:
     max-height: none !important;
   }}
   .intro {{ grid-template-columns: minmax(0, 1fr); }}
-  .intro-art {{ order: -1; }}
+  .intro-art {{ display: none; }}
   .bar-row {{ grid-template-columns: minmax(0, 1fr) auto; }}
   [data-testid="stLayoutWrapper"]:has(> .st-key-topbar) {{ z-index: 60; }}
   .st-key-ticket,
@@ -1073,6 +1095,14 @@ def _theme_css() -> str:
 
 
 THEME_CSS = _theme_css()
+
+
+def section_scroll_script() -> str:
+    """A section change starts at its beginning, even after a long pick list."""
+    return """<script>
+const main = window.parent.document.querySelector('[data-testid="stMain"]');
+if (main) main.scrollTo({top: 0, behavior: "auto"});
+</script>"""
 
 PITCH = (
     "Rate three films you've seen. MovieLens will find ten to try and say why they made the list."
@@ -1124,14 +1154,14 @@ def hero_html() -> str:
 
 def poster_html(title: str, poster_url: str | None, *, extra_class: str = "") -> str:
     """An ``<img>`` for a URL, or initials on a gradient. Neither path reads image bytes."""
+    classes = "poster" + (f" {extra_class}" if extra_class else "")
     if poster_url:
         src = html.escape(poster_url, quote=True)
         alt = html.escape(title, quote=True)
-        classes = "poster" + (f" {extra_class}" if extra_class else "")
         # A failed load drops its src once. The browser does not request it again.
         return (
             f'<img class="{classes}" alt="" data-title="{alt}" width="76" height="114" '
-            f'referrerpolicy="no-referrer" src="{src}" '
+            f'loading="lazy" decoding="async" referrerpolicy="no-referrer" src="{src}" '
             "onerror=\"this.onerror=null;this.removeAttribute('src');"
             "this.classList.add('is-broken');\">"
         )
@@ -1140,7 +1170,7 @@ def poster_html(title: str, poster_url: str | None, *, extra_class: str = "") ->
     hue_b = (hue * 5 + 83) % 360
     mark = html.escape(initials(title))
     return (
-        f'<div class="poster placeholder" role="img" aria-label="No poster for {label}" '
+        f'<div class="{classes} placeholder" role="img" aria-label="No poster for {label}" '
         f'style="--poster-hue:{hue};--poster-hue-b:{hue_b}"><span>{mark}</span></div>'
     )
 
