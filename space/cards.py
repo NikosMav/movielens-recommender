@@ -9,6 +9,7 @@ declared first for a browser that does not understand ``light-dark()``.
 from __future__ import annotations
 
 import html
+import math
 import os
 import re
 from pathlib import Path
@@ -293,23 +294,66 @@ def _theme_css() -> str:
   background: {light["kicker"]};
   background: light-dark({light["kicker"]}, {dark["kicker"]});
 }}
-.chart {{ margin: 0.75rem 0 1.25rem; }}
-.bar-row {{
-  display: grid;
-  grid-template-columns: minmax(0, 13rem) minmax(0, 1fr) auto;
-  gap: 0.55rem;
+.ui-icon {{
+  width: 1.35rem;
+  height: 1.35rem;
+  flex: 0 0 auto;
+  vertical-align: -0.18em;
+  {_paint("color", light["kicker"], dark["kicker"])}
+}}
+.icon-heading {{ display: flex; align-items: center; gap: 0.65rem; }}
+.icon-heading [data-heading-text] {{
+  display: inline-flex;
   align-items: center;
-  margin: 0.45rem 0;
+  gap: 0.65rem;
+}}
+.icon-heading .ui-icon {{ width: 1.5rem; height: 1.5rem; }}
+.benchmark-summary {{ max-width: 75ch; line-height: 1.6; }}
+.chart {{ margin: 1rem 0 1.75rem; max-width: 66rem; }}
+.chart-legend {{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  align-items: center;
+  margin-bottom: 0.65rem;
+  font-size: 0.82rem;
+  {_paint("color", light["meta"], dark["meta"])}
+}}
+.chart-legend span {{ display: inline-flex; align-items: center; gap: 0.35rem; }}
+.chart-legend .ui-icon {{ width: 1.2rem; height: 1.2rem; }}
+.chart-legend .legend-range .ui-icon {{
+  {_paint("color", light["ink"], dark["ink"])}
+}}
+.chart-axis, .bar-row {{
+  display: grid;
+  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr) 4rem;
+  column-gap: 1rem;
+}}
+.chart-axis {{ font-size: 0.75rem; {_paint("color", light["meta"], dark["meta"])} }}
+.axis-ticks {{ display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }}
+.bar-row {{
+  align-items: center;
+  padding: 0.75rem 0;
+  {_line("border-bottom", light["border"], dark["border"])}
   min-width: 0;
 }}
 .bar-row.is-best .bar-name {{ font-weight: 700; }}
+.best-label {{
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  {_paint("color", light["kicker"], dark["kicker"])}
+}}
 .bar-name {{
   min-width: 0;
   overflow-wrap: anywhere;
+  font-size: 0.95rem;
+  line-height: 1.4;
   {_paint("color", light["ink"], dark["ink"])}
 }}
-.chart-group {{
-  margin: 0.9rem 0 0.15rem;
+.stApp .chart .chart-group {{
+  margin: 1.1rem 0 0.15rem;
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -361,37 +405,45 @@ def _theme_css() -> str:
   display: flex;
   flex-wrap: nowrap;
   align-items: stretch;
-  gap: 0.35rem;
-  margin: 0.4rem 0 0.8rem;
+  gap: 0.75rem;
+  margin: 1rem 0 1.25rem;
   padding: 0;
   list-style: none;
 }}
-.funnel-step {{
+.stApp .funnel > .funnel-step {{
   flex: 1 1 0;
   margin: 0;
-  padding: 0.55rem 0.65rem;
-  border-radius: 8px;
+  padding: 1rem;
+  border-radius: 10px;
+  min-width: 0;
+  overflow-wrap: anywhere;
   background: {light["card"]};
   background: light-dark({light["card"]}, {dark["card"]});
   {_line("border", light["border"], dark["border"])}
 }}
-.funnel-arrow {{
+.stApp .funnel > .funnel-arrow {{
   flex: 0 0 auto;
   align-self: center;
   margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
-  font-size: 1.15rem;
-  line-height: 1;
   {_paint("color", light["kicker"], dark["kicker"])}
 }}
-.funnel strong {{ display: block; font-size: 0.95rem; }}
-.funnel-step span {{
-  display: block;
-  margin-top: 0.15rem;
-  font-size: 0.85rem;
+.funnel-heading {{ display: flex; align-items: center; gap: 0.5rem; }}
+.funnel strong {{ font-size: 1rem; line-height: 1.3; }}
+.stApp .funnel .funnel-description {{
+  margin: 0.65rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
   {_paint("color", light["meta"], dark["meta"])}
+}}
+.stApp .funnel .funnel-count {{
+  margin: 0.6rem 0 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  {_paint("color", light["kicker"], dark["kicker"])}
 }}
 .latency {{
   margin: 0.15rem 0;
@@ -459,45 +511,76 @@ def _theme_css() -> str:
 }}
 .bar-track {{
   position: relative;
-  height: 0.85rem;
-  border-radius: 99px;
-  background: {light["card"]};
-  background: light-dark({light["card"]}, {dark["card"]});
-  {_line("border", light["border"], dark["border"])}
+  height: 1.5rem;
   overflow: visible;
 }}
+.bar-track::before {{
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  height: 8px;
+  border-radius: 99px;
+  {_paint("background", light["border"], dark["border"])}
+  opacity: 0.2;
+}}
 .bar-fill {{
+  position: absolute;
+  top: 8px;
+  left: 0;
   display: block;
-  height: 100%;
+  height: 8px;
   border-radius: 99px;
   background: {light["kicker"]};
   background: light-dark({light["kicker"]}, {dark["kicker"]});
+  opacity: 0.4;
 }}
-.bar-row.is-best .bar-fill {{
-  background: {light["ink"]};
-  background: light-dark({light["ink"]}, {dark["kicker"]});
-}}
+.bar-row.is-best .bar-fill {{ opacity: 0.85; }}
 .bar-ci {{
   position: absolute;
-  top: -7px;
-  height: calc(100% + 14px);
-  min-width: 8px;
-  background: #111111;
-  background: light-dark(#111111, #ffe08a);
-  border-radius: 2px;
-  box-shadow: 0 0 0 2px #ffffff;
-  box-shadow: 0 0 0 2px light-dark(#ffffff, #13111a);
+  top: 11px;
+  height: 2px;
+  {_paint("background", light["ink"], dark["ink"])}
   z-index: 2;
   pointer-events: none;
+}}
+.bar-ci::before, .bar-ci::after {{
+  content: "";
+  position: absolute;
+  top: -4px;
+  height: 10px;
+  width: 2px;
+  background: inherit;
+}}
+.bar-ci::before {{ left: 0; }}
+.bar-ci::after {{ right: 0; }}
+.bar-point {{
+  position: absolute;
+  top: 7px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  {_paint("background", light["kicker"], dark["kicker"])}
+  z-index: 3;
 }}
 .bar-value {{
   font-variant-numeric: tabular-nums;
   font-weight: 700;
+  text-align: right;
   {_paint("color", light["ink"], dark["ink"])}
 }}
 .chart-note, .score-detail p {{
   {_paint("color", light["pitch"], dark["pitch"])}
   font-size: 0.9rem;
+}}
+.stApp .chart .chart-note {{
+  margin: 0.65rem 0 0;
+  max-width: 75ch;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  {_paint("color", light["meta"], dark["meta"])}
 }}
 .score-detail {{
   padding: 0.65rem 0;
@@ -1089,16 +1172,19 @@ def _theme_css() -> str:
   }}
   .intro {{ grid-template-columns: minmax(0, 1fr); }}
   .intro-art {{ display: none; }}
-  .bar-row {{ grid-template-columns: minmax(0, 1fr) auto; }}
+  .bar-row {{ grid-template-columns: minmax(0, 1fr) auto; row-gap: 0.25rem; }}
+  .bar-track {{ grid-column: 1 / -1; grid-row: 2; }}
+  .bar-value {{ grid-column: 2; grid-row: 1; }}
+  .chart-axis {{ display: block; }}
   [data-testid="stLayoutWrapper"]:has(> .st-key-topbar) {{ z-index: 60; }}
   .st-key-ticket,
   [data-testid="stVerticalBlock"].st-key-ticket {{ z-index: 0 !important; }}
   .funnel {{ flex-direction: column; align-items: stretch; }}
-  .funnel-step {{ flex: 1 1 auto; }}
+  .stApp .funnel > .funnel-step {{ flex: 1 1 auto; }}
   .funnel-arrow {{ transform: rotate(90deg); align-self: center; }}
   .neighbour-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
   .because-line {{ align-items: flex-start; }}
-  .bar-name {{ grid-column: 1 / -1; }}
+  .bar-name {{ grid-column: 1; }}
   .st-key-compare-switch {{ display: block; }}
   .st-key-compare [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {{
     display: none !important;
@@ -1284,31 +1370,75 @@ def neighbour_grid_html(films: list[dict]) -> str:
     return f'<div class="neighbour-grid">{"".join(cells)}</div>'
 
 
+_ICONS = {
+    "film": '<rect x="3" y="3" width="18" height="18" rx="2"/>'
+            '<path d="M7 3v18M17 3v18M3 8h4M3 16h4M17 8h4M17 16h4"/>',
+    "search": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
+    "rank": '<path d="M4 5h16M4 12h11M4 19h6M18 10v10m-3-3 3 3 3-3"/>',
+    "list": '<path d="m3 6 1.5 1.5L7 5M10 6h11M3 13l1.5 1.5L7 12M10 13h11M3 20h4M10 20h11"/>',
+    "chart": '<path d="M4 3v18h17M8 16v-5M13 16V7M18 16V4"/>',
+    "star": '<path d="m12 3 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3'
+            'L12 17.4l-5.6 3 1.1-6.3L2.9 9.6l6.3-.9z"/>',
+    "users": '<circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3'
+             'M16 4a3 3 0 0 1 0 6M21 21v-3a6 6 0 0 0-4-5.7"/>',
+    "compass": '<circle cx="12" cy="12" r="9"/><path d="m16 8-2.5 5.5L8 16l2.5-5.5z"/>',
+    "route": '<circle cx="5" cy="5" r="2"/><circle cx="19" cy="19" r="2"/>'
+             '<path d="M7 5h10a4 4 0 0 1 0 8H7a4 4 0 0 0 0 8h5"/>',
+    "history": '<path d="M3 4v5h5M3.5 9a9 9 0 1 1-.2 5M12 7v5l3 2"/>',
+    "arrow": '<path d="M4 12h16m-6-6 6 6-6 6"/>',
+    "score": '<circle cx="12" cy="12" r="3" fill="currentColor"/>',
+    "range": '<path d="M3 12h18M3 7v10M21 7v10"/>',
+}
+
+
+def icon_html(name: str) -> str:
+    """Decorative icons share one stroke and inherit the active palette."""
+    return (
+        '<svg class="ui-icon" viewBox="0 0 24 24" width="24" height="24" '
+        'fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" '
+        f'stroke-linejoin="round" aria-hidden="true" focusable="false">{_ICONS[name]}</svg>'
+    )
+
+
 def funnel_html(steps: list[dict[str, str]]) -> str:
-    """Boxes and arrows. Counts are the ones the caller passed in."""
+    """An explained process. Counts are shown only when supplied by the caller."""
     items: list[str] = []
+    icons = ("film", "search", "rank", "list")
     for index, step in enumerate(steps):
         if index:
-            items.append('<li class="funnel-arrow" aria-hidden="true"><span>→</span></li>')
+            items.append(f'<li class="funnel-arrow" aria-hidden="true">{icon_html("arrow")}</li>')
+        detail = str(step.get("detail") or "")
+        count = f'<p class="funnel-count">{html.escape(detail)}</p>' if detail else ""
         items.append(
             '<li class="funnel-step">'
-            f"<strong>{html.escape(step.get('name') or '')}</strong>"
-            f"<span>{html.escape(step.get('detail') or '')}</span>"
+            f'<div class="funnel-heading">{icon_html(icons[min(index, 3)])}'
+            f"<strong>{html.escape(step.get('name') or '')}</strong></div>"
+            f'<p class="funnel-description">{html.escape(step.get("description") or "")}</p>'
+            f"{count}"
             "</li>"
         )
     return f'<ol class="funnel">{"".join(items)}</ol>'
 
 
 def metric_chart_html(rows: list[dict], *, caption: str) -> str:
-    """Bars and error whiskers from stored floats. Labels are those floats, rounded."""
+    """Zero-based bars, score dots, and thin interval whiskers from stored floats."""
     if not rows:
         return ""
-    scale = max(max(float(row["high"]), float(row["ndcg"])) for row in rows)
-    if scale <= 0:
-        scale = 1.0
+    highest = max(max(float(row["high"]), float(row["ndcg"])) for row in rows)
+    scale = max(0.05, math.ceil(highest / 0.05) * 0.05)
+    divisions = round(scale / 0.05) if scale <= 0.2 else 4
+    ticks = "".join(
+        f"<span>{scale * index / divisions:.3f}</span>" for index in range(divisions + 1)
+    )
     parts = [
-        '<div class="chart" role="img" '
-        'aria-label="NDCG at 10 for each model, with the stored uncertainty range">'
+        '<figure class="chart">'
+        '<figcaption class="chart-legend">'
+        '<span>Ranking score · higher is better</span>'
+        f'<span class="legend-score">{icon_html("score")}Score</span>'
+        f'<span class="legend-range">{icon_html("range")}Uncertainty range</span></figcaption>'
+        f'<div class="chart-axis" aria-hidden="true"><span></span>'
+        f'<div class="axis-ticks">{ticks}</div><span></span></div>'
+        '<div role="list" aria-label="Model ranking scores">'
     ]
     last_group = None
     for row in rows:
@@ -1324,7 +1454,6 @@ def metric_chart_html(rows: list[dict], *, caption: str) -> str:
         right = max(0.0, min(100.0, high / scale * 100.0))
         best = " is-best" if row.get("best") else ""
         label = html.escape(str(row["label"]))
-        raw = html.escape(str(row["model"]))
         value = format(ndcg, ".3f")
         low_s = format(low, ".3f")
         high_s = format(high, ".3f")
@@ -1333,17 +1462,23 @@ def metric_chart_html(rows: list[dict], *, caption: str) -> str:
             quote=True,
         )
         parts.append(
-            f'<div class="bar-row{best}">'
-            f'<div class="bar-name">{label} <span class="bar-id">{raw}</span></div>'
-            f'<div class="bar-track" title="{tip}">'
+            f'<div class="bar-row{best}" role="listitem" aria-label="{tip}">'
+            f'<div class="bar-name">{label}'
+            + ('<span class="best-label">Highest shown score</span>' if best else '')
+            + '</div>'
+            f'<div class="bar-track" title="{tip}" aria-hidden="true">'
             f'<span class="bar-fill" style="width:{width:.2f}%"></span>'
             '<span class="bar-ci" style="left:'
             f'{left:.2f}%;width:{max(0.0, right - left):.2f}%"></span>'
+            f'<span class="bar-point" style="left:{width:.2f}%"></span>'
             "</div>"
             f'<div class="bar-value">{value}</div>'
             "</div>"
         )
-    parts.append(f'<p class="chart-note">{html.escape(caption)}</p></div>')
+    parts.append(
+        f'</div><p class="chart-note">{html.escape(caption)} '
+        f'Displayed scale: 0–{scale:.3f}; the metric ranges from 0 to 1.</p></figure>'
+    )
     return "".join(parts)
 
 

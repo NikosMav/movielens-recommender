@@ -384,15 +384,19 @@ def qualify_likes(lines: Sequence[str], liked_titles: set[str]) -> list[str]:
 def funnel_steps(pipeline: Mapping[str, Any] | None) -> list[dict[str, str]]:
     """Catalog, candidates, ranked, and the ten on screen.
 
-    Live counts come from the request. Without a request the stages stay
-    unnamed so the diagram does not invent a number.
+    Live counts come from the request. Without one, the diagram explains
+    the stages without inventing counts.
     """
     if not pipeline:
         return [
-            {"name": "Catalog", "detail": "films"},
-            {"name": "Candidates", "detail": ""},
-            {"name": "Ranked", "detail": ""},
-            {"name": "Your top 10", "detail": ""},
+            {"name": "Catalog", "detail": "",
+             "description": "Start with the films in the MovieLens catalog."},
+            {"name": "Candidates", "detail": "",
+             "description": "Find a shortlist from the viewer’s ratings."},
+            {"name": "Ranked", "detail": "",
+             "description": "Put the strongest matches first."},
+            {"name": "Your top 10", "detail": "",
+             "description": "Explore the picks and their explanations."},
         ]
     catalog = int(pipeline.get("n_catalog") or 0)
     candidates = int(pipeline.get("n_candidates") or 0)
@@ -400,12 +404,13 @@ def funnel_steps(pipeline: Mapping[str, Any] | None) -> list[dict[str, str]]:
         ranked = f"{int(pipeline.get('n_scored') or 0):,}"
     else:
         ranked = "Not scored"
-    return [
-        {"name": "Catalog", "detail": f"{catalog:,} films"},
-        {"name": "Candidates", "detail": f"{candidates:,}"},
-        {"name": "Ranked", "detail": ranked},
-        {"name": "Your top 10", "detail": "10"},
-    ]
+    steps = funnel_steps(None)
+    details = (f"{catalog:,} films", f"{candidates:,} candidates", ranked, "10 picks")
+    for step, detail in zip(steps, details, strict=True):
+        step["detail"] = detail
+    if not pipeline.get("scored_by_ranker"):
+        steps[2]["description"] = "Keep the order returned by the retrieval method."
+    return steps
 
 
 def cold_start_nudge(payload: Mapping[str, Any]) -> str:

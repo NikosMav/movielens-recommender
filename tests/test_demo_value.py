@@ -94,7 +94,7 @@ def test_stale_reason_hides_a_film_that_is_no_longer_rated():
         "Your top 10",
     ]
     assert steps[0]["detail"] == "3,883 films"
-    assert steps[1]["detail"] == "325"
+    assert steps[1]["detail"] == "325 candidates"
     visible, tip = value.readout_parts(
         {"genre_count": 10, "mean_popularity_percentile": 100}
     )
