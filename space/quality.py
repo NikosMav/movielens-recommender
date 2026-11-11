@@ -224,7 +224,7 @@ def _model_row(metrics: dict[str, Any], name: str) -> dict[str, Any]:
     return row
 
 
-# Display labels. The stored id stays next to the label; it is not a new metric.
+# Display labels. Stored ids remain in the detailed scores.
 MODEL_NAMES: dict[str, str] = {
     "most_popular": "Most popular",
     "als": "Matrix factorisation",
@@ -278,8 +278,8 @@ def lead_paragraph(models: list[dict[str, Any]], *, dataset: str) -> str:
     best = info["best"]
     name = friendly_name(str(best["model"]))
     sentence = (
-        f"On {dataset}, {name} leads with NDCG@10 {rounded(best['ndcg@10'])} "
-        f"(uncertainty range {rounded(best['ci_low'])} to {rounded(best['ci_high'])})."
+        f"{name} has the highest stored score on {dataset}: {rounded(best['ndcg@10'])} "
+        f"(range {rounded(best['ci_low'])}–{rounded(best['ci_high'])})."
     )
     if info["second"] is None or info["lead"] is None:
         return sentence
@@ -288,10 +288,21 @@ def lead_paragraph(models: list[dict[str, Any]], *, dataset: str) -> str:
         f" That is {rounded(info['lead'])} above {friendly_name(str(other['model']))}."
     )
     if info["intervals_overlap"]:
-        tail = " The two uncertainty ranges overlap, so this gap is within the stored uncertainty."
+        tail = " Their uncertainty ranges overlap; the score gap alone is not a clear verdict."
     else:
         tail = " The leader's uncertainty range sits above the next model's range."
     return sentence + gap + tail
+
+
+def overview_models(models: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A small comparison; always include the leader, even if a new model wins."""
+    reference = {"lambdarank", "item_item_cosine", "two_tower", "most_popular"}
+    if len(models) > 4:
+        reference.add(str(rank_models(models)["best"]["model"]))
+        selected = [row for row in models if str(row["model"]) in reference]
+    else:
+        selected = list(models)
+    return sorted(selected, key=lambda row: (-float(row["ndcg@10"]), str(row["model"])))
 
 
 def chart_rows(models: list[dict[str, Any]]) -> list[dict[str, Any]]:

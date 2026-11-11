@@ -10,6 +10,7 @@ import streamlit.components.v1 as components
 from cards import (
     funnel_html,
     hero_html,
+    icon_html,
     metric_chart_html,
     neighbour_grid_html,
     poster_html,
@@ -52,6 +53,7 @@ from quality import (
     lead_paragraph,
     ml1_caption,
     ml32_caption,
+    overview_models,
     rounded,
     sample_sentence,
     sasrec_caption,
@@ -133,7 +135,7 @@ def _discover_body(cold_path: str, api_key: str) -> None:
     rated = {int(row["item_id"]): int(row["rating"]) for row in ratings}
 
     st.markdown(
-        '<h2 class="section-title">What have you watched?</h2>',
+        f'<h2 class="section-title icon-heading">{icon_html("film")}What have you watched?</h2>',
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -218,7 +220,7 @@ def _explore_body(prod_path: str, api_key: str) -> None:
     }
     user_ids = sorted(int(user_id) for user_id in summaries)
     st.markdown(
-        '<h1 class="display">Explore a MovieLens user</h1>',
+        f'<h1 class="display icon-heading">{icon_html("users")}Explore a MovieLens user</h1>',
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -279,7 +281,10 @@ def _explore_body(prod_path: str, api_key: str) -> None:
 
 
 def _quality_body(path_str: str) -> None:
-    st.markdown('<h1 class="display">How good is it?</h1>', unsafe_allow_html=True)
+    st.markdown(
+        f'<h1 class="display icon-heading">{icon_html("chart")}How good is it?</h1>',
+        unsafe_allow_html=True,
+    )
     st.markdown(NDCG_SENTENCE)
     st.caption("Every number on this page is read from the committed results JSON.")
     try:
@@ -291,8 +296,7 @@ def _quality_body(path_str: str) -> None:
         "MovieLens 1M",
         view["ml1m"]["models"],
         "MovieLens 1M",
-        "The marks on each bar are the stored uncertainty range. "
-        "The grey chip is the stored model id.",
+        "Compare the full model with similarity, retrieval, and popularity.",
     )
     _dataset_block(
         "MovieLens 32M",
@@ -301,7 +305,10 @@ def _quality_body(path_str: str) -> None:
         "The same models, scored on the larger set of viewers.",
     )
     st.markdown(sample_sentence(view["ml32m"]))
-    st.markdown('<h2 class="section-title">Sequence model</h2>', unsafe_allow_html=True)
+    st.markdown(
+        f'<h2 class="section-title icon-heading">{icon_html("history")}Sequence model</h2>',
+        unsafe_allow_html=True,
+    )
     st.markdown(sasrec_lead(view["sasrec"]))
     st.markdown(
         metric_chart_html(
@@ -326,8 +333,17 @@ def _quality_body(path_str: str) -> None:
 
 def _dataset_block(title: str, models: list[dict[str, Any]], dataset: str, note: str) -> None:
     st.markdown(f'<h2 class="section-title">{title}</h2>', unsafe_allow_html=True)
-    st.markdown(lead_paragraph(models, dataset=dataset))
-    st.markdown(metric_chart_html(chart_rows(models), caption=note), unsafe_allow_html=True)
+    summary = _escape(lead_paragraph(models, dataset=dataset))
+    st.markdown(f'<p class="benchmark-summary">{summary}</p>', unsafe_allow_html=True)
+    overview = overview_models(models)
+    rows = [dict(row, group="") for row in chart_rows(overview)]
+    st.markdown(metric_chart_html(rows, caption=note), unsafe_allow_html=True)
+    if len(overview) < len(models):
+        with st.expander(f"Compare all {len(models)} models · {title}"):
+            st.markdown(
+                metric_chart_html(chart_rows(models), caption="All recorded model variants."),
+                unsafe_allow_html=True,
+            )
 
 
 def _sasrec_rows(block: dict[str, Any]) -> list[dict[str, Any]]:
@@ -459,7 +475,10 @@ def _beyond_panel() -> None:
     if not payload or "models" not in payload:
         return
     rows = beyond_rows(payload)
-    st.markdown('<h2 class="section-title">Beyond accuracy</h2>', unsafe_allow_html=True)
+    st.markdown(
+        f'<h2 class="section-title icon-heading">{icon_html("compass")}Beyond accuracy</h2>',
+        unsafe_allow_html=True,
+    )
     st.markdown(beyond_takeaway(rows))
     st.markdown(_beyond_table(rows), unsafe_allow_html=True)
     definitions = beyond_definitions(payload)
@@ -472,7 +491,10 @@ def _beyond_panel() -> None:
 def _committed_funnel() -> None:
     from value import funnel_steps
 
-    st.markdown('<h2 class="section-title">How it works</h2>', unsafe_allow_html=True)
+    st.markdown(
+        f'<h2 class="section-title icon-heading">{icon_html("route")}How it works</h2>',
+        unsafe_allow_html=True,
+    )
     st.markdown(funnel_html(funnel_steps(None)), unsafe_allow_html=True)
     _latency_notes(_read_json("serving/ml-1m.json") or {})
 
@@ -609,7 +631,7 @@ def _ticket(
         for index in range(_MIN_RATINGS)
     )
     st.markdown(
-        '<div class="ticket"><h2>Your ratings</h2>'
+        f'<div class="ticket"><h2 class="icon-heading">{icon_html("star")}Your ratings</h2>'
         f'<p class="muted">{_rated_label(len(ratings))}</p>'
         f'<div class="progress" aria-hidden="true">{bars}</div></div>',
         unsafe_allow_html=True,
@@ -691,7 +713,8 @@ def _picks(
     stale = stored.get("signature") != _signature(ratings)
     st.markdown('<div id="your-next-watch"></div>', unsafe_allow_html=True)
     st.markdown(
-        '<h2 id="picks-heading" class="section-title" tabindex="-1">Your next watch</h2>',
+        '<h2 id="picks-heading" class="section-title icon-heading" tabindex="-1">'
+        f'{icon_html("list")}Your next watch</h2>',
         unsafe_allow_html=True,
     )
     if stale:
