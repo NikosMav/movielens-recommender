@@ -8,8 +8,10 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from cards import (
+    funnel_html,
     hero_html,
     metric_chart_html,
+    neighbour_grid_html,
     poster_html,
     rated_line_html,
     recommendation_card_html,
@@ -31,23 +33,30 @@ from loading import (
     catalog,
     load_bundle,
     load_cold,
+    popularity_lookup,
     poster_for,
     quality_view,
     recommendations,
     results_dir,
+    similar_films,
 )
-from phrases import plain_method, plain_reasons
+from phrases import cap_popular, plain_method, plain_reasons, reason_choice
 from quality import (
     NDCG_SENTENCE,
+    beyond_definitions,
+    beyond_rows,
+    beyond_takeaway,
     chart_rows,
     detail_html,
     friendly_name,
     lead_paragraph,
     ml1_caption,
     ml32_caption,
+    rounded,
     sample_sentence,
     sasrec_caption,
     sasrec_lead,
+    serving_latency_notes,
 )
 
 _SECTIONS = ("Discover", "Explore a MovieLens user", "How good is it?")
@@ -118,6 +127,7 @@ def render_quality() -> None:
 def _discover_body(cold_path: str, api_key: str) -> None:
     records, ranks = catalog(cold_path)
     by_id = {int(record["item_id"]): record for record in records}
+    _restore_shared_ratings(cold_path, by_id)
     ratings = _ratings()
     rated = {int(row["item_id"]): int(row["rating"]) for row in ratings}
 
@@ -137,6 +147,9 @@ def _discover_body(cold_path: str, api_key: str) -> None:
                 key="movie_query",
                 placeholder="Search for a movie",
             )
+            st.caption(_cold_start_nudge())
+            st.caption("Or start from a few well-known films")
+            _taste_sets(by_id)
             st.caption("Try a title")
             with st.container(key="starters"):
                 chips = st.columns(len(_STARTERS))
@@ -150,7 +163,9 @@ def _discover_body(cold_path: str, api_key: str) -> None:
             if hits:
                 st.markdown("**Matches**")
                 with st.container(key="matches-frame"):
-                    _poster_grid(hits, rated, api_key, grid_key="matches")
+                    _poster_grid(
+                        hits, rated, api_key, grid_key="matches", films_path=cold_path, cold=True
+                    )
             genres = present_genres(records)
             selected = st.pills(
                 "Genres",
@@ -176,7 +191,9 @@ def _discover_body(cold_path: str, api_key: str) -> None:
                     unsafe_allow_html=True,
                 )
                 with st.container(key="shelf-frame"):
-                    _poster_grid(shelf, rated, api_key, grid_key="shelf")
+                    _poster_grid(
+                        shelf, rated, api_key, grid_key="shelf", films_path=cold_path, cold=True
+                    )
             elif chosen:
                 st.caption("No films in the snapshot match those genres.")
         with side:
@@ -186,7 +203,7 @@ def _discover_body(cold_path: str, api_key: str) -> None:
     genres_by_title = {
         str(record["title"]): str(record.get("genres") or "") for record in records
     }
-    _picks(ratings, api_key, genres_by_title, cold_path)
+    _picks(ratings, api_key, genres_by_title, cold_path, records, ranks, by_id)
 
 
 @st.fragment
@@ -255,7 +272,7 @@ def _explore_body(prod_path: str, api_key: str) -> None:
         return
     if error:
         st.caption("The list below is still the previous viewer.")
-    _viewer_result(result, api_key, genres_by_title, bundle)
+    _viewer_result(result, api_key, genres_by_title, bundle, prod_path)
 
 
 def _quality_body(path_str: str) -> None:
@@ -300,6 +317,8 @@ def _quality_body(path_str: str) -> None:
         st.caption(str(view["ml32m"]["selection"]))
         st.markdown("**Sequence model**")
         st.markdown(sasrec_caption(view))
+    _beyond_panel()
+    _committed_funnel()
 
 
 def _dataset_block(title: str, models: list[dict[str, Any]], dataset: str, note: str) -> None:
@@ -329,6 +348,146 @@ def _sasrec_rows(block: dict[str, Any]) -> list[dict[str, Any]]:
     for row in rows:
         row["best"] = row["model"] == winner
     return rows
+
+
+def _read_json(name: str) -> dict[str, Any] | None:
+    path = results_dir() / name
+    if not path.is_file():
+        return None
+    import json
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return payload if isinstance(payload, dict) else None
+
+
+def _cold_start_nudge() -> str:
+    from value import cold_start_nudge
+
+    payload = _read_json("cold-start/ml-1m.json") or {}
+    return cold_start_nudge(payload)
+
+
+def _taste_sets(by_id: dict[int, dict[str, Any]]) -> None:
+    from value import TASTE_SETS
+
+    shown = []
+    for group in TASTE_SETS:
+        ids = [int(item) for item in group["item_ids"] if int(item) in by_id]
+        if len(ids) < 3:
+            continue
+        shown.append((str(group["label"]), ids))
+    if not shown:
+        return
+    columns = st.columns(len(shown))
+    for column, (label, ids) in zip(columns, shown, strict=True):
+        column.button(
+            f"Rate {label}",
+            key=f"taste-{label}",
+            on_click=_rate_taste,
+            args=(ids, by_id),
+        )
+
+
+def _rate_taste(item_ids: list[int], by_id: dict[int, dict[str, Any]]) -> None:
+    rows = _ratings()
+    for item_id in item_ids:
+        record = by_id.get(int(item_id))
+        if record is None:
+            continue
+        rows = upsert_rating(rows, int(item_id), str(record["title"]), 5)
+        st.session_state[f"rate-{int(item_id)}"] = 5
+    st.session_state["new_user_ratings"] = rows
+
+
+def _restore_shared_ratings(cold_path: str, by_id: dict[int, dict[str, Any]]) -> None:
+    """Apply a share link once, before the star widgets are created."""
+    if st.session_state.get("share_restored"):
+        return
+    st.session_state["share_restored"] = True
+    from value import decode_ratings
+
+    pairs = decode_ratings(str(st.query_params.get("ratings") or ""))
+    rows: list[dict[str, Any]] = []
+    for item_id, stars in pairs:
+        record = by_id.get(int(item_id))
+        if record is None:
+            continue
+        rows.append(
+            {"item_id": int(item_id), "title": str(record["title"]), "rating": int(stars)}
+        )
+        st.session_state[f"rate-{int(item_id)}"] = int(stars)
+    if not rows:
+        return
+    st.session_state["new_user_ratings"] = rows
+    if len(rows) >= _MIN_RATINGS:
+        _score(cold_path, rows, by_id)
+
+
+def _beyond_table(rows: list[dict[str, Any]]) -> str:
+    labels = ("Model", "Coverage", "Novelty", "Diversity", "Long-tail share")
+    head = "".join(f"<th>{_escape(label)}</th>" for label in labels)
+    body = []
+    for row in rows:
+        cells = (
+            friendly_name(str(row["model"])),
+            rounded(row["coverage@10"]),
+            rounded(row["novelty@10"]),
+            rounded(row["intra_list_diversity@10"]),
+            rounded(row["long_tail_share@10"]),
+        )
+        body.append("<tr>" + "".join(f"<td>{_escape(cell)}</td>" for cell in cells) + "</tr>")
+    return (
+        '<div class="beyond-table"><table><thead><tr>'
+        + head
+        + "</tr></thead><tbody>"
+        + "".join(body)
+        + "</tbody></table></div>"
+    )
+
+
+def _beyond_panel() -> None:
+    payload = _read_json("beyond-accuracy/ml-1m.json")
+    if not payload or "models" not in payload:
+        return
+    rows = beyond_rows(payload)
+    st.markdown('<h2 class="section-title">Beyond accuracy</h2>', unsafe_allow_html=True)
+    st.markdown(beyond_takeaway(rows))
+    st.markdown(_beyond_table(rows), unsafe_allow_html=True)
+    definitions = beyond_definitions(payload)
+    if definitions:
+        with st.expander("What these mean"):
+            for label, text in definitions:
+                st.markdown(f"**{label}.** {text}")
+
+
+def _committed_funnel() -> None:
+    from value import funnel_steps
+
+    st.markdown('<h2 class="section-title">How it works</h2>', unsafe_allow_html=True)
+    st.markdown(funnel_html(funnel_steps(None)), unsafe_allow_html=True)
+    _latency_notes(_read_json("serving/ml-1m.json") or {})
+
+
+def _live_funnel(pipeline: dict[str, Any] | None) -> None:
+    from value import funnel_steps
+
+    with st.expander("How it works"):
+        st.markdown(funnel_html(funnel_steps(pipeline)), unsafe_allow_html=True)
+        _latency_notes(_read_json("serving/ml-1m.json") or {})
+        st.markdown("<div class='funnel-pad'></div>", unsafe_allow_html=True)
+
+
+def _latency_notes(payload: dict[str, Any]) -> None:
+    notes = serving_latency_notes(payload)
+    if not notes:
+        return
+    st.caption("Committed serving measurement, not the time for this click.")
+    rows = []
+    for visible, tip in notes:
+        rows.append(
+            f'<p class="latency" title="{_escape(tip)}">{_escape(visible)}</p>'
+        )
+    st.markdown("".join(rows), unsafe_allow_html=True)
 
 
 def _rated_label(count: int) -> str:
@@ -391,6 +550,8 @@ def _poster_grid(
     api_key: str,
     *,
     grid_key: str,
+    films_path: str,
+    cold: bool,
 ) -> None:
     with st.container(key=grid_key):
         for record in records:
@@ -410,6 +571,7 @@ def _poster_grid(
                     unsafe_allow_html=True,
                 )
                 _stars(item_id, title, rated.get(item_id))
+                _more_like_this(item_id, films_path, cold, api_key, scope=f"{grid_key}-{item_id}")
 
 
 def _stars(item_id: int, title: str, current: int | None) -> None:
@@ -498,6 +660,7 @@ def _score(
         "recommendations": result["recommendations"],
         "method": result.get("method"),
         "method_sentence": result.get("method_sentence"),
+        "pipeline": result.get("pipeline"),
     }
     st.session_state["picks_nonce"] = int(st.session_state.get("picks_nonce") or 0) + 1
 
@@ -507,6 +670,9 @@ def _picks(
     api_key: str,
     genres_by_title: dict[str, str],
     cold_path: str,
+    records: list[dict[str, Any]],
+    ranks: dict[int, int],
+    by_id: dict[int, dict[str, Any]],
 ) -> None:
     stored = st.session_state.get("new_user_result")
     if not stored:
@@ -517,6 +683,8 @@ def _picks(
         '<h2 id="picks-heading" class="section-title" tabindex="-1">Your next watch</h2>',
         unsafe_allow_html=True,
     )
+    if stale:
+        st.markdown('<div class="picks-stale" hidden></div>', unsafe_allow_html=True)
     if stale and len(ratings) < _MIN_RATINGS:
         st.warning("These picks need at least 3 ratings. Add a film to refresh them.")
     elif stale:
@@ -535,10 +703,14 @@ def _picks(
     if not cards:
         st.caption("No films were returned for these ratings.")
         return
+    pipeline = stored.get("pipeline") if isinstance(stored.get("pipeline"), dict) else None
+    shown = _reranked_cards(cards, pipeline, cold_path, by_id)
+    _list_controls(shown, cold_path)
     history = _history_rows(ratings)
-    liked_by_id = _liked_by_item(_item_item_model(cold_path, cold=True), cards, history)
+    liked_by_id = _liked_by_item(_item_item_model(cold_path, cold=True), shown, history)
+    rated_titles = {str(row["title"]) for row in ratings}
     _card_grid(
-        cards,
+        shown,
         api_key,
         grid_key="picks",
         kind="rich",
@@ -546,7 +718,14 @@ def _picks(
         reason_limit=2,
         genres_by_title=genres_by_title,
         liked_by_id=liked_by_id,
+        films_path=cold_path,
+        cold=True,
+        rated_titles=rated_titles,
+        hide_unrated=stale,
+        history=history,
     )
+    _pick_tools(records, ranks, ratings, pipeline)
+    _live_funnel(pipeline)
     sentence = str(stored.get("method_sentence") or "")
     if sentence:
         with st.expander("How this list was built"):
@@ -579,6 +758,7 @@ def _load_viewer(
         "production": result["production"],
         "item_item": result["item_item"],
         "two_tower": result["two_tower"],
+        "pipeline": result.get("pipeline"),
     }
 
 
@@ -587,6 +767,7 @@ def _viewer_result(
     api_key: str,
     genres_by_title: dict[str, str],
     bundle: Any,
+    prod_path: str,
 ) -> None:
     summary = result["summary"]
     genres = " · ".join(summary["top_genres"]) if summary["top_genres"] else "No genre stands out"
@@ -623,7 +804,11 @@ def _viewer_result(
             reason_limit=2,
             genres_by_title=genres_by_title,
             liked_by_id=_liked_by_item(model, production, history),
+            films_path=prod_path,
+            cold=False,
+            history=history,
         )
+        _live_funnel(result.get("pipeline") if isinstance(result.get("pipeline"), dict) else None)
         return
     options = ("Full model", "Similar films", "Taste match")
     with st.container(key="compare-switch"):
@@ -662,6 +847,16 @@ def _viewer_result(
                 if raw == "two_tower"
                 else _liked_by_item(model, list(cards), history)
             )
+            prepared = (
+                [[] for _card in cards]
+                if raw == "two_tower"
+                else _prepared_lines(
+                    list(cards),
+                    liked_by_id,
+                    genres_by_title,
+                    reason_limit=1,
+                )
+            )
             with column, st.container(key=col_key):
                 st.markdown(f"### {title}")
                 st.caption(blurbs[raw])
@@ -675,8 +870,11 @@ def _viewer_result(
                         scope=f"{raw}-{index}",
                         reason_limit=1,
                         genres_by_title=genres_by_title,
-                        similar_titles=liked_by_id.get(int(card.get("item_id") or 0), []),
+                        prepared=prepared[index - 1],
                         show_line=raw != "two_tower",
+                        films_path=prod_path,
+                        cold=False,
+                        history=history,
                     )
 
 
@@ -710,9 +908,19 @@ def _card_grid(
     explain: bool,
     reason_limit: int,
     genres_by_title: dict[str, str] | None = None,
-    liked_by_id: dict[int, list[str]] | None = None,
+    liked_by_id: dict[int, list[tuple[str, float]]] | None = None,
+    films_path: str = "",
+    cold: bool = False,
+    rated_titles: set[str] | None = None,
+    hide_unrated: bool = False,
+    history: list[tuple[int, str, float]] | None = None,
 ) -> None:
-    liked = liked_by_id or {}
+    prepared = _prepared_lines(
+        cards,
+        liked_by_id or {},
+        genres_by_title,
+        reason_limit=reason_limit,
+    )
     with st.container(key=grid_key):
         for index, card in enumerate(cards, start=1):
             _recommendation(
@@ -724,7 +932,12 @@ def _card_grid(
                 scope=f"{grid_key}-{index}",
                 reason_limit=reason_limit,
                 genres_by_title=genres_by_title,
-                similar_titles=liked.get(int(card.get("item_id") or 0), []),
+                prepared=prepared[index - 1],
+                films_path=films_path,
+                cold=cold,
+                rated_titles=rated_titles,
+                hide_unrated=hide_unrated,
+                history=history,
             )
 
 
@@ -738,26 +951,37 @@ def _recommendation(
     scope: str = "card",
     reason_limit: int = 2,
     genres_by_title: dict[str, str] | None = None,
-    similar_titles: list[str] | None = None,
+    prepared: list[str] | None = None,
     show_line: bool = True,
+    films_path: str = "",
+    cold: bool = False,
+    rated_titles: set[str] | None = None,
+    hide_unrated: bool = False,
+    history: list[tuple[int, str, float]] | None = None,
 ) -> None:
     from runtime import visible_details, visible_reasons
 
     original = visible_reasons(list(card.get("reasons") or []))
-    shown = (
-        plain_reasons(
-            original,
+    if prepared is not None:
+        shown = list(prepared)
+    elif show_line and (explain or kind == "compact"):
+        shown = plain_reasons(
+            visible_reasons(list(card.get("reasons") or [])),
             limit=reason_limit,
             genres_by_title=genres_by_title,
             candidate_genres=str(card.get("genres") or ""),
-            similar_titles=similar_titles,
             candidate_title=str(card.get("title") or ""),
+            candidate_year=card.get("year"),
         )
-        if show_line and (explain or kind == "compact")
-        else []
-    )
+    else:
+        shown = []
     if not explain and kind != "compact":
         shown = []
+    if hide_unrated and shown:
+        from value import cites_unrated
+
+        kept = rated_titles or set()
+        shown = [line for line in shown if not cites_unrated(line, kept)]
     item_id = int(card.get("item_id") or rank)
     with st.container(key=f"rec-{scope}-{item_id}"):
         st.markdown(
@@ -770,9 +994,12 @@ def _recommendation(
                 rank=rank,
                 show_reasons=bool(shown),
                 kind=kind,
+                evidence_html=_evidence_html(shown, history, api_key),
             ),
             unsafe_allow_html=True,
         )
+        if films_path:
+            _more_like_this(item_id, films_path, cold, api_key, scope=scope)
         if not explain:
             return
         details = visible_details(list(card.get("details") or []))
@@ -824,20 +1051,49 @@ def _item_item_model(path_str: str, *, cold: bool) -> Any:
     return getattr(bundle, "item_item", None)
 
 
+def _prepared_lines(
+    cards: list[dict[str, Any]],
+    liked_by_id: dict[int, list[tuple[str, float]]],
+    genres_by_title: dict[str, str] | None,
+    *,
+    reason_limit: int,
+) -> list[list[str]]:
+    from runtime import visible_reasons
+
+    choices = []
+    for card in cards:
+        pairs = liked_by_id.get(int(card.get("item_id") or 0), [])
+        choices.append(
+            reason_choice(
+                visible_reasons(list(card.get("reasons") or [])),
+                limit=reason_limit,
+                genres_by_title=genres_by_title,
+                candidate_genres=str(card.get("genres") or ""),
+                similar=pairs,
+                candidate_year=card.get("year"),
+            )
+        )
+    return cap_popular(choices)
+
+
 def _liked_by_item(
     model: Any,
     cards: list[dict[str, Any]],
     history: list[tuple[int, str, float]],
-) -> dict[int, list[str]]:
-    """Up to two rated films with positive similarity to each pick.
+) -> dict[int, list[tuple[str, float]]]:
+    """Rated films with positive similarity to each pick, closest first.
 
-    The order matches the explainer: similarity times the rating. This does
-    not rescore the list.
+    The order matches the explainer: similarity times the rating. The best
+    cosine is kept even when it is not in that top pair, so a real neighbour
+    is not dropped. This does not rescore the list.
     """
+    from phrases import MEANINGFUL_SIM
+
     if model is None or not history or not hasattr(model, "neighbor_similarities"):
         return {}
-    ids = [item_id for item_id, _title, _rating in history]
-    found: dict[int, list[str]] = {}
+    pool = [row for row in history if float(row[2]) >= 3.0] or list(history)
+    ids = [item_id for item_id, _title, _rating in pool]
+    found: dict[int, list[tuple[str, float]]] = {}
     for card in cards:
         item_id = int(card.get("item_id") or 0)
         if not item_id:
@@ -847,21 +1103,239 @@ def _liked_by_item(
         except Exception:
             continue
         ranked: list[tuple[float, float, str]] = []
-        for other, title, rating in history:
+        for other, title, rating in pool:
             sim = float(sims.get(int(other), 0.0))
             if sim <= 0.0:
                 continue
             ranked.append((sim * float(rating), sim, title))
         ranked.sort(key=lambda row: (-row[0], -row[1], row[2]))
-        names: list[str] = []
-        for _score, _sim, title in ranked:
-            if title not in names:
-                names.append(title)
-            if len(names) == 2:
+        pairs: list[tuple[str, float]] = []
+        best: tuple[str, float] | None = None
+        for _score, sim, title in ranked:
+            if best is None or sim > best[1]:
+                best = (title, sim)
+            if any(name == title for name, _sim in pairs):
+                continue
+            pairs.append((title, sim))
+            if len(pairs) == 2:
                 break
-        if names:
-            found[item_id] = names
+        if (
+            best is not None
+            and best[1] >= MEANINGFUL_SIM
+            and best[0] not in {name for name, _sim in pairs}
+        ):
+            pairs.append(best)
+        if pairs:
+            found[item_id] = pairs
     return found
+
+
+def _reranked_cards(
+    cards: list[dict[str, Any]],
+    pipeline: dict[str, Any] | None,
+    cold_path: str,
+    by_id: dict[int, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Position 0 keeps the measured cards. Above 0, reorder the scored candidates."""
+    from value import embedding_rows, rerank_candidates
+
+    adventurous = _adventurous_value()
+    if adventurous <= 0.0 or not pipeline:
+        return cards
+    ids = [int(item) for item in pipeline.get("ranked_ids") or []]
+    scores = [float(value) for value in pipeline.get("ranked_scores") or []]
+    if not ids or len(scores) != len(ids):
+        return cards
+    lookup = popularity_lookup(cold_path, True)
+    bundle = load_cold(cold_path)
+    tower = getattr(bundle, "two_tower", None)
+    features = getattr(tower, "_features", None)
+    embeddings = embedding_rows(
+        None if tower is None else getattr(tower, "_item_vectors", None),
+        None if features is None else features.item_index,
+        ids,
+    )
+    order = rerank_candidates(
+        ids,
+        scores,
+        adventurous=adventurous,
+        embeddings=embeddings,
+        popularity=[float(lookup.get(item, 0.0)) for item in ids],
+        n=len(cards) or 10,
+    )
+    by_card = {int(card["item_id"]): card for card in cards}
+    shown: list[dict[str, Any]] = []
+    for item_id in order:
+        card = by_card.get(int(item_id))
+        if card is not None:
+            shown.append(card)
+            continue
+        record = by_id.get(int(item_id))
+        if record is None:
+            continue
+        shown.append(
+            {
+                "item_id": int(item_id),
+                "title": record["title"],
+                "year": record.get("year"),
+                "genres": record.get("genres") or "",
+                "reasons": [],
+            }
+        )
+    return shown or cards
+
+
+_FAMILIARITY = ("Familiar", "Closer", "In between", "Further", "Adventurous")
+_FAMILIARITY_VALUE = {
+    "Familiar": 0.0,
+    "Closer": 0.25,
+    "In between": 0.5,
+    "Further": 0.75,
+    "Adventurous": 1.0,
+}
+
+
+def _adventurous_value() -> float:
+    label = st.session_state.get("familiarity", "Familiar")
+    if isinstance(label, int | float) and not isinstance(label, bool):
+        return float(label)
+    return float(_FAMILIARITY_VALUE.get(str(label), 0.0))
+
+
+def _list_controls(cards: list[dict[str, Any]], cold_path: str) -> None:
+    from value import list_facts, readout_parts, unevaluated_note
+
+    if "familiarity" not in st.session_state:
+        st.session_state["familiarity"] = "Familiar"
+    st.select_slider(
+        "Familiar or adventurous",
+        options=list(_FAMILIARITY),
+        key="familiarity",
+        help="Familiar keeps the measured list. Adventurous prefers less popular films.",
+    )
+    note = unevaluated_note(_adventurous_value())
+    if note:
+        st.caption(note)
+    found = popularity_lookup(cold_path, True) if cold_path else {}
+    percentiles = [
+        float(found[int(card["item_id"])])
+        for card in cards
+        if card.get("item_id") and int(card["item_id"]) in found
+    ]
+    facts = list_facts([str(card.get("genres") or "") for card in cards], percentiles)
+    visible, tip = readout_parts(facts)
+    st.markdown(
+        f'<p class="list-readout" title="{_escape(tip)}">{_escape(visible)}</p>',
+        unsafe_allow_html=True,
+    )
+
+
+def _pick_tools(
+    records: list[dict[str, Any]],
+    ranks: dict[int, int],
+    ratings: list[dict[str, Any]],
+    pipeline: dict[str, Any] | None,
+) -> None:
+    from value import encode_ratings, why_not
+
+    field, action = st.columns([3, 1], vertical_alignment="bottom")
+    with field:
+        query = st.text_input(
+            "Why not this film?",
+            key="why_not_query",
+            placeholder="e.g. Titanic",
+        )
+    with action:
+        copied = st.button("Copy link", disabled=not ratings, key="copy-link")
+    if copied and ratings:
+        encoded = encode_ratings(
+            [(int(row["item_id"]), int(row["rating"])) for row in ratings]
+        )
+        st.query_params["view"] = "discover"
+        st.query_params["ratings"] = encoded
+        base = (st.context.url or "").rstrip("?")
+        share = f"view=discover&ratings={encoded}"
+        link = f"{base}?{share}" if base else f"?{share}"
+        st.caption("Link copied")
+        st.code(link, language=None)
+    if len(" ".join(str(query).split())) < 2:
+        return
+    hits = rank_titles(query, records, ranks, limit=1)
+    if not hits:
+        st.caption("No title matches that search.")
+        return
+    hit = hits[0]
+    ranked = [] if not pipeline else [int(item) for item in pipeline.get("ranked_ids") or []]
+    rated_ids = {int(row["item_id"]) for row in ratings}
+    st.markdown(
+        why_not(
+            title=str(hit["title"]),
+            item_id=int(hit["item_id"]),
+            rated_ids=rated_ids,
+            ranked_ids=ranked,
+        )
+    )
+
+
+def _more_like_this(
+    item_id: int,
+    path: str,
+    cold: bool,
+    api_key: str,
+    *,
+    scope: str,
+) -> None:
+    from value import neighbour_caption
+
+    if not path:
+        return
+    with st.popover("More like this"):
+        payload = similar_films(path, int(item_id), cold)
+        ids = [int(item) for item in payload.get("item_ids") or []]
+        st.caption(neighbour_caption(str(payload.get("source") or "")))
+        if not ids:
+            return
+        lookup = _title_lookup(path, cold)
+        films = []
+        for other in ids:
+            record = lookup.get(other, {})
+            title = str(record.get("title") or f"Item {other}")
+            films.append(
+                {
+                    "title": title,
+                    "year": record.get("year"),
+                    "poster_url": poster_for(title, record.get("year"), api_key),
+                }
+            )
+        st.markdown(neighbour_grid_html(films), unsafe_allow_html=True)
+
+
+def _title_lookup(path: str, cold: bool) -> dict[int, dict[str, Any]]:
+    if cold:
+        records, _ranks = catalog(path)
+    else:
+        bundle, _summaries = load_bundle(path)
+        records = movie_records(bundle.movies)
+    return {int(record["item_id"]): record for record in records}
+
+
+def _evidence_html(
+    shown: list[str],
+    history: list[tuple[int, str, float]] | None,
+    api_key: str,
+) -> str:
+    if not shown or not shown[0].startswith("Because you liked ") or not history:
+        return ""
+    named = shown[0].removeprefix("Because you liked ").split(" and ", 1)[0]
+    for _item_id, title, _rating in history:
+        if title != named:
+            continue
+        return poster_html(
+            title,
+            poster_for(title, None, api_key),
+            extra_class="evidence-thumb",
+        )
+    return ""
 
 
 def _escape(text: str) -> str:

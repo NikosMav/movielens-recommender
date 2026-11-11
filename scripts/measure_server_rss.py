@@ -202,6 +202,27 @@ def _rate_comedy_shelf(page: object) -> None:
             _wait_text(page, "You can get picks now", timeout=60_000)
     page.get_by_role("button", name="Get my picks").click()  # type: ignore[attr-defined]
     _wait_text(page, "Your next watch", timeout=180_000)
+    page.get_by_role("button", name="More like this").first.click()  # type: ignore[attr-defined]
+    page.get_by_text(re.compile(r"Nearest films|No similar films")).first.wait_for(  # type: ignore[attr-defined]
+        timeout=120_000
+    )
+    page.keyboard.press("Escape")  # type: ignore[attr-defined]
+    slider = page.get_by_role(  # type: ignore[attr-defined]
+        "slider", name="Familiar or adventurous"
+    )
+    slider.focus()
+    page.keyboard.press("ArrowRight")  # type: ignore[attr-defined]
+    _wait_text(page, "has not been evaluated offline", timeout=60_000)
+    page.get_by_label("Why not this film?").fill("Toy")  # type: ignore[attr-defined]
+    _wait_text(page, "Toy", timeout=60_000)
+    page.get_by_role("button", name="Copy link").click()  # type: ignore[attr-defined]
+    _wait_text(page, "Link copied", timeout=60_000)
+    how = page.get_by_text("How it works", exact=True).first  # type: ignore[attr-defined]
+    how.scroll_into_view_if_needed()
+    how.click()
+    _wait_text(page, "Your top 10", timeout=60_000)
+    page.get_by_role("button", name="Rate Animation").click()  # type: ignore[attr-defined]
+    _wait_text(page, "Update picks", timeout=60_000)
 
 
 def _walk(base: str, pid: int) -> None:
@@ -228,6 +249,11 @@ def _walk(base: str, pid: int) -> None:
             _log_rss(pid, "A new-user recommendations")
             _click_mode(page_b, "How good is it?")
             _wait_text(page_b, "NDCG@10")
+            _wait_text(page_b, "Beyond accuracy")
+            meanings = page_b.get_by_text("What these mean", exact=True)  # type: ignore[attr-defined]
+            meanings.scroll_into_view_if_needed()
+            meanings.click()
+            _wait_text(page_b, "Coverage", timeout=60_000)
             _click_mode(page_b, "Discover")
             _wait_text(page_b, "What have you watched?")
             _log_rss(pid, "B quality and new user")

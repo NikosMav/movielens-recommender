@@ -27,6 +27,9 @@ SAMPLE = (
     "Mariachi, El (1992)",
     "Shichinin no samurai (Seven Samurai) (1954)",
     "Star Wars: Episode V - The Empire Strikes Back (1980)",
+    "Star Wars: Episode IV - A New Hope (1977)",
+    "Star Trek: The Wrath of Khan (1982)",
+    "March of the Wooden Soldiers (1934)",
     "Toy Story (1995)",
     "Paris, Texas (1984)",
 )

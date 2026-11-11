@@ -142,8 +142,10 @@ def rank_titles(
 ) -> list[dict[str, Any]]:
     """Rank catalog titles for a search box.
 
-    Exact match, then prefix, then a word start, then a substring.
-    Ties go to the film with more ratings (a lower popularity rank).
+    Exact match, then prefix, then a word start. A mid-word substring of the
+    main title ranks last and is capped. An alternate title in parentheses
+    matches only at a word start, so letters inside a foreign title do not
+    surface the film. Ties go to the film with more ratings.
     """
     needle = " ".join(str(query).casefold().split())
     if len(needle) < 2 or limit <= 0:
@@ -158,7 +160,12 @@ def rank_titles(
         pop = popularity_rank.get(int(record["item_id"]), missing)
         ranked.append((tier, pop, title.casefold(), dict(record)))
     ranked.sort(key=lambda row: row[:3])
-    return [row[3] for row in ranked[:limit]]
+    strong = [row for row in ranked if row[0] < _MIDWORD_TIER]
+    weak = [row for row in ranked if row[0] >= _MIDWORD_TIER]
+    chosen = strong[:limit]
+    if len(chosen) < limit:
+        chosen.extend(weak[: min(2, limit - len(chosen))])
+    return [row[3] for row in chosen]
 
 
 def popular_shelf(
@@ -201,8 +208,22 @@ def suggested_user_ids(user_ids: Sequence[int], *, limit: int = 3) -> list[int]:
     return chosen[:limit]
 
 
-def _match_tier(needle: str, title: str) -> int | None:
-    text = " ".join(title.casefold().split())
+_MIDWORD_TIER = 5
+_PAREN_TITLE = re.compile(r"\(([^)]*)\)")
+
+
+def _title_parts(title: str) -> tuple[str, list[str]]:
+    raw = " ".join(title.casefold().split())
+    alternates: list[str] = []
+    for inner in _PAREN_TITLE.findall(raw):
+        cleaned = " ".join(inner.split())
+        if cleaned and not re.fullmatch(r"\d{4}", cleaned):
+            alternates.append(cleaned)
+    primary = " ".join(_PAREN_TITLE.sub(" ", raw).split())
+    return primary, alternates
+
+
+def _tier_on(needle: str, text: str, *, allow_midword: bool) -> int | None:
     if not text:
         return None
     if text == needle:
@@ -212,9 +233,19 @@ def _match_tier(needle: str, title: str) -> int | None:
     words = [word for word in re.split(r"[^0-9a-z]+", text) if word]
     if any(word.startswith(needle) for word in words):
         return 2
-    if needle in text:
-        return 3
+    if allow_midword and needle in text:
+        return _MIDWORD_TIER
     return None
+
+
+def _match_tier(needle: str, title: str) -> int | None:
+    primary, alternates = _title_parts(title)
+    best = _tier_on(needle, primary, allow_midword=True)
+    for alternate in alternates:
+        tier = _tier_on(needle, alternate, allow_midword=False)
+        if tier is not None and (best is None or tier < best):
+            best = tier
+    return best
 
 
 def clean_year(value: Any) -> int | None:

@@ -63,6 +63,19 @@ def test_matrix_matches_the_word_and_popularity_breaks_ties():
     assert titles == ["Matrix Reloaded", "The Matrix"]
 
 
+def test_midword_alternate_does_not_outrank_a_word_start():
+    catalog = _catalog()
+    records = [
+        _row(1, "Dry Cleaning (Nettoyage à sec)"),
+        _row(2, "Toy Story"),
+        _row(3, "Babes in Toyland"),
+    ]
+    ranks = {1: 1, 2: 40, 3: 8}
+    titles = [row["title"] for row in catalog.rank_titles("toy", records, ranks)]
+    assert "Dry Cleaning (Nettoyage à sec)" not in titles
+    assert titles[0] == "Toy Story"
+
+
 def test_short_query_returns_nothing():
     catalog = _catalog()
     assert catalog.rank_titles("t", [_row(1, "Toy Story")], {1: 1}) == []

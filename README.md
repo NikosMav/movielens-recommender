@@ -23,7 +23,7 @@ It covers the path from data to a demo: download and cleaning, a per-user time s
 - [Models](#models)
 - [Reproducing the results](#reproducing-the-results)
 - [Tests and CI](#tests-and-ci)
-- [How this was built](#how-this-was-built)
+- [Engineering process](#engineering-process)
 - [License and data terms](#license-and-data-terms)
 - [Results](#results) (generated)
 
@@ -302,9 +302,9 @@ ruff check src tests scripts app
 
 GitHub Actions runs ruff and pytest on Python 3.10 and 3.12 with the CPU PyTorch wheel. Tests use synthetic data only; `MOVIELENS_ALLOW_DOWNLOAD=0` blocks downloads in CI. A second job builds the Docker image and checks that a container with no snapshot answers `/health` with 503.
 
-## How this was built
+## Engineering process
 
-The code was written by AI coding agents working from a staged plan, with an ADR for each decision. Each stage was reviewed against its committed metrics JSON and green CI before merging. Every reported number is produced by the pipeline into `results/*.json`, and the Results section is generated from those files.
+Work landed in stages. Each decision has an ADR in `docs/adr/`. Experiments were registered before they ran. Reported numbers come from the committed `results/*.json` files, and the Results section below is generated from those files. GitHub Actions runs the tests before a change merges.
 
 ## License and data terms
 

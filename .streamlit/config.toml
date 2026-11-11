@@ -1,4 +1,10 @@
-# Viewer chrome for the public demo. No theme section, so
-# Settings > Theme still chooses light or dark.
+# Viewer chrome for the public demo. Light and dark stay selectable.
+# Only the accent is set, so the slider matches the rest of the page.
 [client]
 toolbarMode = "minimal"
+
+[theme.light]
+primaryColor = "#392975"
+
+[theme.dark]
+primaryColor = "#6b59c4"

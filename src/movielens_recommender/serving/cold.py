@@ -256,7 +256,7 @@ def _recommend_v1(
         demographics_missing=bool(bundle.manifest.get("demographics_missing", False)),
     )
     history = _history_items(bundle, profile)
-    cards = _rank_and_explain(
+    cards, pipeline = _rank_and_explain(
         bundle,
         candidates,
         matrix,
@@ -265,6 +265,7 @@ def _recommend_v1(
         tt_map,
         ease_map,
         n=n,
+        source=source,
     )
     for card in cards:
         if int(card["item_id"]) in rated_set:
@@ -274,6 +275,7 @@ def _recommend_v1(
         "n_ratings": len(profile),
         "candidate_source": source,
         "recommendations": cards,
+        "pipeline": pipeline,
     }
 
 
@@ -291,12 +293,13 @@ def _recommend_served(
     method = str(serving[str(bucket)])
     history = _history_items(bundle, profile)
     if method == "cold_start_ranker":
-        cards = _ranker_union_cards(bundle, profile, history, n=n)
+        cards, pipeline = _ranker_union_cards(bundle, profile, history, n=n)
     elif method == "most_popular":
-        cards = [
-            _plain_card(bundle, item, history, method)
-            for item in _popular_top(bundle, rated_set, n)
-        ]
+        picked = _popular_top(bundle, rated_set, n)
+        cards = [_plain_card(bundle, item, history, method) for item in picked]
+        pipeline = _unscored_pipeline(
+            bundle, [int(card["item_id"]) for card in cards], "popularity"
+        )
     elif method == "item_item_fold_in":
         rows = bundle.item_item.topk_for_profiles({_NEW_USER_ID: profile}, n).get(_NEW_USER_ID, [])
         cards = [
@@ -304,6 +307,7 @@ def _recommend_served(
             for item, _score in rows
             if int(item) not in rated_set
         ]
+        pipeline = _unscored_pipeline(bundle, [int(card["item_id"]) for card in cards], "item–item")
     elif method == "history_two_tower":
         rows = bundle.two_tower.topk_for_new_histories({_NEW_USER_ID: rated}, n).get(
             _NEW_USER_ID, []
@@ -313,9 +317,20 @@ def _recommend_served(
             for item, _score in rows
             if int(item) not in rated_set
         ]
+        pipeline = _unscored_pipeline(
+            bundle, [int(card["item_id"]) for card in cards], "history_two_tower"
+        )
     else:
         raise ValueError(f"unknown serving method {method!r}")
     cards = cards[:n]
+    if not pipeline["scored_by_ranker"]:
+        pipeline = {
+            **pipeline,
+            "ranked_ids": [int(card["item_id"]) for card in cards],
+            "ranked_scores": [],
+            "n_candidates": len(cards),
+            "n_scored": 0,
+        }
     for card in cards:
         if int(card["item_id"]) in rated_set:
             raise AssertionError("a rated movie was recommended")
@@ -327,6 +342,7 @@ def _recommend_served(
         "method_sentence": method_sentence(method, len(profile), bucket),
         "candidate_source": method,
         "recommendations": cards,
+        "pipeline": pipeline,
     }
 
 
@@ -433,6 +449,7 @@ def _ranker_union_cards(
         tt_map,
         ease_map,
         n=n,
+        source="cold-start union",
     )
 
 
@@ -529,11 +546,13 @@ def _rank_and_explain(
     ease_map: Mapping[int, tuple[float, int]],
     *,
     n: int,
-) -> list[dict[str, Any]]:
+    source: str,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if not candidates:
-        return []
+        return [], _cold_pipeline(bundle, [], np.zeros(0, dtype=np.float64), source, scored=False)
     scores = np.asarray(bundle.booster.predict(matrix), dtype=np.float64)
     order = np.argsort(-scores, kind="mergesort")
+    pipeline = _cold_pipeline(bundle, candidates, scores, source, scored=True)
     top_idx = [int(i) for i in order[:n]]
     top_items = [candidates[i] for i in top_idx]
     history_ids = [item.item_id for item in history]
@@ -568,7 +587,9 @@ def _rank_and_explain(
             popularity_text=POPULAR_WITH_MANY_VIEWERS,
         )
         cards.append(_card(bundle, item_id, explanation))
-    return cards
+    if pipeline["ranked_ids"][: len(cards)] != [int(card["item_id"]) for card in cards]:
+        raise AssertionError("the candidate order and the top list diverged")
+    return cards, pipeline
 
 
 def _card(
@@ -588,6 +609,47 @@ def _card(
         ],
         "bias": explanation.bias,
         "raw_score": explanation.raw_score,
+    }
+
+
+def _cold_pipeline(
+    bundle: ColdStartBundle,
+    candidates: list[int],
+    scores: np.ndarray,
+    source: str,
+    *,
+    scored: bool,
+) -> dict[str, Any]:
+    if len(candidates) == 0:
+        ranked_ids: list[int] = []
+        ranked_scores: list[float] = []
+    else:
+        order = np.argsort(-np.asarray(scores, dtype=np.float64), kind="mergesort")
+        ranked_ids = [int(candidates[int(index)]) for index in order]
+        ranked_scores = [float(scores[int(index)]) for index in order]
+    return {
+        "n_catalog": int(len(bundle.movies)),
+        "n_candidates": len(candidates),
+        "n_scored": len(candidates) if scored else 0,
+        "ranked_ids": ranked_ids,
+        "ranked_scores": ranked_scores,
+        "scored_by_ranker": bool(scored and candidates),
+        "candidate_source": source,
+    }
+
+
+def _unscored_pipeline(
+    bundle: ColdStartBundle, item_ids: list[int], source: str
+) -> dict[str, Any]:
+    """The returned list is the whole candidate list for a method that does not rank."""
+    return {
+        "n_catalog": int(len(bundle.movies)),
+        "n_candidates": len(item_ids),
+        "n_scored": 0,
+        "ranked_ids": [int(item) for item in item_ids],
+        "ranked_scores": [],
+        "scored_by_ranker": False,
+        "candidate_source": source,
     }
 
 

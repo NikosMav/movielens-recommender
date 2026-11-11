@@ -9,7 +9,10 @@ can draw a placeholder.
 MovieLens titles are not TMDB titles. A trailing article (``Matrix, The``)
 is moved to the front, a parenthetical alternate title is searched on its
 own, and the part after ``': '`` or ``' - '`` is tried when the full string
-misses. The release year is sent as ``primary_release_year``, then one year
+misses. The base title before a colon is tried after those, and a few
+catalog strings that TMDB files under another name are tried as that name.
+A hit matches on title, original title, or the subtitle after a colon.
+The release year is sent as ``primary_release_year``, then one year
 to either side, then with no year filter. The first hit stops the search.
 """
 
@@ -68,6 +71,11 @@ _TRAILING_ARTICLE = re.compile(
 _YEAR_SUFFIX = re.compile(r"\s*\((\d{4})\)\s*$")
 _PAREN = re.compile(r"\(([^)]*)\)")
 _YEAR_ONLY = re.compile(r"^\d{4}$")
+# Catalog strings TMDB does not use as the title. Values are search queries.
+_QUERY_ALIASES = {
+    "star trek: the wrath of khan": ("Star Trek II: The Wrath of Khan",),
+    "march of the wooden soldiers": ("Babes in Toyland",),
+}
 _LEADING_ARTICLES = tuple(
     sorted(
         (article.casefold() for article in _TRAILING_ARTICLES if article != "L'"),
@@ -282,6 +290,13 @@ def candidate_queries(title: str) -> list[str]:
     extras: list[str] = []
     for seed in seeds:
         extras.extend(_subtitle_parts(seed))
+    # Specific rewrites before the short base title, which matches more films.
+    for seed in seeds:
+        extras.extend(_QUERY_ALIASES.get(seed.casefold(), ()))
+    if ": " in primary:
+        base = primary.split(": ", 1)[0].strip()
+        if base:
+            extras.append(base)
     ordered: list[str] = []
     seen: set[str] = set()
     for query in seeds + extras:
@@ -370,11 +385,7 @@ def _matching_poster_path(
         path = row.get("poster_path")
         if not _safe_poster_path(path):
             continue
-        names = {
-            key
-            for field in ("title", "original_title")
-            if (key := _match_key(str(row.get(field) or "")))
-        }
+        names = _result_keys(row)
         if not names & keys:
             continue
         row_year = _release_year(row.get("release_date"))
@@ -397,7 +408,11 @@ def _matching_poster_path(
 
 
 def _safe_poster_path(path: Any) -> bool:
-    return isinstance(path, str) and path.startswith("/") and ".." not in path
+    """A TMDB image path: one leading slash, no parent segments, a real extension."""
+    if not isinstance(path, str) or not path.startswith("/") or ".." in path:
+        return False
+    stem = path.split("?", 1)[0].casefold()
+    return stem.endswith((".jpg", ".jpeg", ".png", ".webp"))
 
 
 def _release_year(release_date: Any) -> int | None:
@@ -411,6 +426,34 @@ def _release_year(release_date: Any) -> int | None:
 
 def _match_keys(queries: list[str]) -> set[str]:
     return {key for query in queries if (key := _match_key(query))}
+
+
+def _result_keys(row: dict[str, Any]) -> set[str]:
+    """Title, original title, subtitle, and any alternate titles on the row."""
+    texts: list[str] = []
+    for field in ("title", "original_title"):
+        value = str(row.get(field) or "").strip()
+        if value:
+            texts.append(value)
+    alternates = row.get("alternative_titles")
+    if isinstance(alternates, list):
+        for item in alternates:
+            if isinstance(item, str) and item.strip():
+                texts.append(item.strip())
+            elif isinstance(item, dict):
+                value = str(item.get("title") or "").strip()
+                if value:
+                    texts.append(value)
+    keys: set[str] = set()
+    for text in texts:
+        key = _match_key(text)
+        if key:
+            keys.add(key)
+        if ": " in text:
+            subtitle = _match_key(text.split(": ", 1)[1])
+            if subtitle:
+                keys.add(subtitle)
+    return keys
 
 
 def _match_key(title: str) -> str:

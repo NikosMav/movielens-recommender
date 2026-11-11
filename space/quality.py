@@ -27,6 +27,32 @@ HEADLINE_MODELS: tuple[str, ...] = (
 
 ML32_MODELS: tuple[str, ...] = ("two_tower", "lambdarank", "item_item_cosine")
 
+MODEL_GROUPS: dict[str, str] = {
+    "most_popular": "Baselines",
+    "als": "Baselines",
+    "als_tuned": "Baselines",
+    "ease": "Baselines",
+    "rp3beta": "Baselines",
+    "item_item_cosine": "Baselines",
+    "item_item_cosine_tuned": "Baselines",
+    "two_tower": "Retrieval",
+    "no_ranker": "Retrieval",
+    "lambdarank": "Full pipeline",
+}
+
+BEYOND_FIELDS: tuple[tuple[str, str], ...] = (
+    ("coverage@10", "catalog coverage"),
+    ("novelty@10", "novelty"),
+    ("intra_list_diversity@10", "diversity"),
+    ("long_tail_share@10", "long-tail share"),
+)
+
+_SERVING_LATENCIES: tuple[tuple[str, str], ...] = (
+    ("new_user_five_ratings", "New user with five ratings"),
+    ("known_user_ranked", "Known user, ranked"),
+    ("known_user_explained", "Known user, with explanations"),
+)
+
 
 def fmt(value: Any) -> str:
     """Render a stored JSON number without adding a new measurement."""
@@ -123,9 +149,9 @@ def ml1_caption(view: dict[str, Any]) -> str:
         f"The mean is above that bar's point: {fmt(gate['mean_exceeds_bar_point'])}. "
         "Every seed interval sits above the bar's interval: "
         f"{fmt(gate['all_seed_ci_low_above_bar_ci_high'])}. "
-        f"The file marks this gate as a negative result: {fmt(gate['negative_result'])}. "
-        "The two-tower gate marks a negative result: "
-        f"{fmt(view['ml1m']['two_tower_negative_result'])}. "
+        f"{plain_negative_result(bool(gate['negative_result']))}. "
+        "The two-tower gate: "
+        f"{plain_negative_result(bool(view['ml1m']['two_tower_negative_result']))}. "
         "It beats both item–item bars: "
         f"{fmt(view['ml1m']['two_tower_beats_both_item_item_bars'])}."
     )
@@ -146,12 +172,12 @@ def ml32_caption(view: dict[str, Any]) -> str:
         f"(interval {fmt(ranker['ci_low'])} to {fmt(ranker['ci_high'])}), "
         f"and item–item cosine {fmt(item['ndcg@10'])} "
         f"(interval {fmt(item['ci_low'])} to {fmt(item['ci_high'])}). "
-        "The two-tower gate's negative_result is "
-        f"{fmt(block['two_tower_negative_result'])}, "
-        "and beats_both_item_item_bars is "
+        "The two-tower gate: "
+        f"{plain_negative_result(bool(block['two_tower_negative_result']))}. "
+        "It beats both item–item bars: "
         f"{fmt(block['two_tower_beats_both_item_item_bars'])}. "
-        "The ranker gate's negative_result is "
-        f"{fmt(gate['negative_result'])}. "
+        "The ranker gate: "
+        f"{plain_negative_result(bool(gate['negative_result']))}. "
         f"Its mean is {fmt(gate['ranker_mean_ndcg@10'])} against {gate['bar_model']} "
         f"at {fmt(gate['bar_ndcg@10'])}. "
         f"These scores use {fmt(block['n_sampled_users'])} of "
@@ -165,14 +191,14 @@ def sasrec_caption(view: dict[str, Any]) -> str:
     return (
         "The order check compares the real sequence with a shuffled copy of the same model. "
         f"order_helps is {fmt(block['order_helps'])}. "
-        f"negative_result is {fmt(block['negative_result'])}. "
+        f"{plain_negative_result(bool(block['negative_result']))}. "
         f"The stored rule is: {block['rule']}. "
         "Real minus shuffled NDCG@10 is "
         f"{fmt(block['real_minus_shuffled_mean'])} "
         f"(from {fmt(block['real_minus_shuffled_low'])} to "
         f"{fmt(block['real_minus_shuffled_high'])}) "
         f"on {fmt(block['real_minus_shuffled_n_users'])} users. "
-        f"excludes_zero is {fmt(block['real_minus_shuffled_excludes_zero'])}. "
+        f"{plain_excludes_zero(bool(block['real_minus_shuffled_excludes_zero']))}. "
         f"SASRec's mean NDCG@10 is {fmt(block['ndcg@10_mean'])}. "
         "The primary interval is "
         f"{fmt(block['primary_low'])} to {fmt(block['primary_high'])}, "
@@ -282,6 +308,7 @@ def chart_rows(models: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "low": float(row["ci_low"]),
                 "high": float(row["ci_high"]),
                 "best": model_id == winner,
+                "group": MODEL_GROUPS.get(model_id, "Baselines"),
             }
         )
     return rows
@@ -330,6 +357,105 @@ def detail_html(models: list[dict[str, Any]]) -> str:
             f"{seeds}</section>"
         )
     return "".join(blocks)
+
+
+def plain_negative_result(value: bool) -> str:
+    """The stored ``negative_result`` flag, in words."""
+    if value:
+        return "Did not beat the baseline"
+    return "Beat the baseline"
+
+
+def plain_excludes_zero(value: bool) -> str:
+    """The stored ``excludes_zero`` flag, in words."""
+    if value:
+        return "Interval excludes zero"
+    return "Interval includes zero"
+
+
+def beyond_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Point values from ``results/beyond-accuracy/ml-1m.json``, in file order."""
+    models = payload["models"]
+    rows = []
+    for name in payload["model_order"]:
+        block = models[name]
+        row: dict[str, Any] = {"model": name}
+        for key, _label in BEYOND_FIELDS:
+            row[key] = block[key]
+        rows.append(row)
+    return rows
+
+
+def beyond_takeaway(rows: list[dict[str, Any]]) -> str:
+    """One sentence. Each clause is the model with the highest stored point."""
+    if not rows:
+        return ""
+    parts: list[str] = []
+    for key, label in BEYOND_FIELDS:
+        best = max(
+            enumerate(rows),
+            key=lambda pair: (float(pair[1][key]), -pair[0]),
+        )[1]
+        parts.append(
+            f"{friendly_name(str(best['model']))} has the highest {label} "
+            f"({rounded(best[key])})"
+        )
+    if len(parts) == 1:
+        body = parts[0]
+    else:
+        body = ", ".join(parts[:-1]) + ", and " + parts[-1]
+    return f"On the stored ml-1m lists, {body}."
+
+
+def beyond_definitions(payload: dict[str, Any]) -> list[tuple[str, str]]:
+    """Stored definition strings, in panel order. Missing keys are skipped."""
+    definitions = payload.get("definitions") or {}
+    wanted = (
+        ("coverage", "Coverage"),
+        ("novelty", "Novelty"),
+        ("intra_list_diversity", "Diversity"),
+        ("long_tail_share", "Long-tail share"),
+    )
+    rows = []
+    for key, label in wanted:
+        text = definitions.get(key)
+        if isinstance(text, str) and text.strip():
+            rows.append((label, text.strip()))
+    return rows
+
+
+_LATENCY_PHRASE = {
+    "new_user_five_ratings": "for a new user",
+    "known_user_ranked": "for a known user",
+    "known_user_explained": "for a known user with explanations",
+}
+
+
+def serving_latency_notes(payload: dict[str, Any]) -> list[tuple[str, str]]:
+    """Rounded sentence, and the stored median and 95th percentile for a tooltip."""
+    latency = payload.get("latency")
+    if not isinstance(latency, dict):
+        return []
+    notes = []
+    for key, label in _SERVING_LATENCIES:
+        block = latency.get(key)
+        if not isinstance(block, dict):
+            continue
+        if "p50_ms" not in block or "p95_ms" not in block:
+            continue
+        phrase = _LATENCY_PHRASE.get(key, label[:1].lower() + label[1:])
+        visible = f"About {round(float(block['p50_ms']))} ms {phrase}"
+        tip = (
+            f"median {fmt(block['p50_ms'])} ms, "
+            f"95th percentile {fmt(block['p95_ms'])} ms"
+        )
+        notes.append((visible, tip))
+    return notes
+
+
+def serving_latency_lines(payload: dict[str, Any]) -> list[str]:
+    """Rounded sentences. The precise stored values are the second half of each note."""
+    return [visible for visible, _tip in serving_latency_notes(payload)]
 
 
 def _read_json(path: Path) -> dict[str, Any]:
