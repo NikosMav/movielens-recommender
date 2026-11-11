@@ -35,6 +35,24 @@ jobs:
           # Guardrail: tests must use synthetic data only.
           MOVIELENS_ALLOW_DOWNLOAD: "0"
 
+      - name: Check the packaged deployment backend
+        env:
+          MOVIELENS_DEPLOYMENT_PACKAGE: ${{ runner.temp }}/movielens-deployment
+          MOVIELENS_ALLOW_DOWNLOAD: "0"
+        run: |
+          python - <<'PY'
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          pin = next(line for line in Path("space/requirements.txt").read_text().splitlines()
+                     if line.startswith("movielens-recommender @"))
+          subprocess.check_call([sys.executable, "-m", "pip", "install", "--no-deps",
+                                 "--target", os.environ["MOVIELENS_DEPLOYMENT_PACKAGE"], pin])
+          PY
+          pytest -q tests/test_deployment_contract.py
+
   frontend:
     runs-on: ubuntu-latest
     defaults:

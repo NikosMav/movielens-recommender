@@ -715,8 +715,15 @@ def _picks(
         st.caption("No films were returned for these ratings.")
         return
     pipeline = stored.get("pipeline") if isinstance(stored.get("pipeline"), dict) else None
+    can_adjust = bool(
+        pipeline
+        and pipeline.get("ranked_ids")
+        and len(pipeline.get("ranked_scores") or []) == len(pipeline["ranked_ids"])
+    )
+    if not can_adjust:
+        st.session_state["familiarity"] = "Familiar"
     shown = _reranked_cards(cards, pipeline, cold_path, by_id)
-    _list_controls(shown, cold_path)
+    _list_controls(shown, cold_path, can_adjust=can_adjust)
     history = _history_rows(ratings)
     liked_by_id = _liked_by_item(_item_item_model(cold_path, cold=True), shown, history)
     rated_titles = {str(row["title"]) for row in ratings}
@@ -1219,20 +1226,25 @@ def _adventurous_value() -> float:
     return float(_FAMILIARITY_VALUE.get(str(label), 0.0))
 
 
-def _list_controls(cards: list[dict[str, Any]], cold_path: str) -> None:
+def _list_controls(
+    cards: list[dict[str, Any]], cold_path: str, *, can_adjust: bool = True,
+) -> None:
     from value import list_facts, readout_parts, unevaluated_note
 
     if "familiarity" not in st.session_state:
         st.session_state["familiarity"] = "Familiar"
-    st.select_slider(
-        "Familiar or adventurous",
-        options=list(_FAMILIARITY),
-        key="familiarity",
-        help="Familiar keeps the measured list. Adventurous prefers less popular films.",
-    )
-    note = unevaluated_note(_adventurous_value())
-    if note:
-        st.caption(note)
+    if can_adjust:
+        st.select_slider(
+            "Familiar or adventurous",
+            options=list(_FAMILIARITY),
+            key="familiarity",
+            help="Familiar keeps the measured list. Adventurous prefers less popular films.",
+        )
+        note = unevaluated_note(_adventurous_value())
+        if note:
+            st.caption(note)
+    else:
+        st.caption("This list has no scored candidate details, so it cannot be adjusted.")
     found = popularity_lookup(cold_path, True) if cold_path else {}
     percentiles = [
         float(found[int(card["item_id"])])
@@ -1274,6 +1286,9 @@ def _pick_tools(
         )
         st.code(link, language=None)
     if len(" ".join(str(query).split())) < 2:
+        return
+    if not pipeline or not pipeline.get("ranked_ids"):
+        st.caption("Candidate details are unavailable for this list.")
         return
     hits = rank_titles(query, records, ranks, limit=10)
     if not hits:

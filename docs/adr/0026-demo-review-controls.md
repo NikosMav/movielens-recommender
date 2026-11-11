@@ -30,6 +30,11 @@ sample-profile, and stale-pick behaviors described in ADR-0025.
   compact rows so five 44px rating targets fit. Desktop keeps its browsing and
   summary columns. Missing-poster evidence stays thumbnail-sized.
 - Section changes reset the main scroll position after the new view renders.
+- Community Cloud pins the backend to `02a07ab`, which contains the candidate
+  trace required by these controls. The earlier `2f48c5f` pin predated that
+  addition, although the UI code was on a newer main revision. If scored
+  candidate details are absent, adjustment is unavailable and the missing-film
+  check reports unavailable evidence instead of inventing a retrieval outcome.
 
 ## Consequences
 

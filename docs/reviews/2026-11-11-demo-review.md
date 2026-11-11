@@ -87,12 +87,26 @@ There is no evidence here that maximum adventure gives better recommendations.
 
 ## Validation and limits
 
-- Full Python suite: 271 passed, including the pinned existing-user and new-user
+The post-merge production check found a deployment-specific failure that the
+editable local installation did not reproduce: `space/requirements.txt` still
+installed backend revision `2f48c5f`, predating the candidate trace added for
+the slider, why-not answer, and funnel. The new UI was deployed, but a restored
+adventurous setting still displayed the default picks. The backend dependency
+is now pinned to `02a07ab`, which includes that trace and preserves the earlier
+memory fixes. The UI also withholds adjustment and candidate-rank answers if
+trace data is missing, rather than implying that those controls worked.
+
+- Full Python suite after the deployment follow-up: 274 passed, including the pinned existing-user and new-user
   recommendation IDs; Ruff passed. The suite reports one upstream Starlette /
   AnyIO deprecation warning.
-- Seven new control/profile regressions plus one missing-poster regression cover
+- Nine new control/profile regressions plus one missing-poster regression cover
   sharing, slider-aware answers, stale results, sample replacement, restoration,
-  low ratings, and thumbnail classes.
+  low ratings, missing candidate traces, and thumbnail classes.
+- A separate deployment contract check installs the exact requirements pin into
+  an isolated directory and exercises its scored candidate trace in an isolated
+  Python subprocess. CI runs this check after the editable-source tests, so a
+  future package pin cannot silently omit the trace required by the UI. The
+  four-profile probe was also repeated against this installed package.
 - Both frontend builds passed. Windows line-ending changes in the generated
   archived bundle were discarded; its committed content is unchanged.
 - The committed `results/` files are unchanged. Models, retrievers, ranker
