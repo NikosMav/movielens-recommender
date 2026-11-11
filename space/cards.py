@@ -595,13 +595,19 @@ def _theme_css() -> str:
 .pick-poster {{
   flex-direction: column;
   align-items: stretch;
+  gap: 0.65rem;
 }}
-.pick-poster .poster,
-.pick-poster .poster.placeholder {{
+.stApp .pick-poster .poster {{
+  display: block;
   width: 100%;
   height: auto;
   aspect-ratio: 2 / 3;
   min-height: 0;
+  margin: 0;
+  object-fit: cover;
+}}
+.stApp .pick-poster .poster.placeholder {{
+  display: flex;
 }}
 .pick-rich .poster,
 .pick-rich .poster.placeholder {{
@@ -616,12 +622,21 @@ def _theme_css() -> str:
   width: 108px;
   height: 162px;
 }}
-.pick-poster .pick-title {{
+.stApp .pick-poster .pick-title {{
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 2.6em;
+  font-size: 1rem;
+  line-height: 1.35;
+  min-height: 2.7em;
+  margin: 0;
+}}
+.stApp .pick-poster .pick-meta {{
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  margin: 0.4rem 0 0;
+  {_paint("color", light["meta"], dark["meta"])}
 }}
 .pick-compact .pick-why {{
   display: -webkit-box;
@@ -669,6 +684,8 @@ def _theme_css() -> str:
 [class*="st-key-film-"] {{
   display: flex !important;
   flex-direction: column !important;
+  padding: 0.75rem;
+  gap: 0.65rem;
 }}
 [class*="st-key-film-"] > [class*="st-key-rate-"] {{
   margin-top: auto;
@@ -677,6 +694,14 @@ def _theme_css() -> str:
 [class*="st-key-rec-"] .pick {{
   border-top: 0;
   padding: 0.15rem 0.15rem 0.35rem;
+}}
+[class*="st-key-film-"] .pick {{
+  padding: 0;
+}}
+.stApp [class*="st-key-film-"] [data-testid="stPopoverButton"] {{
+  min-height: 2.5rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 8px;
 }}
 [class*="st-key-rate-"] {{
   width: max-content;
@@ -728,8 +753,8 @@ def _theme_css() -> str:
 [class*="st-key-rate-"] button::before {{
   content: "";
   display: block;
-  width: 40px;
-  height: 40px;
+  width: 28px;
+  height: 28px;
   background: {light["meta"]};
   background: light-dark({light["meta"]}, {dark["meta"]});
   -webkit-mask: url("{_STAR_EMPTY}") center / contain no-repeat;
@@ -772,8 +797,8 @@ def _theme_css() -> str:
     min-height: 44px !important;
   }}
   [class*="st-key-rate-"] button::before {{
-    width: 100%;
-    height: 32px;
+    width: 26px;
+    height: 26px;
     -webkit-mask-size: contain;
     mask-size: contain;
   }}
@@ -966,7 +991,7 @@ def _theme_css() -> str:
 .st-key-matches > [data-testid="stVerticalBlock"] {{
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 1rem;
   align-items: stretch;
 }}
 @container gridframe (min-width: 680px) {{
@@ -981,12 +1006,12 @@ def _theme_css() -> str:
     grid-template-columns: minmax(0, 1fr);
   }}
   .pick-poster {{ flex-direction: row; }}
-  .pick-poster .poster,
-  .pick-poster .poster.placeholder {{
+  .stApp .pick-poster .poster {{
     width: 76px;
     height: 114px;
     flex: 0 0 76px;
   }}
+  .stApp .pick-poster .pick-title {{ min-height: 0; }}
 }}
 @container gridframe (min-width: 920px) {{
   [data-testid="stVerticalBlock"].st-key-shelf,
