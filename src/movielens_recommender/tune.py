@@ -11,6 +11,7 @@ import pandas as pd
 
 from movielens_recommender.baselines import (
     ALSRecommender,
+    EASEDANRecommender,
     EASERecommender,
     ItemItemCosineRecommender,
     RP3betaRecommender,
@@ -340,6 +341,16 @@ def build_model(
         raw_max = hyperparams.get("max_items")
         model = EASERecommender(
             l2=float(hyperparams["l2"]),
+            max_items=None if raw_max is None else int(raw_max),
+        ).fit(train)
+        return model, model.hyperparams()
+    if name == "ease_dan":
+        raw_max = hyperparams.get("max_items")
+        model = EASEDANRecommender(
+            l2=float(hyperparams["l2"]),
+            dropout_p=float(hyperparams.get("dropout_p", 0.0)),
+            alpha=float(hyperparams.get("alpha", 0.0)),
+            beta=float(hyperparams.get("beta", 0.0)),
             max_items=None if raw_max is None else int(raw_max),
         ).fit(train)
         return model, model.hyperparams()

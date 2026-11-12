@@ -2986,6 +2986,70 @@ def render_sasrec(path: Path | None = None) -> str:
     return "\n".join(lines)
 
 
+def render_ease_dan(path: Path | None = None) -> str:
+    """EASE-DAN panel (ADR-0028). Empty when the results file is absent."""
+    path = RESULTS_DIR / "ease-dan" / "ml-1m.json" if path is None else path
+    if not path.is_file():
+        return ""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    selected = payload["selected"]
+    hp = selected["hyperparams"]
+    models = payload["models"]
+    dan_m = models["ease_dan"]["metrics"]
+    ease_m = models["ease"]["metrics"]
+    ii_m = models["item_item_cosine"]["metrics"]
+    paired_ease = payload["paired"]["ease_dan_minus_ease"]
+    paired_ii = payload["paired"]["ease_dan_minus_item_item"]
+    decision = payload["decision"]
+    budget = payload["budget"]
+    dan_ci = dan_m["confidence_intervals"]["ndcg@10"]
+    ease_ci = ease_m["confidence_intervals"]["ndcg@10"]
+    ii_ci = ii_m["confidence_intervals"]["ndcg@10"]
+    gate_word = "Win" if decision["beats_ease"] else "Negative result"
+    lines = [
+        "### Data-Adaptive Normalized EASE (`EASE-DAN`, `ml-1m`)",
+        "",
+        "From `results/ease-dan/ml-1m.json`, with the grid in "
+        "`results/tuning/ease_dan_ml-1m.json` (ADR-0028). "
+        "Selection is validation NDCG@10 on the existing split. "
+        "Test is scored once. `results/ml-1m.json` is unchanged.",
+        "",
+        f"Validation selected `l2={_plain_num(hp['l2'])}`, "
+        f"`dropout_p={_plain_num(hp['dropout_p'])}`, "
+        f"`alpha={_plain_num(hp['alpha'])}`, `beta={_plain_num(hp['beta'])}` "
+        f"(validation NDCG@10 {_fmt(float(selected['val_ndcg@10']))}, "
+        f"against committed EASE {_fmt(float(models['ease']['val_ndcg@10']))}); "
+        f"its sealed test NDCG@10 is {_fmt(float(dan_m['ndcg@10']))} "
+        f"{_fmt_ci_cell(dan_ci)}.",
+        f"**{gate_word} against EASE^R (`beats_ease={decision['beats_ease']}`).** "
+        f"Paired `ease_dan` minus `ease` test NDCG@10 is {_pair_text(paired_ease)}; "
+        f"paired `ease_dan` minus `item_item_cosine` is {_pair_text(paired_ii)}.",
+        "",
+        f"Validation configs in the locked grid: {int(budget['n_configs_planned'])}. "
+        f"Edge-extension trials scored under the ADR-0028 one-step rule: "
+        f"{int(budget['n_edge_extensions'])} "
+        f"(total scored: {int(budget['n_trials_scored'])}, "
+        f"selected {_edge_clause(selected)}).",
+        "",
+        "| model | val NDCG@10 | test NDCG@10 | 95% CI | Recall@10 | Coverage@10 | fit (s) |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+        f"| `ease_dan` | {_fmt(float(selected['val_ndcg@10']))} | "
+        f"{_fmt(float(dan_m['ndcg@10']))} | {_fmt_ci_cell(dan_ci)} | "
+        f"{_fmt(float(dan_m['recall@10']))} | {_fmt(float(dan_m['coverage@10']))} | "
+        f"{float(models['ease_dan']['fit_sec']):.2f} |",
+        f"| `ease` | {_fmt(float(models['ease']['val_ndcg@10']))} | "
+        f"{_fmt(float(ease_m['ndcg@10']))} | {_fmt_ci_cell(ease_ci)} | "
+        f"{_fmt(float(ease_m['recall@10']))} | {_fmt(float(ease_m['coverage@10']))} | "
+        f"{float(models['ease']['fit_sec']):.2f} |",
+        f"| `item_item_cosine` | — | "
+        f"{_fmt(float(ii_m['ndcg@10']))} | {_fmt_ci_cell(ii_ci)} | "
+        f"{_fmt(float(ii_m['recall@10']))} | {_fmt(float(ii_m['coverage@10']))} | "
+        f"{float(models['item_item_cosine']['fit_sec']):.2f} |",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def build_section(results: list[tuple[str, dict]]) -> str:
     parts = [BEGIN, ""]
     for filename, payload in results:
@@ -3017,6 +3081,9 @@ def build_section(results: list[tuple[str, dict]]) -> str:
     sasrec = render_sasrec()
     if sasrec:
         parts.append(sasrec)
+    ease_dan = render_ease_dan()
+    if ease_dan:
+        parts.append(ease_dan)
     parts.append(END)
     return "\n".join(parts) + "\n"
 

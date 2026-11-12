@@ -1,0 +1,881 @@
+{
+  "adr": "0028",
+  "beyond_accuracy": {
+    "ease": {
+      "confidence_intervals": {
+        "intra_list_diversity@10": {
+          "high": 0.63359,
+          "low": 0.626368,
+          "mean": 0.630106
+        },
+        "long_tail_share@10": {
+          "high": 0.006898,
+          "low": 0.004901,
+          "mean": 0.005874
+        },
+        "mean_popularity@10": {
+          "high": 1584.193065,
+          "low": 1565.419324,
+          "mean": 1575.256546
+        },
+        "ndcg@10": {
+          "high": 0.122587,
+          "low": 0.114173,
+          "mean": 0.11838
+        },
+        "novelty@10": {
+          "high": 9.152396,
+          "low": 9.130589,
+          "mean": 9.140898
+        }
+      },
+      "coverage@10": 0.209981,
+      "intra_list_diversity@10": 0.630106,
+      "long_tail_share@10": 0.005874,
+      "mean_popularity@10": 1575.256546,
+      "ndcg@10": 0.11838,
+      "novelty@10": 9.140898
+    },
+    "ease_dan": {
+      "confidence_intervals": {
+        "intra_list_diversity@10": {
+          "high": 0.633341,
+          "low": 0.626118,
+          "mean": 0.629766
+        },
+        "long_tail_share@10": {
+          "high": 0.006647,
+          "low": 0.004699,
+          "mean": 0.005639
+        },
+        "mean_popularity@10": {
+          "high": 1604.993696,
+          "low": 1586.154252,
+          "mean": 1595.712588
+        },
+        "ndcg@10": {
+          "high": 0.123827,
+          "low": 0.115137,
+          "mean": 0.119454
+        },
+        "novelty@10": {
+          "high": 9.130981,
+          "low": 9.109608,
+          "mean": 9.119935
+        }
+      },
+      "coverage@10": 0.205345,
+      "intra_list_diversity@10": 0.629766,
+      "long_tail_share@10": 0.005639,
+      "mean_popularity@10": 1595.712588,
+      "ndcg@10": 0.119454,
+      "novelty@10": 9.119935
+    },
+    "item_item_cosine": {
+      "confidence_intervals": {
+        "intra_list_diversity@10": {
+          "high": 0.632073,
+          "low": 0.625729,
+          "mean": 0.628774
+        },
+        "long_tail_share@10": {
+          "high": 0.004028,
+          "low": 0.002198,
+          "mean": 0.003105
+        },
+        "mean_popularity@10": {
+          "high": 1803.25888,
+          "low": 1786.485266,
+          "mean": 1794.567153
+        },
+        "ndcg@10": {
+          "high": 0.124155,
+          "low": 0.115829,
+          "mean": 0.120135
+        },
+        "novelty@10": {
+          "high": 8.907705,
+          "low": 8.891006,
+          "mean": 8.899621
+        }
+      },
+      "coverage@10": 0.127352,
+      "intra_list_diversity@10": 0.628774,
+      "long_tail_share@10": 0.003105,
+      "mean_popularity@10": 1794.567153,
+      "ndcg@10": 0.120135,
+      "novelty@10": 8.899621
+    }
+  },
+  "budget": {
+    "cut": null,
+    "n_configs": 108,
+    "n_configs_planned": 108,
+    "n_edge_extensions": 2,
+    "n_trials_scored": 110,
+    "projection_sec": 270.951,
+    "truncated": false
+  },
+  "dataset": "ml-1m",
+  "dataset_sha256": "a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20",
+  "decision": {
+    "beats_ease": true,
+    "beats_item_item": false,
+    "negative_result": false,
+    "rule": "beats_ease when the paired ease_dan minus ease 95% bootstrap interval low end is strictly above 0"
+  },
+  "host": {
+    "cpu_count": 4,
+    "machine": "x86_64",
+    "numpy_simd": [
+      "AVX2",
+      "AVX512F",
+      "AVX512_ICL",
+      "AVX512_SKX",
+      "FMA3",
+      "SSE42"
+    ],
+    "os": "Linux",
+    "os_release": "6.12.113+",
+    "processor": "x86_64",
+    "python": "3.12.3"
+  },
+  "library_versions": {
+    "implicit": "0.7.3",
+    "lightgbm": "4.6.0",
+    "movielens-recommender": "0.1.0",
+    "numpy": "2.2.6",
+    "pandas": "2.2.3",
+    "pyyaml": "6.0.3",
+    "scipy": "1.15.3",
+    "torch": "2.6.0+cpu"
+  },
+  "models": {
+    "ease": {
+      "fit_sec": 2.387,
+      "hyperparams": {
+        "l2": 5000.0
+      },
+      "metrics": {
+        "cold_start": {
+          "n_cold_items_in_test": 39,
+          "n_eval_users": 5958,
+          "n_relevant_dropped_cold_item": 18,
+          "n_train_items": 3667,
+          "n_train_users": 6040,
+          "n_users_excluded_no_warm_relevant": 82
+        },
+        "confidence_intervals": {
+          "mean_popularity@10": {
+            "high": 1584.193065,
+            "low": 1565.419324,
+            "mean": 1575.256546
+          },
+          "mean_popularity@100": {
+            "high": 1050.843001,
+            "low": 1042.32055,
+            "mean": 1046.565666
+          },
+          "mean_popularity@20": {
+            "high": 1429.121144,
+            "low": 1413.032216,
+            "mean": 1421.302383
+          },
+          "mean_popularity@200": {
+            "high": 878.874081,
+            "low": 872.885035,
+            "mean": 875.891407
+          },
+          "ndcg@10": {
+            "high": 0.122587,
+            "low": 0.114173,
+            "mean": 0.11838
+          },
+          "ndcg@100": {
+            "high": 0.230616,
+            "low": 0.2233,
+            "mean": 0.226858
+          },
+          "ndcg@20": {
+            "high": 0.135907,
+            "low": 0.128362,
+            "mean": 0.132231
+          },
+          "ndcg@200": {
+            "high": 0.286995,
+            "low": 0.279927,
+            "mean": 0.283438
+          },
+          "precision@10": {
+            "high": 0.09933,
+            "low": 0.09248,
+            "mean": 0.095888
+          },
+          "precision@100": {
+            "high": 0.056673,
+            "low": 0.054072,
+            "mean": 0.055406
+          },
+          "precision@20": {
+            "high": 0.086396,
+            "low": 0.081344,
+            "mean": 0.083887
+          },
+          "precision@200": {
+            "high": 0.043142,
+            "low": 0.041171,
+            "mean": 0.042193
+          },
+          "recall@10": {
+            "high": 0.089953,
+            "low": 0.082323,
+            "mean": 0.086075
+          },
+          "recall@100": {
+            "high": 0.43842,
+            "low": 0.424658,
+            "mean": 0.431419
+          },
+          "recall@20": {
+            "high": 0.151813,
+            "low": 0.142475,
+            "mean": 0.147291
+          },
+          "recall@200": {
+            "high": 0.606477,
+            "low": 0.594117,
+            "mean": 0.600315
+          }
+        },
+        "coverage@10": 0.209981,
+        "coverage@100": 0.476139,
+        "coverage@20": 0.268612,
+        "coverage@200": 0.574039,
+        "mean_popularity@10": 1575.256546,
+        "mean_popularity@100": 1046.565666,
+        "mean_popularity@20": 1421.302383,
+        "mean_popularity@200": 875.891407,
+        "n_eval_users": 5958.0,
+        "ndcg@10": 0.11838,
+        "ndcg@100": 0.226858,
+        "ndcg@20": 0.132231,
+        "ndcg@200": 0.283438,
+        "precision@10": 0.095888,
+        "precision@100": 0.055406,
+        "precision@20": 0.083887,
+        "precision@200": 0.042193,
+        "recall@10": 0.086075,
+        "recall@100": 0.431419,
+        "recall@20": 0.147291,
+        "recall@200": 0.600315,
+        "segments": {
+          "definitions": {
+            "head_fraction": 0.2,
+            "item_head_tail": "Head items = top 20% of train catalog by interaction count (ties broken by item_id ascending). Tail = remaining train items.",
+            "item_segment_metric": "For an item segment S: relevant_S = relevant \u2229 S; recommendations are filtered to items in S (order preserved) and scored at k against relevant_S. Users with empty relevant_S are excluded from that segment's average.",
+            "user_activity": "Eval users partitioned into low/mid/high terciles by train rating count (full_train interaction count). Ties broken by user_id ascending before assigning ranks so boundaries are deterministic."
+          },
+          "item_head_tail": {
+            "head": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.13613,
+                  "low": 0.126941,
+                  "mean": 0.13141
+                }
+              },
+              "n_segment_items": 733,
+              "n_users": 5796,
+              "ndcg@10": 0.13141
+            },
+            "tail": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.07881,
+                  "low": 0.06989,
+                  "mean": 0.074327
+                }
+              },
+              "n_segment_items": 2934,
+              "n_users": 4850,
+              "ndcg@10": 0.074327
+            }
+          },
+          "user_activity_terciles": {
+            "high": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.171076,
+                  "low": 0.155154,
+                  "mean": 0.163024
+                }
+              },
+              "n_users": 1986,
+              "ndcg@10": 0.163024,
+              "train_rating_count_max": 1852,
+              "train_rating_count_min": 127
+            },
+            "low": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.109235,
+                  "low": 0.094274,
+                  "mean": 0.101726
+                }
+              },
+              "n_users": 1986,
+              "ndcg@10": 0.101726,
+              "train_rating_count_max": 47,
+              "train_rating_count_min": 16
+            },
+            "mid": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.095869,
+                  "low": 0.084651,
+                  "mean": 0.09039
+                }
+              },
+              "n_users": 1986,
+              "ndcg@10": 0.09039,
+              "train_rating_count_max": 127,
+              "train_rating_count_min": 47
+            }
+          }
+        },
+        "uncertainty_policy": {
+          "bootstrap_over_users": [
+            "precision@k",
+            "recall@k",
+            "ndcg@k",
+            "mean_popularity@k"
+          ],
+          "coverage_ci_policy": "point_estimate_only",
+          "coverage_ci_rationale": "Coverage is |union of top-k lists| / |catalog|. User bootstrap with replacement reduces unique users and biases the union downward, so CIs would not contain the full-sample estimate.",
+          "point_estimate_only": [
+            "coverage@k"
+          ]
+        }
+      },
+      "published_test_ndcg@10": 0.11838,
+      "val_ndcg@10": 0.08083
+    },
+    "ease_dan": {
+      "fit_sec": 2.442,
+      "hyperparams": {
+        "alpha": 0.0,
+        "beta": 0.0,
+        "dropout_p": 0.6,
+        "l2": 5000.0,
+        "n_items_before_restriction": 3667,
+        "n_items_fit": 3667
+      },
+      "metrics": {
+        "cold_start": {
+          "n_cold_items_in_test": 39,
+          "n_eval_users": 5958,
+          "n_relevant_dropped_cold_item": 18,
+          "n_train_items": 3667,
+          "n_train_users": 6040,
+          "n_users_excluded_no_warm_relevant": 82
+        },
+        "confidence_intervals": {
+          "mean_popularity@10": {
+            "high": 1604.993696,
+            "low": 1586.154252,
+            "mean": 1595.712588
+          },
+          "mean_popularity@100": {
+            "high": 1070.106939,
+            "low": 1061.513036,
+            "mean": 1065.762865
+          },
+          "mean_popularity@20": {
+            "high": 1452.615059,
+            "low": 1436.211062,
+            "mean": 1444.564543
+          },
+          "mean_popularity@200": {
+            "high": 894.026957,
+            "low": 888.015884,
+            "mean": 891.010045
+          },
+          "ndcg@10": {
+            "high": 0.123827,
+            "low": 0.115137,
+            "mean": 0.119454
+          },
+          "ndcg@100": {
+            "high": 0.230507,
+            "low": 0.223199,
+            "mean": 0.226748
+          },
+          "ndcg@20": {
+            "high": 0.136183,
+            "low": 0.128468,
+            "mean": 0.132422
+          },
+          "ndcg@200": {
+            "high": 0.28676,
+            "low": 0.279667,
+            "mean": 0.283201
+          },
+          "precision@10": {
+            "high": 0.100403,
+            "low": 0.093521,
+            "mean": 0.096962
+          },
+          "precision@100": {
+            "high": 0.056838,
+            "low": 0.054199,
+            "mean": 0.055564
+          },
+          "precision@20": {
+            "high": 0.086908,
+            "low": 0.081705,
+            "mean": 0.084298
+          },
+          "precision@200": {
+            "high": 0.043192,
+            "low": 0.041192,
+            "mean": 0.042221
+          },
+          "recall@10": {
+            "high": 0.090935,
+            "low": 0.083292,
+            "mean": 0.087085
+          },
+          "recall@100": {
+            "high": 0.437082,
+            "low": 0.423545,
+            "mean": 0.430148
+          },
+          "recall@20": {
+            "high": 0.150672,
+            "low": 0.141352,
+            "mean": 0.146201
+          },
+          "recall@200": {
+            "high": 0.605395,
+            "low": 0.592875,
+            "mean": 0.599082
+          }
+        },
+        "coverage@10": 0.205345,
+        "coverage@100": 0.467139,
+        "coverage@20": 0.26534,
+        "coverage@200": 0.565312,
+        "mean_popularity@10": 1595.712588,
+        "mean_popularity@100": 1065.762865,
+        "mean_popularity@20": 1444.564543,
+        "mean_popularity@200": 891.010045,
+        "n_eval_users": 5958.0,
+        "ndcg@10": 0.119454,
+        "ndcg@100": 0.226748,
+        "ndcg@20": 0.132422,
+        "ndcg@200": 0.283201,
+        "precision@10": 0.096962,
+        "precision@100": 0.055564,
+        "precision@20": 0.084298,
+        "precision@200": 0.042221,
+        "recall@10": 0.087085,
+        "recall@100": 0.430148,
+        "recall@20": 0.146201,
+        "recall@200": 0.599082,
+        "segments": {
+          "definitions": {
+            "head_fraction": 0.2,
+            "item_head_tail": "Head items = top 20% of train catalog by interaction count (ties broken by item_id ascending). Tail = remaining train items.",
+            "item_segment_metric": "For an item segment S: relevant_S = relevant \u2229 S; recommendations are filtered to items in S (order preserved) and scored at k against relevant_S. Users with empty relevant_S are excluded from that segment's average.",
+            "user_activity": "Eval users partitioned into low/mid/high terciles by train rating count (full_train interaction count). Ties broken by user_id ascending before assigning ranks so boundaries are deterministic."
+          },
+          "item_head_tail": {
+            "head": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.136919,
+                  "low": 0.127915,
+                  "mean": 0.132357
+                }
+              },
+              "n_segment_items": 733,
+              "n_users": 5796,
+              "ndcg@10": 0.132357
+            },
+            "tail": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.076842,
+                  "low": 0.068208,
+                  "mean": 0.072383
+                }
+              },
+              "n_segment_items": 2934,
+              "n_users": 4850,
+              "ndcg@10": 0.072383
+            }
+          },
+          "user_activity_terciles": {
+            "high": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.172488,
+                  "low": 0.156441,
+                  "mean": 0.164537
+                }
+              },
+              "n_users": 1986,
+              "ndcg@10": 0.164537,
+              "train_rating_count_max": 1852,
+              "train_rating_count_min": 127
+            },
+            "low": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.110577,
+                  "low": 0.095334,
+                  "mean": 0.102836
+                }
+              },
+              "n_users": 1986,
+              "ndcg@10": 0.102836,
+              "train_rating_count_max": 47,
+              "train_rating_count_min": 16
+            },
+            "mid": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.096631,
+                  "low": 0.085228,
+                  "mean": 0.090988
+                }
+              },
+              "n_users": 1986,
+              "ndcg@10": 0.090988,
+              "train_rating_count_max": 127,
+              "train_rating_count_min": 47
+            }
+          }
+        },
+        "uncertainty_policy": {
+          "bootstrap_over_users": [
+            "precision@k",
+            "recall@k",
+            "ndcg@k",
+            "mean_popularity@k"
+          ],
+          "coverage_ci_policy": "point_estimate_only",
+          "coverage_ci_rationale": "Coverage is |union of top-k lists| / |catalog|. User bootstrap with replacement reduces unique users and biases the union downward, so CIs would not contain the full-sample estimate.",
+          "point_estimate_only": [
+            "coverage@k"
+          ]
+        }
+      },
+      "val_ndcg@10": 0.081247
+    },
+    "item_item_cosine": {
+      "fit_sec": 1.337,
+      "hyperparams": {
+        "k_neighbors": 0,
+        "min_common": 1,
+        "shrinkage": 0.0
+      },
+      "metrics": {
+        "cold_start": {
+          "n_cold_items_in_test": 39,
+          "n_eval_users": 5958,
+          "n_relevant_dropped_cold_item": 18,
+          "n_train_items": 3667,
+          "n_train_users": 6040,
+          "n_users_excluded_no_warm_relevant": 82
+        },
+        "confidence_intervals": {
+          "mean_popularity@10": {
+            "high": 1803.25888,
+            "low": 1786.485266,
+            "mean": 1794.567153
+          },
+          "mean_popularity@100": {
+            "high": 1248.19714,
+            "low": 1240.122804,
+            "mean": 1244.037016
+          },
+          "mean_popularity@20": {
+            "high": 1679.290718,
+            "low": 1663.893584,
+            "mean": 1671.416759
+          },
+          "mean_popularity@200": {
+            "high": 1031.074738,
+            "low": 1024.760445,
+            "mean": 1027.818944
+          },
+          "ndcg@10": {
+            "high": 0.124155,
+            "low": 0.115829,
+            "mean": 0.120135
+          },
+          "ndcg@100": {
+            "high": 0.204699,
+            "low": 0.196932,
+            "mean": 0.200966
+          },
+          "ndcg@20": {
+            "high": 0.132176,
+            "low": 0.12447,
+            "mean": 0.128423
+          },
+          "ndcg@200": {
+            "high": 0.25499,
+            "low": 0.247068,
+            "mean": 0.251189
+          },
+          "precision@10": {
+            "high": 0.101427,
+            "low": 0.094444,
+            "mean": 0.097952
+          },
+          "precision@100": {
+            "high": 0.052628,
+            "low": 0.049765,
+            "mean": 0.051267
+          },
+          "precision@20": {
+            "high": 0.086162,
+            "low": 0.080874,
+            "mean": 0.083568
+          },
+          "precision@200": {
+            "high": 0.039539,
+            "low": 0.037488,
+            "mean": 0.038578
+          },
+          "recall@10": {
+            "high": 0.081843,
+            "low": 0.075387,
+            "mean": 0.07859
+          },
+          "recall@100": {
+            "high": 0.353134,
+            "low": 0.340938,
+            "mean": 0.347088
+          },
+          "recall@20": {
+            "high": 0.131634,
+            "low": 0.123345,
+            "mean": 0.127654
+          },
+          "recall@200": {
+            "high": 0.505521,
+            "low": 0.492492,
+            "mean": 0.498862
+          }
+        },
+        "coverage@10": 0.127352,
+        "coverage@100": 0.305972,
+        "coverage@20": 0.170166,
+        "coverage@200": 0.395146,
+        "mean_popularity@10": 1794.567153,
+        "mean_popularity@100": 1244.037016,
+        "mean_popularity@20": 1671.416759,
+        "mean_popularity@200": 1027.818944,
+        "n_eval_users": 5958.0,
+        "ndcg@10": 0.120135,
+        "ndcg@100": 0.200966,
+        "ndcg@20": 0.128423,
+        "ndcg@200": 0.251189,
+        "precision@10": 0.097952,
+        "precision@100": 0.051267,
+        "precision@20": 0.083568,
+        "precision@200": 0.038578,
+        "recall@10": 0.07859,
+        "recall@100": 0.347088,
+        "recall@20": 0.127654,
+        "recall@200": 0.498862,
+        "segments": {
+          "definitions": {
+            "head_fraction": 0.2,
+            "item_head_tail": "Head items = top 20% of train catalog by interaction count (ties broken by item_id ascending). Tail = remaining train items.",
+            "item_segment_metric": "For an item segment S: relevant_S = relevant \u2229 S; recommendations are filtered to items in S (order preserved) and scored at k against relevant_S. Users with empty relevant_S are excluded from that segment's average.",
+            "user_activity": "Eval users partitioned into low/mid/high terciles by train rating count (full_train interaction count). Ties broken by user_id ascending before assigning ranks so boundaries are deterministic."
+          },
+          "item_head_tail": {
+            "head": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.135805,
+                  "low": 0.126524,
+                  "mean": 0.131133
+                }
+              },
+              "n_segment_items": 733,
+              "n_users": 5796,
+              "ndcg@10": 0.131133
+            },
+            "tail": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.035393,
+                  "low": 0.029215,
+                  "mean": 0.032052
+                }
+              },
+              "n_segment_items": 2934,
+              "n_users": 4850,
+              "ndcg@10": 0.032052
+            }
+          },
+          "user_activity_terciles": {
+            "high": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.181704,
+                  "low": 0.165359,
+                  "mean": 0.173372
+                }
+              },
+              "n_users": 1986,
+              "ndcg@10": 0.173372,
+              "train_rating_count_max": 1852,
+              "train_rating_count_min": 127
+            },
+            "low": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.100138,
+                  "low": 0.085623,
+                  "mean": 0.092762
+                }
+              },
+              "n_users": 1986,
+              "ndcg@10": 0.092762,
+              "train_rating_count_max": 47,
+              "train_rating_count_min": 16
+            },
+            "mid": {
+              "confidence_intervals": {
+                "ndcg@10": {
+                  "high": 0.100163,
+                  "low": 0.088064,
+                  "mean": 0.094271
+                }
+              },
+              "n_users": 1986,
+              "ndcg@10": 0.094271,
+              "train_rating_count_max": 127,
+              "train_rating_count_min": 47
+            }
+          }
+        },
+        "uncertainty_policy": {
+          "bootstrap_over_users": [
+            "precision@k",
+            "recall@k",
+            "ndcg@k",
+            "mean_popularity@k"
+          ],
+          "coverage_ci_policy": "point_estimate_only",
+          "coverage_ci_rationale": "Coverage is |union of top-k lists| / |catalog|. User bootstrap with replacement reduces unique users and biases the union downward, so CIs would not contain the full-sample estimate.",
+          "point_estimate_only": [
+            "coverage@k"
+          ]
+        }
+      },
+      "published_test_ndcg@10": 0.120135,
+      "val_ndcg@10": null
+    }
+  },
+  "paired": {
+    "ease_dan_minus_ease": {
+      "excludes_zero": true,
+      "high": 0.001739,
+      "low": 0.000432,
+      "mean": 0.001073,
+      "n_users": 5958
+    },
+    "ease_dan_minus_item_item": {
+      "excludes_zero": false,
+      "high": 0.002177,
+      "low": -0.003535,
+      "mean": -0.000681,
+      "n_users": 5958
+    }
+  },
+  "protocol": {
+    "bootstrap_alpha": 0.05,
+    "decision_split": "test",
+    "n_bootstrap": 1000,
+    "paired_definition": "ease_dan minus reference, per-user test NDCG@10",
+    "relevance_threshold": 4.0,
+    "seed": 42,
+    "selection_metric": "ndcg@10",
+    "selection_split": "validation",
+    "test_scored_once": true,
+    "tie_break": "highest validation NDCG@10; earliest config on a tie"
+  },
+  "published_headlines": {
+    "lambdarank_demographics_both_ndcg@10": 0.13341,
+    "lambdarank_s4_ndcg@10": 0.127264,
+    "lambdarank_s4_primary_ci": {
+      "high": 0.132934,
+      "low": 0.12469,
+      "mean": 0.128786
+    },
+    "source": "results/ml-1m.json",
+    "two_tower_ndcg@10": 0.119246,
+    "two_tower_primary_ci": {
+      "high": 0.123048,
+      "low": 0.114975,
+      "mean": 0.119078
+    }
+  },
+  "selected": {
+    "base_grid_edges": [
+      {
+        "parameter": "l2",
+        "side": "high",
+        "value": 2000.0
+      },
+      {
+        "parameter": "dropout_p",
+        "side": "high",
+        "value": 0.6
+      }
+    ],
+    "grid_edges": [
+      {
+        "parameter": "l2",
+        "side": "high",
+        "value": 5000.0
+      }
+    ],
+    "hyperparams": {
+      "alpha": 0.0,
+      "beta": 0.0,
+      "dropout_p": 0.6,
+      "l2": 5000.0
+    },
+    "on_grid_edge": true,
+    "val_ndcg@10": 0.081247
+  },
+  "split": {
+    "config": {
+      "min_ratings": 5,
+      "relevance_threshold": 4.0,
+      "test_fraction": 0.2,
+      "val_fraction": 0.1
+    },
+    "n_full_train": 802553,
+    "n_full_train_items": 3667,
+    "n_full_train_users": 6040,
+    "n_test": 197656,
+    "n_test_users": 6040,
+    "n_train": 724973,
+    "n_train_items": 3655,
+    "n_train_users": 6040,
+    "n_users_dropped": 0,
+    "n_users_kept": 6040,
+    "n_val": 77580,
+    "n_val_users": 6040
+  }
+}

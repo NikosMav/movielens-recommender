@@ -37,6 +37,10 @@ The generic reproduction command intentionally accepts headline records with emb
 | Alternative tower losses | `python scripts/run_two_tower_v2.py --help` | Follow the staged probe, budget, tuning, and test commands in ADR-0013; later extensions are not fresh independent tests |
 | Serving latency | `python scripts/measure_serving.py --artifacts artifacts/ml-1m` | ADR-0014; identify both snapshots first; host and sequential workload affect timing |
 | Drift replay | `movielens-recommender drift-study --config configs/ml-1m.yaml --no-download` | ADR-0016; only popularity, item-item, and EASE were replayed |
+| Beyond-accuracy panel | `python scripts/run_beyond_accuracy.py --no-download` | ADR-0017; recomputes lists for 7 models on ml-1m full train |
+| ALS retune | `python scripts/run_als_retune.py --stage all` | ADR-0018; probe, 144-config grid + one-step edge check, and sealed test |
+| SASRec sequence model | `python scripts/run_sasrec.py --stage all` | ADR-0019; probe, grid + edge check, shuffled-order check, and paired refits |
+| EASE-DAN | `python scripts/run_ease_dan.py --stage all` | ADR-0028; probe, 108-config grid + one-step edge check, and sealed test |
 
 Historical revision references are `c82b6da` for demographics, `7227d01` for the corrected Docker cold-start record, `9e34701` for the alternative-loss work, `d6ed85f` for serving measurements, and `c4d96fe` for the drift replay. Later code can add corrections, so record the revision actually used instead of assuming these experiments share one implementation.
 
