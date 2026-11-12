@@ -49,6 +49,8 @@ from quality import (
     beyond_takeaway,
     chart_rows,
     detail_html,
+    ease_dan_caption,
+    ease_dan_lead,
     friendly_name,
     lead_paragraph,
     ml1_caption,
@@ -317,6 +319,21 @@ def _quality_body(path_str: str) -> None:
         ),
         unsafe_allow_html=True,
     )
+    if "ease_dan" in view:
+        st.markdown(
+            f'<h2 class="section-title icon-heading">'
+            f'{icon_html("rank")}Denoised linear autoencoder (EASE-DAN)</h2>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(ease_dan_lead(view["ease_dan"]))
+        dan_rows = [dict(row, group="") for row in chart_rows(view["ease_dan"]["models"])]
+        st.markdown(
+            metric_chart_html(
+                dan_rows,
+                caption="Closed-form linear autoencoders vs item–item similarity on MovieLens 1M.",
+            ),
+            unsafe_allow_html=True,
+        )
     with st.expander("Detailed scores"):
         st.markdown("**MovieLens 1M**")
         st.markdown(detail_html(view["ml1m"]["models"]), unsafe_allow_html=True)
@@ -327,6 +344,10 @@ def _quality_body(path_str: str) -> None:
         st.caption(str(view["ml32m"]["selection"]))
         st.markdown("**Sequence model**")
         st.markdown(sasrec_caption(view))
+        if "ease_dan" in view:
+            st.markdown("**EASE-DAN**")
+            st.markdown(detail_html(view["ease_dan"]["models"]), unsafe_allow_html=True)
+            st.markdown(ease_dan_caption(view))
     _beyond_panel()
     _committed_funnel()
 
@@ -637,7 +658,7 @@ def _ticket(
         unsafe_allow_html=True,
     )
     if not ratings:
-        st.caption("No ratings yet. They stay in this browser session.")
+        st.caption(f"{_cold_start_nudge()} Ratings stay in this browser session.")
     if ratings:
         with st.expander("Review or remove ratings"):
             for row in ratings:

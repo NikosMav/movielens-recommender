@@ -215,6 +215,25 @@ def _theme_css() -> str:
   font-size: clamp(1.7rem, 3vw, 2.5rem);
   line-height: 1.1;
 }}
+#your-next-watch,
+h2#your-next-watch {{
+  scroll-margin-top: 7.5rem;
+}}
+h2[tabindex="-1"]:focus {{
+  outline: none;
+}}
+@media (max-width: 800px) {{
+  #your-next-watch,
+  h2#your-next-watch {{
+    scroll-margin-top: 10.75rem;
+  }}
+}}
+@media (max-width: 360px) {{
+  #your-next-watch,
+  h2#your-next-watch {{
+    scroll-margin-top: 13.75rem;
+  }}
+}}
 .pick {{
   display: flex;
   gap: 0.85rem;
@@ -1224,7 +1243,7 @@ _SCROLL = """
 const doc = window.parent.document;
 const el = doc.getElementById("your-next-watch");
 if (el) el.scrollIntoView({block: "start", behavior: "smooth"});
-const head = doc.getElementById("picks-heading");
+const head = doc.getElementById("picks-heading") || doc.querySelector("h2#your-next-watch");
 if (head) head.focus({preventScroll: true});
 </script>
 """
