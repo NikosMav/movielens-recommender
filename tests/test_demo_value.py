@@ -41,7 +41,7 @@ def test_default_slider_keeps_the_measured_order_and_a_move_is_deterministic():
     assert moved != [10, 20, 30]
     assert moved[0] == 30
     assert value.unevaluated_note(0.0) is None
-    assert "not been evaluated offline" in (value.unevaluated_note(0.2) or "")
+    assert "trades held-out ranking accuracy" in (value.unevaluated_note(0.2) or "")
 
 
 def test_why_not_uses_only_the_list_this_request_scored():

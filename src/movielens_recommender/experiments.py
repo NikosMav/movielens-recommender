@@ -33,6 +33,9 @@ def prepare_reproduction(
     if "config" not in record:
         raise ValueError("Reproduction requires a headline result record with an embedded config")
     raw = deepcopy(record["config"])
+    eval_cfg = raw.setdefault("eval", {})
+    if int(eval_cfg.get("user_sample_size", 0) or 0) > 0 and "user_sample_mode" not in eval_cfg:
+        eval_cfg["user_sample_mode"] = "warm_test"
     dataset = raw.get("dataset")
     if dataset != record.get("dataset") or dataset not in DATASET_SHA256:
         raise ValueError("Result and config must name the same supported dataset")

@@ -21,6 +21,8 @@ eval:
   # Locked with the memory measurements in ADR-0011, before test metrics.
   user_sample_size: 8000
   user_sample_seed: 42
+  # ADR-0029: draw sample from train-eligible users without inspecting test.
+  user_sample_mode: train_only
 models:
   als:
     factors: 64

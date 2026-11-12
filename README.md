@@ -34,7 +34,9 @@ Every number behind these sentences is in [Results](#results), generated from `r
 - **ml-1m.** Tuned item–item kNN is a strong baseline. The two-tower model does not beat it on NDCG@10 (a recorded negative result), but it leads on Recall@100/200, catalog coverage, and the long tail. LambdaRank over two-tower candidates clears the item–item gate.
 - **ml-32M.** The two-tower model and LambdaRank tie at the top and both beat item–item (ADR-0011).
 - **Baselines.** EASE^R and RP3beta are tuned on the same validation split and compared in the results tables (ADR-0008). Adding Data-Adaptive Normalization / dropout-regularized EASE (`EASE-DAN`, Park et al. 2025 / Steck 2020) beats `EASE^R` on ml-1m (`0.1195` vs `0.1184`, paired 95% CI `[+0.0004, +0.0017]`) and closes the statistical gap to item–item cosine (`0.1201`) in a 2.4s closed-form solve (ADR-0028).
-- **Sequence modeling (ml-1m).** Causal SASRec with full-catalog softmax beats a shuffled-order control (`0.0924` vs `0.0892`, paired `[+0.0024, +0.0052]`), confirming sequential order carries a small signal (+4% relative), while trailing bag-of-history retrieval and LambdaRank on MovieLens ratings (ADR-0019).
+- **Sequence modeling (ml-1m).** Causal SASRec with full-catalog softmax beats a shuffled-order control (`0.0924` vs `0.0892`, paired `[+0.0024, +0.0052]`), confirming sequential order carries a small signal (+4% relative), while trailing bag-of-history retrieval and LambdaRank on MovieLens ratings (ADR-0019). Replacing the blocks with LiGR and SwiGLU (`eSASRec`, RecSys 2025) scores below that SASRec reference (paired primary-seed `-0.0134`, interval excludes 0). A pairwise transition probe (`PCTM`, RecSys 2026) scores `0.1787` against the refit SASRec `0.0929` (paired `+0.0857 [+0.0796, +0.0917]`) and covers `71.1%` of the catalog at 10, against `3.3%` for SASRec. The enhanced transformer stays below that pairwise probe (ADR-0030).
+- **Discovery slider.** On the 604 held-out cold-start users with 5 ratings, Familiar keeps the highest NDCG@10 (`0.4095`). Closer costs about `0.006` NDCG@10 and raises coverage from `1.9%` to `2.7%`. In between raises coverage to `21.1%` and long-tail share to `20.0%` (ADR-0032). Familiar stays the default.
+- **Third retriever (ml-1m).** A balanced union of item–item, two-tower, and EASE-DAN wins validation Recall@200 (`0.6607` vs `0.6552` for two-tower alone). Inside that same K=200 budget the demographics-on ranker then scores lower: three-seed NDCG@10 `0.1291` vs `0.1327`, paired primary-seed `-0.0032 [-0.0061, -0.0003]` (excludes 0). Demographics off, the paired interval includes 0 and the three-seed mean is lower. Letting the union grow past 200 candidates (mean size 301) returns the demographics-on mean to `0.1325`, and that paired interval includes 0. All three pre-registered lifts fail. EASE-DAN score and rank are still among the strongest split features (ADR-0031).
 - **Demographics (ml-1m).** User age, gender, and occupation features passed their pre-registered rule, so `configs/ml-1m.yaml` turns them on for the ranker (ADR-0009). The headline LambdaRank row in `results/ml-1m.json` is still the S4 feature set.
 - **New users.** Someone with no MovieLens id rates a few films and gets an explained top 10. The cold-start panel reports quality after 1, 3, 5, and 10 ratings, next to known users and popularity (ADR-0012). On the main protocol the list beats popularity from 3 ratings on; after a single rating it cannot be told apart from it.
 - **Reproducibility.** Top-n selection used to break ties differently on different CPUs, which moved the new-user results between machines; ties now always go to the lower item index. Small floating-point differences between math-library builds still change the new-user ranker's details across platforms, so its results are regenerated in the Docker image and record the host they ran on (ADR-0015).
@@ -192,6 +194,10 @@ Model improvements are assessed on **NDCG@10** on the same harness. The historic
 | S7b | Done | Sequential self-attention (SASRec) & shuffled-order check | [0019](docs/adr/0019-sasrec.md) |
 | S7c | Done | Unified public showcase UI, discovery controls, & RSS budget | [0020](docs/adr/0020-huggingface-space.md)–[0027](docs/adr/0027-readable-benchmarks-and-pipeline.md) |
 | S8 | Done | Data-Adaptive Normalized EASE (`EASE-DAN`, SIGIR 2025) | [0028](docs/adr/0028-ease-dan.md) |
+| S8b | Done | Train-only evaluation-user sampling for new ml-32M runs | [0029](docs/adr/0029-train-only-user-sampling.md) |
+| S9 | Done | eSASRec vs pairwise transitions (PCTM) | [0030](docs/adr/0030-esasrec-and-pctm.md) |
+| S10 | Done | EASE-DAN as a third LambdaRank retriever | [0031](docs/adr/0031-ranker-ease-dan.md) |
+| S11 | Done | Offline evaluation of the discovery slider | [0032](docs/adr/0032-discovery-slider-evaluation.md) |
 
 ## Data
 
@@ -229,7 +235,7 @@ The full definition is in [`docs/problem.md`](docs/problem.md).
 3. Hold out the last `max(1, floor(n * 0.2))` ratings as **test**.
 4. From the rest, hold out the last `max(1, floor(n_train * 0.1))` as **validation**. Earlier rows are **fit-train** (ADR-0005).
 
-Tune on validation only, refit the chosen config on full train (fit-train plus validation), then evaluate once on test. Test is never used for tuning.
+Tune on validation only, refit the chosen config on full train (fit-train plus validation), then evaluate once on test. Test is never used for tuning. New ml-32M runs draw the 8,000 evaluation users from full train only (`user_sample_mode: train_only`, ADR-0029). Reproducing `results/ml-32m.json` keeps the historical warm-test sample.
 
 This prevents within-user leakage but not cross-user, global temporal leakage: other users' later ratings can still appear in train (ADR-0002). A global-time-cutoff check on ml-1m is reported as a secondary table.
 
@@ -262,6 +268,8 @@ Metrics are averaged over eligible test users, with 95% bootstrap intervals over
 | `rp3beta` | RP3beta random-walk item similarity; `(alpha, beta, top_k)` chosen on validation (ADR-0008) |
 | `two_tower` | PyTorch two-tower retrieval with an in-batch sampled-softmax loss; tuned on validation with early stopping; tested over 3 seeds (ADR-0006) |
 | `sasrec` | Causal self-attentive sequence recommender trained with full-catalog softmax cross-entropy (ADR-0019) |
+| `esasrec` | SASRec with LiGR residual blocks and a SwiGLU feed-forward (eSASRec, RecSys 2025; ADR-0030) |
+| `pctm` | Pairwise transition model with Dirichlet smoothing and recency log-pooling (PCTM, RecSys 2026; ADR-0030) |
 | `lambdarank` | LightGBM LambdaRank re-ranking the validation-chosen candidate set (ADR-0007) |
 
 Tuning grids and per-trial validation scores are in `results/tuning/`.
@@ -295,6 +303,9 @@ python scripts/run_beyond_accuracy.py                     # ADR-0017, ml-1m only
 python scripts/run_als_retune.py --stage all              # ADR-0018, ml-1m ALS retune
 python scripts/run_sasrec.py --stage all                  # ADR-0019, ml-1m SASRec
 python scripts/run_ease_dan.py --stage all                # ADR-0028, ml-1m EASE-DAN
+python scripts/run_sequence_modern.py --stage all         # ADR-0030, eSASRec and PCTM
+python scripts/run_ranker_ease_dan.py                     # ADR-0031, third retriever
+python scripts/run_slider_eval.py                         # ADR-0032, discovery slider
 python scripts/make_results_table.py                      # regenerate the Results section
 ```
 
@@ -1252,5 +1263,59 @@ Validation configs in the locked grid: 108. Edge-extension trials scored under t
 | `ease_dan` | 0.0812 | 0.1195 | [0.1151, 0.1238] | 0.0871 | 0.2053 | 2.44 |
 | `ease` | 0.0808 | 0.1184 | [0.1142, 0.1226] | 0.0861 | 0.2100 | 2.39 |
 | `item_item_cosine` | — | 0.1201 | [0.1158, 0.1242] | 0.0786 | 0.1274 | 1.34 |
+
+### Sequential models: eSASRec and PCTM (`ml-1m`)
+
+From `results/sequence-modern/ml-1m.json`, with the grid in `results/tuning/sequence_modern_ml-1m.json` (ADR-0030). Selection is validation NDCG@10 on the existing split. Test is scored once. `results/sasrec/ml-1m.json` and `results/ml-1m.json` are unchanged. The eSASRec test column is the mean across test seeds, and its interval is the primary seed. PCTM and the SASRec reference are single fits on the same users.
+
+PCTM validation selected decay `harmonic`, max distance 20, smoothing tau 50, popularity beta -0.5 (validation NDCG@10 0.1863). eSASRec selected max sequence length 50, 2 LiGR layers, dropout 0.2, best epoch 13 (validation NDCG@10 0.0509). The SASRec reference keeps the committed architecture (validation NDCG@10 0.0505).
+
+**Win (`pctm_beats_sasrec=True`).** Paired PCTM minus SASRec test NDCG@10 is 0.0857 [0.0796, 0.0917] (excludes 0: yes).
+**Negative result (`esasrec_beats_sasrec=False`).** Paired eSASRec minus SASRec is -0.0134 [-0.0158, -0.0110] (excludes 0: yes). The three-seed eSASRec mean is 0.0836 (std 0.0029); the primary seed is 0.0795 [0.0761, 0.0827].
+**Negative result (`higher_order_beats_pairwise_pctm=False`).** Paired eSASRec minus PCTM is -0.0991 [-0.1050, -0.0936] (excludes 0: yes). On this split the higher-order transformer stays below the pairwise probe.
+
+PCTM catalog coverage@10 is 0.7112, against 0.0327 for the SASRec reference and 0.0341 for eSASRec. Published headline points from other runs, not paired in this file, are 0.1192 for the two-tower and 0.1273 for LambdaRank (0.1334 with demographics).
+
+Validation configs in the locked grids: 8 eSASRec and 36 PCTM.
+
+| model | val NDCG@10 | test NDCG@10 | 95% CI | Coverage@10 | Novelty@10 | Long-tail share@10 |
+| --- | --- | --- | --- | --- | --- | --- |
+| PCTM | 0.1863 | 0.1787 | [0.1737, 0.1837] | 0.7112 | 10.2004 | 0.1759 |
+| SASRec reference | 0.0505 | 0.0929 | [0.0889, 0.0967] | 0.0327 | 8.5220 | 0.0000 |
+| eSASRec | 0.0509 | 0.0836 | [0.0761, 0.0827] | 0.0341 | 8.7066 | 0.0000 |
+
+### Discovery slider (`ml-1m` cold start)
+
+From `results/slider-eval/ml-1m.json` (ADR-0032). The five Familiar-to-Adventurous positions re-rank the deployed cold-start list. Model weights stay fixed. The table is profile size N=5 on the 604 held-out cold-start users. N=3 and N=10 are in the same file.
+
+Familiar NDCG@10 is 0.4095 [0.3879, 0.4296]. The committed cold-start point at N=5 is 0.4087 (matches at 4 decimals: False). The gap is the documented serving-snapshot refit, not a new model.
+Closer changes NDCG@10 by -0.0062 [-0.0104, -0.0016] (excludes 0: yes) and coverage@10 from 0.0194 to 0.0271. In between reaches coverage@10 0.2114 and long-tail share@10 0.1995, with NDCG@10 0.2710.
+On the last-20% target at N=5, Familiar NDCG@10 is 0.0444 and Closer is 0.0458.
+
+| position | weight | NDCG@10 | 95% CI | Coverage@10 | Novelty@10 | Diversity@10 | Long-tail share@10 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Familiar | 0 | 0.4095 | [0.3879, 0.4296] | 0.0194 | 8.4396 | 0.6889 | 0.0000 |
+| Closer | 0.25 | 0.4033 | [0.3814, 0.4236] | 0.0271 | 8.5080 | 0.7298 | 0.0012 |
+| In between | 0.5 | 0.2710 | [0.2542, 0.2869] | 0.2114 | 9.8298 | 0.8220 | 0.1995 |
+| Further | 0.75 | 0.0905 | [0.0812, 0.1002] | 0.3678 | 11.0415 | 0.8721 | 0.3983 |
+| Adventurous | 1 | 0.0519 | [0.0450, 0.0588] | 0.3820 | 11.3095 | 0.8676 | 0.4611 |
+
+### EASE-DAN as a third retriever (`ml-1m`)
+
+From `results/ranker-ease-dan/ml-1m.json` (ADR-0031). Retriever hyperparameters stay frozen from `results/ml-1m.json` and `results/ease-dan/ml-1m.json`. The candidate budget is K=200. Validation Recall@200 chooses the K=200 set. Test NDCG@10 is the mean across ranker seeds 42, 43, and 44. The interval is the primary seed. `results/ml-1m.json` and `results/demographics/ml-1m.json` are unchanged.
+
+Validation Recall@200: `two_tower` 0.6552, `union_balanced` 0.6531, `tri_union_balanced` 0.6607, `tri_union_unbalanced` 0.6598. Selected K=200 set: `tri_union_balanced`.
+
+**Negative result (`tri_off_lifts_bi_off=False`).** Paired three-retriever minus two-retriever, demographics off, is 0.0003 [-0.0026, 0.0035] (excludes 0: no).
+**Negative result (`tri_both_lifts_bi_both=False`).** Paired three-retriever minus two-retriever, demographics on, is -0.0032 [-0.0061, -0.0003] (excludes 0: yes).
+**Negative result (`tri_unbalanced_both_lifts_bi_both=False`).** Paired unbalanced three-way union minus the two-retriever ranker, demographics on, is -0.0010 [-0.0038, 0.0020] (excludes 0: no).
+
+| variant | candidate set | features | test NDCG@10 | 95% CI | Coverage@10 |
+| --- | --- | --- | --- | --- | --- |
+| 2 retrievers, demographics off | `two_tower` | 51 | 0.1288 | [0.1248, 0.1333] | 0.3897 |
+| 3 retrievers, demographics off | `tri_union_balanced` | 54 | 0.1273 | [0.1251, 0.1336] | 0.3690 |
+| 2 retrievers, demographics on | `two_tower` | 61 | 0.1327 | [0.1298, 0.1381] | 0.4013 |
+| 3 retrievers, demographics on | `tri_union_balanced` | 64 | 0.1291 | [0.1265, 0.1348] | 0.3815 |
+| 3 retrievers, unbalanced, demographics on | `tri_union_unbalanced` | 64 | 0.1325 | [0.1288, 0.1372] | 0.3916 |
 
 <!-- END RESULTS TABLE -->

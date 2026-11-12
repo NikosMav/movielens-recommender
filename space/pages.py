@@ -56,11 +56,17 @@ from quality import (
     ml1_caption,
     ml32_caption,
     overview_models,
+    ranker_ease_dan_caption,
+    ranker_ease_dan_lead,
     rounded,
     sample_sentence,
     sasrec_caption,
     sasrec_lead,
+    sequence_modern_caption,
+    sequence_modern_lead,
     serving_latency_notes,
+    slider_caption,
+    slider_lead,
 )
 
 _SECTIONS = ("Discover", "Explore a MovieLens user", "How good is it?")
@@ -319,6 +325,26 @@ def _quality_body(path_str: str) -> None:
         ),
         unsafe_allow_html=True,
     )
+    if "sequence_modern" in view:
+        st.markdown(
+            f'<h2 class="section-title icon-heading">'
+            f'{icon_html("history")}Pairwise transitions and an enhanced sequence model</h2>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(sequence_modern_lead(view["sequence_modern"]))
+        seq_rows = [
+            dict(row, group="") for row in chart_rows(view["sequence_modern"]["models"])
+        ]
+        st.markdown(
+            metric_chart_html(
+                seq_rows,
+                caption=(
+                    "MovieLens 1M. The enhanced-sequence bar is the three-seed mean. "
+                    "Its range is the primary seed."
+                ),
+            ),
+            unsafe_allow_html=True,
+        )
     if "ease_dan" in view:
         st.markdown(
             f'<h2 class="section-title icon-heading">'
@@ -334,6 +360,20 @@ def _quality_body(path_str: str) -> None:
             ),
             unsafe_allow_html=True,
         )
+    if "ranker_ease_dan" in view:
+        st.markdown(
+            f'<h2 class="section-title icon-heading">'
+            f'{icon_html("rank")}Third retriever in the ranker</h2>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(ranker_ease_dan_lead(view["ranker_ease_dan"]))
+        st.markdown(
+            metric_chart_html(
+                chart_rows(view["ranker_ease_dan"]["models"]),
+                caption="Two retrievers against three, with and without demographic features.",
+            ),
+            unsafe_allow_html=True,
+        )
     with st.expander("Detailed scores"):
         st.markdown("**MovieLens 1M**")
         st.markdown(detail_html(view["ml1m"]["models"]), unsafe_allow_html=True)
@@ -344,11 +384,23 @@ def _quality_body(path_str: str) -> None:
         st.caption(str(view["ml32m"]["selection"]))
         st.markdown("**Sequence model**")
         st.markdown(sasrec_caption(view))
+        if "sequence_modern" in view:
+            st.markdown("**Pairwise transitions**")
+            st.markdown(detail_html(view["sequence_modern"]["models"]), unsafe_allow_html=True)
+            st.markdown(sequence_modern_caption(view))
         if "ease_dan" in view:
             st.markdown("**EASE-DAN**")
             st.markdown(detail_html(view["ease_dan"]["models"]), unsafe_allow_html=True)
             st.markdown(ease_dan_caption(view))
+        if "ranker_ease_dan" in view:
+            st.markdown("**Third retriever**")
+            st.markdown(detail_html(view["ranker_ease_dan"]["models"]), unsafe_allow_html=True)
+            st.markdown(ranker_ease_dan_caption(view))
+        if "slider" in view:
+            st.markdown("**Discovery slider**")
+            st.markdown(slider_caption(view))
     _beyond_panel()
+    _slider_panel(view)
     _committed_funnel()
 
 
@@ -507,6 +559,53 @@ def _beyond_panel() -> None:
         with st.expander("What these mean"):
             for label, text in definitions:
                 st.markdown(f"**{label}.** {text}")
+
+
+def _slider_table(rows: list[dict[str, Any]]) -> str:
+    labels = (
+        "Position",
+        "NDCG@10",
+        "Coverage",
+        "Novelty",
+        "Diversity",
+        "Long-tail share",
+    )
+    head = "".join(f"<th>{_escape(label)}</th>" for label in labels)
+    body = []
+    for row in rows:
+        cells = (
+            str(row["label"]),
+            rounded(row["ndcg@10"]),
+            rounded(row["coverage@10"]),
+            rounded(row["novelty@10"]),
+            rounded(row["intra_list_diversity@10"]),
+            rounded(row["long_tail_share@10"]),
+        )
+        body.append("<tr>" + "".join(f"<td>{_escape(cell)}</td>" for cell in cells) + "</tr>")
+    return (
+        '<div class="beyond-table"><table><thead><tr>'
+        + head
+        + "</tr></thead><tbody>"
+        + "".join(body)
+        + "</tbody></table></div>"
+    )
+
+
+def _slider_panel(view: dict[str, Any]) -> None:
+    block = view.get("slider")
+    if not block:
+        return
+    st.markdown(
+        f'<h2 class="section-title icon-heading">'
+        f'{icon_html("compass")}Familiar or adventurous</h2>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(slider_lead(block))
+    st.markdown(_slider_table(block["positions"]), unsafe_allow_html=True)
+    st.caption(
+        "Held-out cold-start users, five ratings. "
+        "Familiar stays the default list."
+    )
 
 
 def _committed_funnel() -> None:

@@ -64,12 +64,61 @@ class SASRecBlock(nn.Module):
         return hidden + self.dropout(forwarded)
 
 
+class SwiGLUFeedForward(nn.Module):
+    """SwiGLU pointwise network used in eSASRec LiGR blocks (ADR-0030)."""
+
+    def __init__(self, d_model: int, inner_dim: int) -> None:
+        super().__init__()
+        self.w_gate = nn.Linear(d_model, inner_dim)
+        self.w_val = nn.Linear(d_model, inner_dim)
+        self.w_out = nn.Linear(inner_dim, d_model)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.w_out(F.silu(self.w_gate(x)) * self.w_val(x))
+
+
+class LiGRBlock(nn.Module):
+    """Pre-norm sigmoid-gated Transformer block with SwiGLU FFN (eSASRec, RecSys 2025)."""
+
+    def __init__(
+        self, d_model: int, n_heads: int, dropout: float, *, ff_mult: int = 2
+    ) -> None:
+        super().__init__()
+        self.ln1 = nn.LayerNorm(d_model)
+        self.attn = nn.MultiheadAttention(
+            d_model,
+            n_heads,
+            dropout=dropout,
+            batch_first=True,
+        )
+        self.gate1 = nn.Linear(d_model, d_model)
+        self.ln2 = nn.LayerNorm(d_model)
+        self.ffn = SwiGLUFeedForward(d_model, d_model * int(ff_mult))
+        self.gate2 = nn.Linear(d_model, d_model)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, hidden: torch.Tensor, attn_mask: torch.Tensor) -> torch.Tensor:
+        normed = self.ln1(hidden)
+        attended, _weights = self.attn(
+            normed,
+            normed,
+            normed,
+            attn_mask=attn_mask,
+            need_weights=False,
+        )
+        hidden = hidden + self.dropout(attended) * torch.sigmoid(self.gate1(normed))
+        normed = self.ln2(hidden)
+        forwarded = self.ffn(normed)
+        return hidden + self.dropout(forwarded) * torch.sigmoid(self.gate2(normed))
+
+
 class SASRecModel(nn.Module):
     """Item sequence encoder with a tied output embedding.
 
     ``forward`` returns hidden states ``(batch, length, d_model)``. The last
     slot is the inference state. Logits are a separate full-softmax call so
-    the dot product can be chunked.
+    the dot product can be chunked. ``block_type='ligr'`` selects eSASRec's
+    LiGR + SwiGLU blocks (ADR-0030); ``'sasrec'`` keeps ADR-0019 unchanged.
     """
 
     def __init__(
@@ -81,6 +130,8 @@ class SASRecModel(nn.Module):
         n_heads: int = 1,
         dropout: float = 0.2,
         max_seq_len: int = 50,
+        block_type: str = "sasrec",
+        ff_mult: int = 2,
     ) -> None:
         super().__init__()
         if n_items < 1:
@@ -91,17 +142,30 @@ class SASRecModel(nn.Module):
             raise ValueError("d_model must be divisible by n_heads")
         if not 0.0 <= dropout < 1.0:
             raise ValueError("dropout must be in [0, 1)")
+        if block_type not in {"sasrec", "ligr"}:
+            raise ValueError(f"block_type must be 'sasrec' or 'ligr'; got {block_type!r}")
+        if ff_mult < 1:
+            raise ValueError("ff_mult must be >= 1")
         self.n_items = int(n_items)
         self.d_model = int(d_model)
         self.n_layers = int(n_layers)
         self.n_heads = int(n_heads)
         self.max_seq_len = int(max_seq_len)
+        self.block_type = str(block_type)
+        self.ff_mult = int(ff_mult)
         self.item_emb = nn.Embedding(self.n_items + 1, self.d_model, padding_idx=0)
         self.pos_emb = nn.Embedding(self.max_seq_len, self.d_model)
         self.emb_dropout = nn.Dropout(dropout)
-        self.blocks = nn.ModuleList(
-            SASRecBlock(self.d_model, self.n_heads, dropout) for _ in range(self.n_layers)
-        )
+        if self.block_type == "ligr":
+            self.blocks = nn.ModuleList(
+                LiGRBlock(self.d_model, self.n_heads, dropout, ff_mult=self.ff_mult)
+                for _ in range(self.n_layers)
+            )
+        else:
+            self.blocks = nn.ModuleList(
+                SASRecBlock(self.d_model, self.n_heads, dropout)
+                for _ in range(self.n_layers)
+            )
         self.final_norm = nn.LayerNorm(self.d_model)
 
     def forward(self, tokens: torch.Tensor) -> torch.Tensor:

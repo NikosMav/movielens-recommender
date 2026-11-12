@@ -18,8 +18,8 @@ NEIGHBOUR_COUNT = 6
 _TOKEN = re.compile(r"^(\d+)-([1-5])$")
 _POPULAR_LINE = "A widely loved film that fits your mix"
 _UNEVALUATED = (
-    "This re-ranking has not been evaluated offline. "
-    "Only the default position is the measured model."
+    "Moving toward Adventurous trades held-out ranking accuracy for wider "
+    "catalog coverage, novelty, and genre diversity (see How good is it?)."
 )
 
 TASTE_SETS: tuple[dict[str, Any], ...] = (

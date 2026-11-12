@@ -148,6 +148,23 @@ def cold_start_ranker_feature_names() -> list[str]:
     return names + [name for name in extra if name not in names]
 
 
+def tri_ranker_feature_names(mode: str = "off") -> list[str]:
+    """S4/S4b columns plus EASE-DAN score/rank and 3-way agreement flag (ADR-0031)."""
+    mode = _check_mode(mode)
+    base = feature_names("off")
+    idx = base.index("two_tower_rank") + 1
+    names = (
+        base[:idx]
+        + ["ease_dan_score", "ease_dan_rank", "in_all_three"]
+        + base[idx:]
+    )
+    if mode in {"raw", "both"}:
+        names.extend(RAW_DEMOGRAPHIC_FEATURES)
+    if mode in {"affinity", "both"}:
+        names.extend(GROUP_AFFINITY_FEATURES)
+    return names
+
+
 def annotate_cold_start_ranker_rows(
     matrix: np.ndarray,
     names: list[str],
@@ -606,6 +623,7 @@ def build_feature_matrix(
     *,
     user_stats: tuple[float, float, float, np.ndarray | None] | None = None,
     ease: Mapping[int, tuple[float, int]] | None = None,
+    ease_dan: Mapping[int, tuple[float, int]] | None = None,
     demographics_missing: bool = False,
 ) -> np.ndarray:
     """One row per candidate. Missing retriever score/rank is NaN.
@@ -644,10 +662,12 @@ def build_feature_matrix(
     if ctx.demo_mode in {"affinity", "both"} and not demographics_missing:
         group_codes = ctx.user_group_codes.get(uid)
     ease_map = ease or {}
+    dan_map = ease_dan or {}
 
     for row, item in enumerate(items):
         ii = item_item.get(item)
         tt = two_tower.get(item)
+        ed = dan_map.get(item)
         if ii is not None:
             x[row, col["item_item_score"]] = float(ii[0])
             x[row, col["item_item_rank"]] = float(ii[1])
@@ -659,6 +679,13 @@ def build_feature_matrix(
             if ez is not None:
                 x[row, col["ease_score"]] = float(ez[0])
                 x[row, col["ease_rank"]] = float(ez[1])
+        if "ease_dan_score" in col and ed is not None:
+            x[row, col["ease_dan_score"]] = float(ed[0])
+            x[row, col["ease_dan_rank"]] = float(ed[1])
+        if "in_all_three" in col:
+            x[row, col["in_all_three"]] = (
+                1.0 if (ii is not None and tt is not None and ed is not None) else 0.0
+            )
         x[row, col["in_both"]] = 1.0 if ii is not None and tt is not None else 0.0
 
         idx = ctx.item_index.get(item)

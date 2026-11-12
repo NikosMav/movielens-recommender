@@ -38,6 +38,14 @@ MODEL_GROUPS: dict[str, str] = {
     "two_tower": "Retrieval",
     "no_ranker": "Retrieval",
     "lambdarank": "Full pipeline",
+    "sasrec_reference": "Sequence",
+    "esasrec": "Sequence",
+    "pctm": "Sequence",
+    "bi_off": "No demographics",
+    "tri_off": "No demographics",
+    "bi_both": "With demographics",
+    "tri_both": "With demographics",
+    "tri_unbalanced_both": "With demographics",
 }
 
 BEYOND_FIELDS: tuple[tuple[str, str], ...] = (
@@ -73,6 +81,12 @@ def load_quality(results_dir: Path | str) -> dict[str, Any]:
     sas = _read_json(root / "sasrec" / "ml-1m.json")
     ease_dan_path = root / "ease-dan" / "ml-1m.json"
     ease_dan = _read_json(ease_dan_path) if ease_dan_path.is_file() else None
+    sequence_path = root / "sequence-modern" / "ml-1m.json"
+    sequence = _read_json(sequence_path) if sequence_path.is_file() else None
+    slider_path = root / "slider-eval" / "ml-1m.json"
+    slider = _read_json(slider_path) if slider_path.is_file() else None
+    ranker_path = root / "ranker-ease-dan" / "ml-1m.json"
+    ranker_dan = _read_json(ranker_path) if ranker_path.is_file() else None
     sample = ml32["eval_user_sample"]
     shuffled = sas["paired"]["real_minus_shuffled"]
     sources = {
@@ -82,6 +96,12 @@ def load_quality(results_dir: Path | str) -> dict[str, Any]:
     }
     if ease_dan is not None:
         sources["ease-dan"] = "results/ease-dan/ml-1m.json"
+    if sequence is not None:
+        sources["sequence-modern"] = "results/sequence-modern/ml-1m.json"
+    if slider is not None:
+        sources["slider-eval"] = "results/slider-eval/ml-1m.json"
+    if ranker_dan is not None:
+        sources["ranker-ease-dan"] = "results/ranker-ease-dan/ml-1m.json"
     out: dict[str, Any] = {
         "sources": sources,
         "ml1m": {
@@ -147,6 +167,12 @@ def load_quality(results_dir: Path | str) -> dict[str, Any]:
             "paired_ii_high": p_ii["high"],
             "paired_ii_excludes_zero": p_ii["excludes_zero"],
         }
+    if sequence is not None:
+        out["sequence_modern"] = _sequence_modern_block(sequence)
+    if slider is not None:
+        out["slider"] = _slider_block(slider, n=5)
+    if ranker_dan is not None:
+        out["ranker_ease_dan"] = _ranker_ease_dan_block(ranker_dan)
     return out
 
 
@@ -270,6 +296,14 @@ MODEL_NAMES: dict[str, str] = {
     "lambdarank": "Full model",
     "sasrec": "Sequence model",
     "sasrec_shuffled": "Shuffled sequence",
+    "sasrec_reference": "Sequence model, refit",
+    "esasrec": "Enhanced sequence",
+    "pctm": "Pairwise transitions",
+    "bi_off": "Two retrievers",
+    "tri_off": "Three retrievers",
+    "bi_both": "Two retrievers, with demographics",
+    "tri_both": "Three retrievers, with demographics",
+    "tri_unbalanced_both": "Wider three-retriever list",
 }
 
 NDCG_SENTENCE = (
@@ -405,6 +439,221 @@ def ease_dan_caption(view: dict[str, Any]) -> str:
         f"Paired ease_dan minus item_item_cosine: {fmt(block['paired_ii_mean'])} "
         f"({fmt(block['paired_ii_low'])} to {fmt(block['paired_ii_high'])}; "
         f"{plain_excludes_zero(bool(block['paired_ii_excludes_zero']))})."
+    )
+
+
+def _ci_fields(interval: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "ci_low": interval["low"],
+        "ci_high": interval["high"],
+        "ci_mean": interval["mean"],
+    }
+
+
+def _sequence_modern_block(payload: dict[str, Any]) -> dict[str, Any]:
+    models = payload["models"]
+    pctm = models["pctm"]
+    sas = models["sasrec_reference"]
+    esas = models["esasrec"]
+    rows = [
+        {
+            "model": "pctm",
+            "ndcg@10": pctm["ndcg@10"],
+            **_ci_fields(pctm["ndcg@10_ci"]),
+        },
+        {
+            "model": "sasrec_reference",
+            "ndcg@10": sas["ndcg@10"],
+            **_ci_fields(sas["ndcg@10_ci"]),
+        },
+        {
+            "model": "esasrec",
+            "ndcg@10": esas["ndcg@10_mean"],
+            **_ci_fields(esas["primary_ndcg@10_ci"]),
+        },
+    ]
+    return {
+        "decision": payload["decision"],
+        "paired": payload["paired"],
+        "models": rows,
+        "beyond": payload["beyond_accuracy"],
+        "pctm_beats_sasrec": payload["decision"]["pctm_beats_sasrec"],
+        "esasrec_beats_sasrec": payload["decision"]["esasrec_beats_sasrec"],
+        "higher_order_beats_pairwise_pctm": payload["decision"][
+            "higher_order_beats_pairwise_pctm"
+        ],
+    }
+
+
+def sequence_modern_lead(block: dict[str, Any]) -> str:
+    """Plain reading of the stored eSASRec / PCTM / SASRec check (ADR-0030)."""
+    pair = block["paired"]["pctm_minus_sasrec"]
+    if block["pctm_beats_sasrec"] and not block["higher_order_beats_pairwise_pctm"]:
+        verdict = (
+            "Pairwise transitions score higher than the sequence model, "
+            "and the enhanced transformer stays below that pairwise probe."
+        )
+    elif block["higher_order_beats_pairwise_pctm"]:
+        verdict = "The enhanced transformer scores higher than the pairwise probe."
+    else:
+        verdict = "The pairwise probe stays short of the sequence model on the stored check."
+    return (
+        f"{verdict} Pairwise minus sequence NDCG@10 is {rounded(pair['mean'])} "
+        f"(range {rounded(pair['low'])} to {rounded(pair['high'])})."
+    )
+
+
+def sequence_modern_caption(view: dict[str, Any]) -> str:
+    block = view["sequence_modern"]
+    pctm = block["paired"]["pctm_minus_sasrec"]
+    esas = block["paired"]["esasrec_minus_sasrec"]
+    higher = block["paired"]["esasrec_minus_pctm"]
+    return (
+        f"pctm_beats_sasrec is {fmt(block['pctm_beats_sasrec'])}. "
+        f"esasrec_beats_sasrec is {fmt(block['esasrec_beats_sasrec'])}. "
+        "higher_order_beats_pairwise_pctm is "
+        f"{fmt(block['higher_order_beats_pairwise_pctm'])}. "
+        f"Paired PCTM minus SASRec: {fmt(pctm['mean'])} "
+        f"({fmt(pctm['low'])} to {fmt(pctm['high'])}; "
+        f"{plain_excludes_zero(bool(pctm['excludes_zero']))}). "
+        f"Paired eSASRec minus SASRec: {fmt(esas['mean'])} "
+        f"({fmt(esas['low'])} to {fmt(esas['high'])}; "
+        f"{plain_excludes_zero(bool(esas['excludes_zero']))}). "
+        f"Paired eSASRec minus PCTM: {fmt(higher['mean'])} "
+        f"({fmt(higher['low'])} to {fmt(higher['high'])}; "
+        f"{plain_excludes_zero(bool(higher['excludes_zero']))}). "
+        "The enhanced-sequence bar is the three-seed mean. "
+        "Its whisker is the primary-seed interval."
+    )
+
+
+def _slider_source_block(payload: dict[str, Any], n: int) -> dict[str, Any]:
+    for block in payload["by_n"]:
+        if int(block["n"]) == int(n):
+            return block
+    raise KeyError(n)
+
+
+def _slider_block(payload: dict[str, Any], n: int) -> dict[str, Any]:
+    block = _slider_source_block(payload, n)
+    positions = []
+    for row in block["positions"]:
+        interval = row["confidence_intervals"]["ndcg@10"]
+        positions.append(
+            {
+                "label": row["label"],
+                "adventurous": row["adventurous"],
+                "ndcg@10": row["ndcg@10"],
+                "ci_low": interval["low"],
+                "ci_high": interval["high"],
+                "ci_mean": interval["mean"],
+                "coverage@10": row["coverage@10"],
+                "novelty@10": row["novelty@10"],
+                "intra_list_diversity@10": row["intra_list_diversity@10"],
+                "long_tail_share@10": row["long_tail_share@10"],
+            }
+        )
+    return {
+        "n": int(block["n"]),
+        "n_eval_users": int(block["n_eval_users"]),
+        "committed_familiar_ndcg@10": block["committed_familiar_ndcg@10"],
+        "matches_committed_at_4_decimals": block["matches_committed_at_4_decimals"],
+        "positions": positions,
+    }
+
+
+def slider_lead(block: dict[str, Any]) -> str:
+    """Plain reading of the stored Familiar-to-Adventurous trade-off (ADR-0032)."""
+    by_label = {row["label"]: row for row in block["positions"]}
+    familiar = by_label["Familiar"]
+    middle = by_label["In between"]
+    return (
+        f"With {fmt(block['n'])} ratings, Familiar has the highest held-out ranking score "
+        f"({rounded(familiar['ndcg@10'])}). "
+        f"In between raises catalog coverage from {rounded(familiar['coverage@10'])} "
+        f"to {rounded(middle['coverage@10'])} and long-tail share from "
+        f"{rounded(familiar['long_tail_share@10'])} to {rounded(middle['long_tail_share@10'])}."
+    )
+
+
+def slider_caption(view: dict[str, Any]) -> str:
+    block = view["slider"]
+    by_label = {row["label"]: row for row in block["positions"]}
+    familiar = by_label["Familiar"]
+    closer = by_label["Closer"]
+    return (
+        f"Profile size N={fmt(block['n'])} on {fmt(block['n_eval_users'])} held-out users. "
+        f"Familiar NDCG@10 is {fmt(familiar['ndcg@10'])} "
+        f"({fmt(familiar['ci_low'])} to {fmt(familiar['ci_high'])}). "
+        f"Closer coverage@10 is {fmt(closer['coverage@10'])}. "
+        f"The committed cold-start point is {fmt(block['committed_familiar_ndcg@10'])}. "
+        "Matches at 4 decimals: "
+        f"{fmt(block['matches_committed_at_4_decimals'])}."
+    )
+
+
+def _ranker_ease_dan_block(payload: dict[str, Any]) -> dict[str, Any]:
+    order = ("bi_off", "tri_off", "bi_both", "tri_both", "tri_unbalanced_both")
+    models = []
+    for name in order:
+        block = payload["variants"][name]
+        models.append(
+            {
+                "model": name,
+                "ndcg@10": block["ndcg@10_mean"],
+                **_ci_fields(block["primary_ndcg@10_ci"]),
+                "n_seeds": len(block["per_seed"]),
+                "candidate_set": block["candidate_set"],
+                "n_features": block["n_features"],
+                "coverage@10": block["coverage@10_mean"],
+            }
+        )
+    return {
+        "decision": payload["decision"],
+        "paired": payload["paired"],
+        "selected_tri_candidate_set": payload["selected_tri_candidate_set"],
+        "models": models,
+        "tri_both_lifts_bi_both": payload["decision"]["tri_both_lifts_bi_both"],
+        "tri_off_lifts_bi_off": payload["decision"]["tri_off_lifts_bi_off"],
+    }
+
+
+def ranker_ease_dan_lead(block: dict[str, Any]) -> str:
+    """Plain reading of the stored third-retriever check (ADR-0031)."""
+    pair = block["paired"]["tri_both_minus_bi_both"]
+    if block["tri_both_lifts_bi_both"]:
+        verdict = "Adding EASE-DAN as a third retriever lifts the demographics-on ranker."
+    else:
+        verdict = (
+            "The demographics-on three-retriever ranker misses its pre-registered "
+            "lift over the two-retriever ranker."
+        )
+    if block["tri_off_lifts_bi_off"]:
+        extra = " The demographics-off comparison clears the same lift."
+    else:
+        extra = " The demographics-off comparison also stays short of that lift."
+    return (
+        f"{verdict}{extra} Paired three-retriever minus two-retriever NDCG@10, "
+        f"demographics on, is {rounded(pair['mean'])} "
+        f"(range {rounded(pair['low'])} to {rounded(pair['high'])})."
+    )
+
+
+def ranker_ease_dan_caption(view: dict[str, Any]) -> str:
+    block = view["ranker_ease_dan"]
+    both = block["paired"]["tri_both_minus_bi_both"]
+    off = block["paired"]["tri_off_minus_bi_off"]
+    return (
+        f"Selected K=200 candidate set: {block['selected_tri_candidate_set']}. "
+        f"tri_both_lifts_bi_both is {fmt(block['tri_both_lifts_bi_both'])}. "
+        f"tri_off_lifts_bi_off is {fmt(block['tri_off_lifts_bi_off'])}. "
+        f"Paired demographics-on difference: {fmt(both['mean'])} "
+        f"({fmt(both['low'])} to {fmt(both['high'])}; "
+        f"{plain_excludes_zero(bool(both['excludes_zero']))}). "
+        f"Paired demographics-off difference: {fmt(off['mean'])} "
+        f"({fmt(off['low'])} to {fmt(off['high'])}; "
+        f"{plain_excludes_zero(bool(off['excludes_zero']))}). "
+        "Each bar is the three-seed mean. Each whisker is the primary-seed interval."
     )
 
 

@@ -31,6 +31,9 @@ class EvalYAML:
     user_sample_size: int = 0
     # None uses the run seed.
     user_sample_seed: int | None = None
+    # ADR-0029: ``train_only`` samples from full_train users without reading test;
+    # ``warm_test`` preserves the historical ADR-0011 sample for reproductions.
+    user_sample_mode: str = "train_only"
 
 
 @dataclass
@@ -203,6 +206,12 @@ def load_config(path: Path | str | None = None) -> RunConfig:
     ease_raw = models_raw.get("ease") or {}
     tune_raw = raw.get("tuning") or {}
     sample_seed = eval_raw.get("user_sample_seed")
+    sample_mode = str(eval_raw.get("user_sample_mode", "train_only"))
+    if sample_mode not in ("train_only", "warm_test"):
+        raise ValueError(
+            "eval.user_sample_mode must be 'train_only' or 'warm_test'; "
+            f"got {sample_mode!r}"
+        )
     n_negatives = int(tt_raw.get("n_negatives", 256))
     if n_negatives < 1:
         raise ValueError(f"models.two_tower.n_negatives must be >= 1; got {n_negatives}")
@@ -226,6 +235,7 @@ def load_config(path: Path | str | None = None) -> RunConfig:
             retrieval_ks=[int(k) for k in eval_raw.get("retrieval_ks", [100, 200])],
             user_sample_size=int(eval_raw.get("user_sample_size", 0) or 0),
             user_sample_seed=None if sample_seed is None else int(sample_seed),
+            user_sample_mode=sample_mode,
         ),
         models=ModelsYAML(
             als=ALSYAML(

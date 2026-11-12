@@ -216,6 +216,51 @@ class EASEDANRecommender:
             scores[row.indices] = -np.inf
         return recommend_from_scores(scores, self._item_ids, n)
 
+    def topk_with_scores(
+        self,
+        n: int,
+        user_ids: Sequence[int] | None = None,
+    ) -> dict[int, list[tuple[int, float]]]:
+        """Batched top-n ``(item_id, score)`` for fit users, excluding seen train items."""
+        if n <= 0 or self._similarity is None:
+            return {}
+        if user_ids is None:
+            wanted = list(self._user_index.keys())
+        else:
+            wanted = [int(uid) for uid in user_ids if int(uid) in self._user_index]
+        if not wanted:
+            return {}
+        out: dict[int, list[tuple[int, float]]] = {}
+        if self._user_scores is not None:
+            for uid in wanted:
+                row_scores = self._user_scores[self._user_index[uid]]
+                order = top_n_indices(row_scores, n)
+                out[uid] = [
+                    (int(self._item_ids[int(j)]), float(row_scores[int(j)]))
+                    for j in order
+                    if np.isfinite(row_scores[int(j)])
+                ]
+            return out
+        if self._interactions is None:
+            return {}
+        chunk = 256
+        for start in range(0, len(wanted), chunk):
+            batch = wanted[start : start + chunk]
+            idx = np.asarray([self._user_index[uid] for uid in batch], dtype=np.int64)
+            sub = self._interactions[idx]
+            scores = np.asarray(sub @ self._similarity, dtype=np.float64)
+            seen_r, seen_c = sub.nonzero()
+            if len(seen_r):
+                scores[seen_r, seen_c] = -np.inf
+            for r_i, uid in enumerate(batch):
+                order = top_n_indices(scores[r_i], n)
+                out[uid] = [
+                    (int(self._item_ids[int(j)]), float(scores[r_i, int(j)]))
+                    for j in order
+                    if np.isfinite(scores[r_i, int(j)])
+                ]
+        return out
+
     def hyperparams(self) -> dict[str, Any]:
         out: dict[str, Any] = {
             "l2": self.l2,

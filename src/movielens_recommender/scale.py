@@ -88,25 +88,54 @@ def warm_relevant_user_ids(
     return np.unique(rel["user_id"].to_numpy(dtype=np.int64))
 
 
+USER_SAMPLE_MODES: tuple[str, ...] = ("train_only", "warm_test")
+
+
 def apply_eval_user_sample(
     split: SplitResult,
     *,
     n_users: int,
     seed: int,
     relevance_threshold: float,
+    mode: str = "train_only",
 ) -> SplitResult:
     """Restrict validation and test rows to one seeded user sample.
 
     ``train`` stays the full fit-train matrix. ``full_train`` is frozen to the
     pre-sample train ∪ validation matrix, so other users' training interactions
     remain available. Sampled users' histories are not truncated.
+
+    ``mode='train_only'`` (ADR-0029 default) samples from ``full_train`` user
+    ids without inspecting ``split.test``. ``mode='warm_test'`` preserves the
+    historical ADR-0011 pool for isolated reproductions.
     """
+    if mode not in USER_SAMPLE_MODES:
+        raise ValueError(
+            f"user_sample_mode must be one of {USER_SAMPLE_MODES}; got {mode!r}"
+        )
     if n_users <= 0:
         return split
     full = split.full_train
-    eligible = warm_relevant_user_ids(full, split.test, relevance_threshold)
-    if len(eligible) == 0:
-        raise ValueError("No warm-relevant users available to sample.")
+    if mode == "train_only":
+        if full.empty:
+            raise ValueError("No training users available to sample.")
+        eligible = np.unique(full["user_id"].to_numpy(dtype=np.int64))
+        selection_note = (
+            "Train-only user sample (ADR-0029): drawn uniformly without replacement "
+            "from full_train user_id values before inspecting test ratings or items. "
+            "Validation and test harnesses independently exclude sampled users with "
+            "no warm relevant items in their respective windows."
+        )
+    else:
+        eligible = warm_relevant_user_ids(full, split.test, relevance_threshold)
+        if len(eligible) == 0:
+            raise ValueError("No warm-relevant users available to sample.")
+        selection_note = (
+            "Users with at least one warm relevant test item "
+            f"(rating >= {relevance_threshold}, item in full train). "
+            "The same ids are used for validation metrics, ranker labels, "
+            "and test metrics."
+        )
     chosen = sample_user_ids(eligible, n_users, seed)
     chosen_set = set(int(u) for u in chosen.tolist())
     test = split.test.loc[split.test["user_id"].isin(chosen_set)].reset_index(drop=True)
@@ -118,6 +147,7 @@ def apply_eval_user_sample(
         n_val_rows = int(len(val))
     info = {
         "enabled": True,
+        "mode": mode,
         "seed": int(seed),
         "requested_users": int(n_users),
         "n_eligible_users": int(len(eligible)),
@@ -127,12 +157,7 @@ def apply_eval_user_sample(
         "user_ids_sha256": hashlib.sha256(chosen.tobytes()).hexdigest(),
         "histories": "not_truncated",
         "train_matrix": "all_training_interactions",
-        "selection": (
-            "Users with at least one warm relevant test item "
-            f"(rating >= {relevance_threshold}, item in full train). "
-            "The same ids are used for validation metrics, ranker labels, "
-            "and test metrics."
-        ),
+        "selection": selection_note,
     }
     return SplitResult(
         train=split.train,
