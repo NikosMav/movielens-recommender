@@ -33,7 +33,8 @@ Every number behind these sentences is in [Results](#results), generated from `r
 
 - **ml-1m.** Tuned item–item kNN is a strong baseline. The two-tower model does not beat it on NDCG@10 (a recorded negative result), but it leads on Recall@100/200, catalog coverage, and the long tail. LambdaRank over two-tower candidates clears the item–item gate.
 - **ml-32M.** The two-tower model and LambdaRank tie at the top and both beat item–item (ADR-0011).
-- **Baselines.** EASE^R and RP3beta are tuned on the same validation split and compared in the results tables (ADR-0008).
+- **Baselines.** EASE^R and RP3beta are tuned on the same validation split and compared in the results tables (ADR-0008). Adding Data-Adaptive Normalization / dropout-regularized EASE (`EASE-DAN`, Park et al. 2025 / Steck 2020) beats `EASE^R` on ml-1m (`0.1195` vs `0.1184`, paired 95% CI `[+0.0004, +0.0017]`) and closes the statistical gap to item–item cosine (`0.1201`) in a 2.4s closed-form solve (ADR-0028).
+- **Sequence modeling (ml-1m).** Causal SASRec with full-catalog softmax beats a shuffled-order control (`0.0924` vs `0.0892`, paired `[+0.0024, +0.0052]`), confirming sequential order carries a small signal (+4% relative), while trailing bag-of-history retrieval and LambdaRank on MovieLens ratings (ADR-0019).
 - **Demographics (ml-1m).** User age, gender, and occupation features passed their pre-registered rule, so `configs/ml-1m.yaml` turns them on for the ranker (ADR-0009). The headline LambdaRank row in `results/ml-1m.json` is still the S4 feature set.
 - **New users.** Someone with no MovieLens id rates a few films and gets an explained top 10. The cold-start panel reports quality after 1, 3, 5, and 10 ratings, next to known users and popularity (ADR-0012). On the main protocol the list beats popularity from 3 ratings on; after a single rating it cannot be told apart from it.
 - **Reproducibility.** Top-n selection used to break ties differently on different CPUs, which moved the new-user results between machines; ties now always go to the lower item index. Small floating-point differences between math-library builds still change the new-user ranker's details across platforms, so its results are regenerated in the Docker image and record the host they ran on (ADR-0015).
@@ -56,6 +57,10 @@ pip install -e ".[dev,deep,rank,ui,api]"
 ### Run the demo
 
 ```bash
+# Public showcase app (downloads weights + ml-1m automatically on first run):
+streamlit run space/app.py
+
+# Or build local snapshots from scratch and run the lightweight research inspector:
 movielens-recommender build-artifacts --config configs/ml-1m.yaml
 movielens-recommender cold-start --config configs/ml-1m.yaml
 streamlit run app/streamlit_app.py
@@ -146,14 +151,16 @@ Measured latency and batch time are in the [serving panel](#serving-latency-and-
 | Path | What is there |
 | --- | --- |
 | `src/movielens_recommender/` | The package: data, split, metrics, evaluation, tuning, and the `movielens-recommender` CLI |
-| `src/movielens_recommender/baselines/` | Most popular, item–item cosine, ALS, EASE^R, RP3beta |
+| `src/movielens_recommender/baselines/` | Most popular, item–item cosine, ALS, EASE^R, EASE-DAN, RP3beta |
 | `src/movielens_recommender/two_tower/` | Two-tower model, features, training losses, and the S3e budget planner |
+| `src/movielens_recommender/sasrec/` | Causal self-attentive sequence recommender (SASRec) and shuffled-order control (ADR-0019) |
 | `src/movielens_recommender/ranker/` | Candidate sets, ranker features, LambdaRank training, SHAP explanations, demographics |
 | `src/movielens_recommender/serving/` | Serving snapshots (build, save, load), new-user serving, plain-language reasons, batch scoring, the HTTP API and its monitoring |
 | `src/movielens_recommender/ops/` | Drift signals and the time-ordered refresh replay (S6) |
 | `Dockerfile` | API image; holds no MovieLens data or snapshot |
-| `app/streamlit_app.py` | The demo page |
-| `space/` | Community Cloud entrypoint `space/app.py`, pinned requirements, startup rebuild. `space/weights/` and `space/space-weights.tar.gz` are gitignored |
+| `app/streamlit_app.py` | Local research Streamlit page (lightweight existing-user and new-user snapshot inspector) |
+| `space/` | Public showcase Streamlit app (`space/app.py`), custom light/dark visual system, posters, discovery controls, and benchmark views |
+| `frontend/` | Standalone React 19 + Astryx local API client (`frontend/README.md`) |
 | `configs/` | Run configs: `default.yaml` (ml-latest-small), `ml-1m.yaml`, `ml-32m.yaml` |
 | `scripts/` | Results-table generator, EDA, and one-off experiment runners |
 | `results/` | Committed experiment logs: metrics, intervals, tuning trials, budgets |
@@ -181,6 +188,10 @@ Model improvements are assessed on **NDCG@10** on the same harness. The historic
 | S5c | Done | New-user profile (cold start) | [0012](docs/adr/0012-new-user-cold-start.md) |
 | S5b | Done | Batch recommendations, FastAPI service, Dockerfile | [0014](docs/adr/0014-batch-api-docker.md) |
 | S6 | Done | Operations: monitoring, refresh, drift | [0016](docs/adr/0016-drift-refresh-monitoring.md) |
+| S7a | Done | Beyond-accuracy evaluation & ALS retune | [0017](docs/adr/0017-beyond-accuracy.md)–[0018](docs/adr/0018-als-retune.md) |
+| S7b | Done | Sequential self-attention (SASRec) & shuffled-order check | [0019](docs/adr/0019-sasrec.md) |
+| S7c | Done | Unified public showcase UI, discovery controls, & RSS budget | [0020](docs/adr/0020-huggingface-space.md)–[0027](docs/adr/0027-readable-benchmarks-and-pipeline.md) |
+| S8 | Done | Data-Adaptive Normalized EASE (`EASE-DAN`, SIGIR 2025) | [0028](docs/adr/0028-ease-dan.md) |
 
 ## Data
 
@@ -247,8 +258,10 @@ Metrics are averaged over eligible test users, with 95% bootstrap intervals over
 | `als` | `implicit` ALS with S2 defaults (factors 64, 15 iterations, α 40, seed 42) |
 | `als_tuned` | ALS with factors, regularization, and α chosen on validation NDCG@10 |
 | `ease` | EASE^R (Steck 2019); λ chosen on validation NDCG@10 (ADR-0008) |
+| `ease_dan` | EASE-DAN (Park et al. 2025 / Steck 2020); closed-form linear autoencoder with item-degree dropout and adaptive normalization (ADR-0028) |
 | `rp3beta` | RP3beta random-walk item similarity; `(alpha, beta, top_k)` chosen on validation (ADR-0008) |
 | `two_tower` | PyTorch two-tower retrieval with an in-batch sampled-softmax loss; tuned on validation with early stopping; tested over 3 seeds (ADR-0006) |
+| `sasrec` | Causal self-attentive sequence recommender trained with full-catalog softmax cross-entropy (ADR-0019) |
 | `lambdarank` | LightGBM LambdaRank re-ranking the validation-chosen candidate set (ADR-0007) |
 
 Tuning grids and per-trial validation scores are in `results/tuning/`.
@@ -279,6 +292,9 @@ movielens-recommender run --config configs/ml-1m.yaml
 movielens-recommender run --config configs/ml-32m.yaml    # long; budget in ADR-0011
 movielens-recommender drift-study --config configs/ml-1m.yaml   # S6 replay, about 3 min
 python scripts/run_beyond_accuracy.py                     # ADR-0017, ml-1m only
+python scripts/run_als_retune.py --stage all              # ADR-0018, ml-1m ALS retune
+python scripts/run_sasrec.py --stage all                  # ADR-0019, ml-1m SASRec
+python scripts/run_ease_dan.py --stage all                # ADR-0028, ml-1m EASE-DAN
 python scripts/make_results_table.py                      # regenerate the Results section
 ```
 
@@ -297,7 +313,7 @@ python scripts/run_eda.py --dataset ml-1m --download
 
 ```bash
 pytest -q
-ruff check src tests scripts app
+ruff check src tests scripts app space
 ```
 
 GitHub Actions runs ruff and pytest on Python 3.10 and 3.12 with the CPU PyTorch wheel. Tests use synthetic data only; `MOVIELENS_ALLOW_DOWNLOAD=0` blocks downloads in CI. A second job builds the Docker image and checks that a container with no snapshot answers `/health` with 503.
@@ -1221,5 +1237,20 @@ Seeds: tuning 42, test 42, 43 and 44, shuffle 42, bootstrap 42.
 | SASRec shuffled | — | 0.0892 | [0.0852, 0.0930] |
 | two-tower | — | 0.1191 | [0.1150, 0.1230] |
 | LambdaRank | — | 0.1293 | [0.1248, 0.1333] |
+
+### Data-Adaptive Normalized EASE (`EASE-DAN`, `ml-1m`)
+
+From `results/ease-dan/ml-1m.json`, with the grid in `results/tuning/ease_dan_ml-1m.json` (ADR-0028). Selection is validation NDCG@10 on the existing split. Test is scored once. `results/ml-1m.json` is unchanged.
+
+Validation selected `l2=5000`, `dropout_p=0.6`, `alpha=0`, `beta=0` (validation NDCG@10 0.0812, against committed EASE 0.0808); its sealed test NDCG@10 is 0.1195 [0.1151, 0.1238].
+**Win against EASE^R (`beats_ease=True`).** Paired `ease_dan` minus `ease` test NDCG@10 is 0.0011 [0.0004, 0.0017] (excludes 0: yes); paired `ease_dan` minus `item_item_cosine` is -0.0007 [-0.0035, 0.0022] (excludes 0: no).
+
+Validation configs in the locked grid: 108. Edge-extension trials scored under the ADR-0028 one-step rule: 2 (total scored: 110, selected sits on the high l2 edge (5000)).
+
+| model | val NDCG@10 | test NDCG@10 | 95% CI | Recall@10 | Coverage@10 | fit (s) |
+| --- | --- | --- | --- | --- | --- | --- |
+| `ease_dan` | 0.0812 | 0.1195 | [0.1151, 0.1238] | 0.0871 | 0.2053 | 2.44 |
+| `ease` | 0.0808 | 0.1184 | [0.1142, 0.1226] | 0.0861 | 0.2100 | 2.39 |
+| `item_item_cosine` | — | 0.1201 | [0.1158, 0.1242] | 0.0786 | 0.1274 | 1.34 |
 
 <!-- END RESULTS TABLE -->

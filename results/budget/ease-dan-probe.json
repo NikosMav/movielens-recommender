@@ -1,0 +1,38 @@
+{
+  "adr": "0028",
+  "budget_sec": 3600,
+  "cut": null,
+  "host": {
+    "cpu_count": 4,
+    "machine": "x86_64",
+    "numpy_simd": [
+      "AVX2",
+      "AVX512F",
+      "AVX512_ICL",
+      "AVX512_SKX",
+      "FMA3",
+      "SSE42"
+    ],
+    "os": "Linux",
+    "os_release": "6.12.113+",
+    "processor": "x86_64",
+    "python": "3.12.3"
+  },
+  "locked_configs": 108,
+  "locked_projection_sec": 270.951,
+  "projection_sec_full_grid": 270.951,
+  "ranking_metrics_recorded": false,
+  "reserve_sec": 600,
+  "sample": {
+    "elapsed_sec": 2.509,
+    "fit_sec": 2.328,
+    "hyperparams": {
+      "alpha": 0.2,
+      "beta": 0.3,
+      "dropout_p": 0.3,
+      "l2": 100.0
+    },
+    "n_eval_users": 5619,
+    "score_sec": 0.181
+  }
+}

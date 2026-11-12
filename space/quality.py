@@ -71,14 +71,19 @@ def load_quality(results_dir: Path | str) -> dict[str, Any]:
     ml1 = _read_json(root / "ml-1m.json")
     ml32 = _read_json(root / "ml-32m.json")
     sas = _read_json(root / "sasrec" / "ml-1m.json")
+    ease_dan_path = root / "ease-dan" / "ml-1m.json"
+    ease_dan = _read_json(ease_dan_path) if ease_dan_path.is_file() else None
     sample = ml32["eval_user_sample"]
     shuffled = sas["paired"]["real_minus_shuffled"]
-    return {
-        "sources": {
-            "ml-1m": "results/ml-1m.json",
-            "ml-32m": "results/ml-32m.json",
-            "sasrec": "results/sasrec/ml-1m.json",
-        },
+    sources = {
+        "ml-1m": "results/ml-1m.json",
+        "ml-32m": "results/ml-32m.json",
+        "sasrec": "results/sasrec/ml-1m.json",
+    }
+    if ease_dan is not None:
+        sources["ease-dan"] = "results/ease-dan/ml-1m.json"
+    out: dict[str, Any] = {
+        "sources": sources,
         "ml1m": {
             "models": [_model_row(ml1["metrics"], name) for name in HEADLINE_MODELS],
             "ranker_gate": ml1["ranker"]["gate"],
@@ -117,6 +122,32 @@ def load_quality(results_dir: Path | str) -> dict[str, Any]:
             "shuffled_mean": sas["models"]["sasrec_shuffled"]["ndcg@10_ci"]["mean"],
         },
     }
+    if ease_dan is not None:
+        dan_m = ease_dan["models"]["ease_dan"]["metrics"]
+        ease_m = ease_dan["models"]["ease"]["metrics"]
+        ii_m = ease_dan["models"]["item_item_cosine"]["metrics"]
+        p_ease = ease_dan["paired"]["ease_dan_minus_ease"]
+        p_ii = ease_dan["paired"]["ease_dan_minus_item_item"]
+        out["ease_dan"] = {
+            "beats_ease": ease_dan["decision"]["beats_ease"],
+            "beats_item_item": ease_dan["decision"]["beats_item_item"],
+            "negative_result": ease_dan["decision"]["negative_result"],
+            "rule": ease_dan["decision"]["rule"],
+            "selected_hyperparams": ease_dan["selected"]["hyperparams"],
+            "models": [
+                _model_row({"ease_dan": dan_m, "ease": ease_m, "item_item_cosine": ii_m}, name)
+                for name in ("item_item_cosine", "ease_dan", "ease")
+            ],
+            "paired_ease_mean": p_ease["mean"],
+            "paired_ease_low": p_ease["low"],
+            "paired_ease_high": p_ease["high"],
+            "paired_ease_excludes_zero": p_ease["excludes_zero"],
+            "paired_ii_mean": p_ii["mean"],
+            "paired_ii_low": p_ii["low"],
+            "paired_ii_high": p_ii["high"],
+            "paired_ii_excludes_zero": p_ii["excludes_zero"],
+        }
+    return out
 
 
 def display_rows(models: list[dict[str, Any]]) -> list[dict[str, str]]:
@@ -230,6 +261,7 @@ MODEL_NAMES: dict[str, str] = {
     "als": "Matrix factorisation",
     "als_tuned": "Matrix factorisation, tuned",
     "ease": "EASE",
+    "ease_dan": "EASE-DAN (denoised)",
     "rp3beta": "Graph similarity",
     "item_item_cosine": "Similar films",
     "item_item_cosine_tuned": "Similar films, tuned",
@@ -340,6 +372,39 @@ def sasrec_lead(block: dict[str, Any]) -> str:
         f"{rounded(block['real_minus_shuffled_mean'])} "
         f"(uncertainty range {rounded(block['real_minus_shuffled_low'])} to "
         f"{rounded(block['real_minus_shuffled_high'])})."
+    )
+
+
+def ease_dan_lead(block: dict[str, Any]) -> str:
+    """Plain reading of the stored EASE-DAN vs EASE check (ADR-0028)."""
+    if block["beats_ease"]:
+        verdict = (
+            "Adding item-degree dropout regularization (EASE-DAN) beats standard EASE "
+            "and closes the statistical gap to item–item similarity."
+        )
+    else:
+        verdict = "EASE-DAN did not beat standard EASE on the stored check."
+    return (
+        f"{verdict} Paired EASE-DAN minus EASE NDCG@10 is "
+        f"{rounded(block['paired_ease_mean'])} "
+        f"(range {rounded(block['paired_ease_low'])} to {rounded(block['paired_ease_high'])})."
+    )
+
+
+def ease_dan_caption(view: dict[str, Any]) -> str:
+    block = view["ease_dan"]
+    hp = block["selected_hyperparams"]
+    return (
+        f"Selected on validation: l2={fmt(hp['l2'])}, dropout_p={fmt(hp['dropout_p'])}, "
+        f"alpha={fmt(hp['alpha'])}, beta={fmt(hp['beta'])}. "
+        f"beats_ease is {fmt(block['beats_ease'])}; "
+        f"beats_item_item is {fmt(block['beats_item_item'])}. "
+        f"Paired ease_dan minus ease: {fmt(block['paired_ease_mean'])} "
+        f"({fmt(block['paired_ease_low'])} to {fmt(block['paired_ease_high'])}; "
+        f"{plain_excludes_zero(bool(block['paired_ease_excludes_zero']))}). "
+        f"Paired ease_dan minus item_item_cosine: {fmt(block['paired_ii_mean'])} "
+        f"({fmt(block['paired_ii_low'])} to {fmt(block['paired_ii_high'])}; "
+        f"{plain_excludes_zero(bool(block['paired_ii_excludes_zero']))})."
     )
 
 
