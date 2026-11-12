@@ -92,6 +92,8 @@ def test_css_follows_streamlit_color_scheme_and_does_not_force_a_theme():
     assert "[theme]" not in text
     assert "color-scheme" not in text
     assert "base =" not in text
+    assert "scroll-margin-top: 7.5rem;" in css
+    assert "h2#your-next-watch" in cards.scroll_script()
     sys.path.insert(0, str(SPACE))
     try:
         footer = cards.footer_html(logo_svg="<svg viewBox='0 0 1 1'></svg>", api_key_set=False)

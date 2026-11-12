@@ -215,7 +215,9 @@ def _rate_comedy_shelf(page: object) -> None:
     _wait_text(page, "has not been evaluated offline", timeout=60_000)
     page.get_by_label("Why not this film?").fill("Toy")  # type: ignore[attr-defined]
     _wait_text(page, "Toy", timeout=60_000)
-    page.get_by_role("checkbox", name="Share these picks").check()  # type: ignore[attr-defined]
+    share = page.locator("[data-testid='stCheckbox']").filter(has_text="Share these picks")  # type: ignore[attr-defined]
+    share.scroll_into_view_if_needed()
+    share.click()
     _wait_text(page, "Copy this link", timeout=60_000)
     how = page.get_by_text("How it works", exact=True).first  # type: ignore[attr-defined]
     how.scroll_into_view_if_needed()
@@ -264,7 +266,7 @@ def _walk(base: str, pid: int) -> None:
             _click_mode(page_a, "Discover")
             _wait_text(page_a, "Your ratings")
             _click_mode(page_a, "How good is it?")
-            _wait_text(page_a, "SASRec")
+            _wait_text(page_a, "Sequence model")
             _log_rss(pid, "A mode switches")
         except Exception:
             shot = Path(tempfile.gettempdir()) / "measure_server_rss_failure.png"
