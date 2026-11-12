@@ -212,7 +212,7 @@ def _rate_comedy_shelf(page: object) -> None:
     )
     slider.focus()
     page.keyboard.press("ArrowRight")  # type: ignore[attr-defined]
-    _wait_text(page, "has not been evaluated offline", timeout=60_000)
+    _wait_text(page, "Moving toward Adventurous trades", timeout=60_000)
     page.get_by_label("Why not this film?").fill("Toy")  # type: ignore[attr-defined]
     _wait_text(page, "Toy", timeout=60_000)
     share = page.locator("[data-testid='stCheckbox']").filter(has_text="Share these picks")  # type: ignore[attr-defined]

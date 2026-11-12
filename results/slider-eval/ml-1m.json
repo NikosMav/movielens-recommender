@@ -1,0 +1,1506 @@
+{
+  "adr": "0032",
+  "by_n": [
+    {
+      "committed_familiar_ndcg@10": 0.408889,
+      "counts": {
+        "n_eval_users": 604,
+        "n_held_out_users": 604,
+        "n_relevant_dropped_cold_item": 7,
+        "n_users_no_warm_relevant": 0,
+        "n_users_shorter_than_or_equal_n": 0
+      },
+      "matches_committed_at_4_decimals": false,
+      "n": 3,
+      "n_eval_users": 604,
+      "positions": [
+        {
+          "adventurous": 0.0,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.698613,
+              "low": 0.689604,
+              "mean": 0.69422
+            },
+            "long_tail_share@10": {
+              "high": 0.0,
+              "low": 0.0,
+              "mean": 0.0
+            },
+            "mean_popularity@10": {
+              "high": 2133.55125,
+              "low": 2124.411639,
+              "mean": 2129.237086
+            },
+            "ndcg@10": {
+              "high": 0.430552,
+              "low": 0.387638,
+              "mean": 0.41004
+            },
+            "novelty@10": {
+              "high": 8.422189,
+              "low": 8.415198,
+              "mean": 8.418452
+            }
+          },
+          "coverage@10": 0.015587,
+          "intra_list_diversity@10": 0.69422,
+          "label": "Familiar",
+          "long_tail_share@10": 0.0,
+          "mean_popularity@10": 2129.237086,
+          "n_eval_users": 604,
+          "ndcg@10": 0.41004,
+          "novelty@10": 8.418452,
+          "paired_ndcg_minus_familiar": null,
+          "recall@10": 0.059147
+        },
+        {
+          "adventurous": 0.25,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.742589,
+              "low": 0.73397,
+              "mean": 0.738213
+            },
+            "long_tail_share@10": {
+              "high": 0.002318,
+              "low": 0.000497,
+              "mean": 0.001325
+            },
+            "mean_popularity@10": {
+              "high": 2057.395844,
+              "low": 2043.040844,
+              "mean": 2050.248675
+            },
+            "ndcg@10": {
+              "high": 0.419086,
+              "low": 0.378301,
+              "mean": 0.399357
+            },
+            "novelty@10": {
+              "high": 8.498961,
+              "low": 8.483572,
+              "mean": 8.491216
+            }
+          },
+          "coverage@10": 0.025157,
+          "intra_list_diversity@10": 0.738213,
+          "label": "Closer",
+          "long_tail_share@10": 0.001325,
+          "mean_popularity@10": 2050.248675,
+          "n_eval_users": 604,
+          "ndcg@10": 0.399357,
+          "novelty@10": 8.491216,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.005979,
+            "low": -0.015326,
+            "mean": -0.010684,
+            "n_users": 604
+          },
+          "recall@10": 0.057755
+        },
+        {
+          "adventurous": 0.5,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.82929,
+              "low": 0.820889,
+              "mean": 0.825192
+            },
+            "long_tail_share@10": {
+              "high": 0.268377,
+              "low": 0.237417,
+              "mean": 0.25298
+            },
+            "mean_popularity@10": {
+              "high": 1258.640265,
+              "low": 1203.048853,
+              "mean": 1231.588245
+            },
+            "ndcg@10": {
+              "high": 0.259248,
+              "low": 0.22817,
+              "mean": 0.243998
+            },
+            "novelty@10": {
+              "high": 10.180619,
+              "low": 10.020605,
+              "mean": 10.096624
+            }
+          },
+          "coverage@10": 0.250752,
+          "intra_list_diversity@10": 0.825192,
+          "label": "In between",
+          "long_tail_share@10": 0.25298,
+          "mean_popularity@10": 1231.588245,
+          "n_eval_users": 604,
+          "ndcg@10": 0.243998,
+          "novelty@10": 10.096624,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.151637,
+            "low": -0.178696,
+            "mean": -0.166042,
+            "n_users": 604
+          },
+          "recall@10": 0.032469
+        },
+        {
+          "adventurous": 0.75,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.868189,
+              "low": 0.858114,
+              "mean": 0.863448
+            },
+            "long_tail_share@10": {
+              "high": 0.505319,
+              "low": 0.469536,
+              "mean": 0.486921
+            },
+            "mean_popularity@10": {
+              "high": 502.66995,
+              "low": 474.235244,
+              "mean": 488.720199
+            },
+            "ndcg@10": {
+              "high": 0.082653,
+              "low": 0.0649,
+              "mean": 0.073858
+            },
+            "novelty@10": {
+              "high": 11.390238,
+              "low": 11.260587,
+              "mean": 11.321204
+            }
+          },
+          "coverage@10": 0.410446,
+          "intra_list_diversity@10": 0.863448,
+          "label": "Further",
+          "long_tail_share@10": 0.486921,
+          "mean_popularity@10": 488.720199,
+          "n_eval_users": 604,
+          "ndcg@10": 0.073858,
+          "novelty@10": 11.321204,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.315534,
+            "low": -0.354102,
+            "mean": -0.336182,
+            "n_users": 604
+          },
+          "recall@10": 0.009424
+        },
+        {
+          "adventurous": 1.0,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.856776,
+              "low": 0.846315,
+              "mean": 0.851921
+            },
+            "long_tail_share@10": {
+              "high": 0.580464,
+              "low": 0.543543,
+              "mean": 0.561093
+            },
+            "mean_popularity@10": {
+              "high": 352.468903,
+              "low": 334.872628,
+              "mean": 344.137914
+            },
+            "ndcg@10": {
+              "high": 0.048958,
+              "low": 0.036395,
+              "mean": 0.042384
+            },
+            "novelty@10": {
+              "high": 11.654948,
+              "low": 11.535012,
+              "mean": 11.591855
+            }
+          },
+          "coverage@10": 0.424118,
+          "intra_list_diversity@10": 0.851921,
+          "label": "Adventurous",
+          "long_tail_share@10": 0.561093,
+          "mean_popularity@10": 344.137914,
+          "n_eval_users": 604,
+          "ndcg@10": 0.042384,
+          "novelty@10": 11.591855,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.346927,
+            "low": -0.386884,
+            "mean": -0.367656,
+            "n_users": 604
+          },
+          "recall@10": 0.005254
+        }
+      ],
+      "target": "all_later_ratings"
+    },
+    {
+      "committed_familiar_ndcg@10": 0.408731,
+      "counts": {
+        "n_eval_users": 604,
+        "n_held_out_users": 604,
+        "n_relevant_dropped_cold_item": 5,
+        "n_users_no_warm_relevant": 0,
+        "n_users_shorter_than_or_equal_n": 0
+      },
+      "matches_committed_at_4_decimals": false,
+      "n": 5,
+      "n_eval_users": 604,
+      "positions": [
+        {
+          "adventurous": 0.0,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.693582,
+              "low": 0.684194,
+              "mean": 0.688924
+            },
+            "long_tail_share@10": {
+              "high": 0.0,
+              "low": 0.0,
+              "mean": 0.0
+            },
+            "mean_popularity@10": {
+              "high": 2109.09209,
+              "low": 2095.645451,
+              "mean": 2102.62798
+            },
+            "ndcg@10": {
+              "high": 0.429571,
+              "low": 0.387946,
+              "mean": 0.409452
+            },
+            "novelty@10": {
+              "high": 8.445277,
+              "low": 8.434227,
+              "mean": 8.439551
+            }
+          },
+          "coverage@10": 0.019415,
+          "intra_list_diversity@10": 0.688924,
+          "label": "Familiar",
+          "long_tail_share@10": 0.0,
+          "mean_popularity@10": 2102.62798,
+          "n_eval_users": 604,
+          "ndcg@10": 0.409452,
+          "novelty@10": 8.439551,
+          "paired_ndcg_minus_familiar": null,
+          "recall@10": 0.059952
+        },
+        {
+          "adventurous": 0.25,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.734137,
+              "low": 0.725328,
+              "mean": 0.729844
+            },
+            "long_tail_share@10": {
+              "high": 0.002152,
+              "low": 0.000497,
+              "mean": 0.001159
+            },
+            "mean_popularity@10": {
+              "high": 2037.425704,
+              "low": 2019.801022,
+              "mean": 2028.774172
+            },
+            "ndcg@10": {
+              "high": 0.42357,
+              "low": 0.381397,
+              "mean": 0.403297
+            },
+            "novelty@10": {
+              "high": 8.517287,
+              "low": 8.499476,
+              "mean": 8.508011
+            }
+          },
+          "coverage@10": 0.027071,
+          "intra_list_diversity@10": 0.729844,
+          "label": "Closer",
+          "long_tail_share@10": 0.001159,
+          "mean_popularity@10": 2028.774172,
+          "n_eval_users": 604,
+          "ndcg@10": 0.403297,
+          "novelty@10": 8.508011,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.001551,
+            "low": -0.010405,
+            "mean": -0.006155,
+            "n_users": 604
+          },
+          "recall@10": 0.059005
+        },
+        {
+          "adventurous": 0.5,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.826015,
+              "low": 0.817853,
+              "mean": 0.822014
+            },
+            "long_tail_share@10": {
+              "high": 0.214574,
+              "low": 0.185923,
+              "mean": 0.199503
+            },
+            "mean_popularity@10": {
+              "high": 1356.044367,
+              "low": 1304.453142,
+              "mean": 1330.286589
+            },
+            "ndcg@10": {
+              "high": 0.286933,
+              "low": 0.254191,
+              "mean": 0.271036
+            },
+            "novelty@10": {
+              "high": 9.903215,
+              "low": 9.758155,
+              "mean": 9.829781
+            }
+          },
+          "coverage@10": 0.211375,
+          "intra_list_diversity@10": 0.822014,
+          "label": "In between",
+          "long_tail_share@10": 0.199503,
+          "mean_popularity@10": 1330.286589,
+          "n_eval_users": 604,
+          "ndcg@10": 0.271036,
+          "novelty@10": 9.829781,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.125463,
+            "low": -0.150889,
+            "mean": -0.138416,
+            "n_users": 604
+          },
+          "recall@10": 0.039263
+        },
+        {
+          "adventurous": 0.75,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.876185,
+              "low": 0.868111,
+              "mean": 0.872146
+            },
+            "long_tail_share@10": {
+              "high": 0.416395,
+              "low": 0.381291,
+              "mean": 0.398344
+            },
+            "mean_popularity@10": {
+              "high": 568.50197,
+              "low": 541.964524,
+              "mean": 555.511589
+            },
+            "ndcg@10": {
+              "high": 0.100241,
+              "low": 0.081197,
+              "mean": 0.090483
+            },
+            "novelty@10": {
+              "high": 11.098254,
+              "low": 10.986017,
+              "mean": 11.041458
+            }
+          },
+          "coverage@10": 0.367788,
+          "intra_list_diversity@10": 0.872146,
+          "label": "Further",
+          "long_tail_share@10": 0.398344,
+          "mean_popularity@10": 555.511589,
+          "n_eval_users": 604,
+          "ndcg@10": 0.090483,
+          "novelty@10": 11.041458,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.300839,
+            "low": -0.337238,
+            "mean": -0.318969,
+            "n_users": 604
+          },
+          "recall@10": 0.012033
+        },
+        {
+          "adventurous": 1.0,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.871899,
+              "low": 0.863501,
+              "mean": 0.867612
+            },
+            "long_tail_share@10": {
+              "high": 0.480799,
+              "low": 0.442214,
+              "mean": 0.461093
+            },
+            "mean_popularity@10": {
+              "high": 400.579983,
+              "low": 383.572285,
+              "mean": 392.205464
+            },
+            "ndcg@10": {
+              "high": 0.058841,
+              "low": 0.045023,
+              "mean": 0.051897
+            },
+            "novelty@10": {
+              "high": 11.366183,
+              "low": 11.255153,
+              "mean": 11.309481
+            }
+          },
+          "coverage@10": 0.382007,
+          "intra_list_diversity@10": 0.867612,
+          "label": "Adventurous",
+          "long_tail_share@10": 0.461093,
+          "mean_popularity@10": 392.205464,
+          "n_eval_users": 604,
+          "ndcg@10": 0.051897,
+          "novelty@10": 11.309481,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.338138,
+            "low": -0.376142,
+            "mean": -0.357555,
+            "n_users": 604
+          },
+          "recall@10": 0.006935
+        }
+      ],
+      "target": "all_later_ratings"
+    },
+    {
+      "committed_familiar_ndcg@10": 0.407634,
+      "counts": {
+        "n_eval_users": 604,
+        "n_held_out_users": 604,
+        "n_relevant_dropped_cold_item": 5,
+        "n_users_no_warm_relevant": 0,
+        "n_users_shorter_than_or_equal_n": 0
+      },
+      "matches_committed_at_4_decimals": false,
+      "n": 10,
+      "n_eval_users": 604,
+      "positions": [
+        {
+          "adventurous": 0.0,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.655429,
+              "low": 0.639984,
+              "mean": 0.64756
+            },
+            "long_tail_share@10": {
+              "high": 0.007119,
+              "low": 0.002645,
+              "mean": 0.004636
+            },
+            "mean_popularity@10": {
+              "high": 1861.283108,
+              "low": 1815.083601,
+              "mean": 1838.064404
+            },
+            "ndcg@10": {
+              "high": 0.430438,
+              "low": 0.388114,
+              "mean": 0.408929
+            },
+            "novelty@10": {
+              "high": 8.73094,
+              "low": 8.675493,
+              "mean": 8.703009
+            }
+          },
+          "coverage@10": 0.071643,
+          "intra_list_diversity@10": 0.64756,
+          "label": "Familiar",
+          "long_tail_share@10": 0.004636,
+          "mean_popularity@10": 1838.064404,
+          "n_eval_users": 604,
+          "ndcg@10": 0.408929,
+          "novelty@10": 8.703009,
+          "paired_ndcg_minus_familiar": null,
+          "recall@10": 0.070362
+        },
+        {
+          "adventurous": 0.25,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.69731,
+              "low": 0.6819,
+              "mean": 0.689811
+            },
+            "long_tail_share@10": {
+              "high": 0.015397,
+              "low": 0.007947,
+              "mean": 0.011424
+            },
+            "mean_popularity@10": {
+              "high": 1765.155368,
+              "low": 1717.094698,
+              "mean": 1741.264404
+            },
+            "ndcg@10": {
+              "high": 0.420999,
+              "low": 0.378997,
+              "mean": 0.399493
+            },
+            "novelty@10": {
+              "high": 8.849482,
+              "low": 8.788326,
+              "mean": 8.81844
+            }
+          },
+          "coverage@10": 0.090511,
+          "intra_list_diversity@10": 0.689811,
+          "label": "Closer",
+          "long_tail_share@10": 0.011424,
+          "mean_popularity@10": 1741.264404,
+          "n_eval_users": 604,
+          "ndcg@10": 0.399493,
+          "novelty@10": 8.81844,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.004199,
+            "low": -0.014626,
+            "mean": -0.009436,
+            "n_users": 604
+          },
+          "recall@10": 0.068319
+        },
+        {
+          "adventurous": 0.5,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.797502,
+              "low": 0.786624,
+              "mean": 0.792134
+            },
+            "long_tail_share@10": {
+              "high": 0.212922,
+              "low": 0.182612,
+              "mean": 0.197517
+            },
+            "mean_popularity@10": {
+              "high": 1235.541738,
+              "low": 1179.579263,
+              "mean": 1207.004801
+            },
+            "ndcg@10": {
+              "high": 0.310426,
+              "low": 0.276755,
+              "mean": 0.293375
+            },
+            "novelty@10": {
+              "high": 9.990129,
+              "low": 9.852824,
+              "mean": 9.92342
+            }
+          },
+          "coverage@10": 0.207,
+          "intra_list_diversity@10": 0.792134,
+          "label": "In between",
+          "long_tail_share@10": 0.197517,
+          "mean_popularity@10": 1207.004801,
+          "n_eval_users": 604,
+          "ndcg@10": 0.293375,
+          "novelty@10": 9.92342,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.103002,
+            "low": -0.128245,
+            "mean": -0.115554,
+            "n_users": 604
+          },
+          "recall@10": 0.051092
+        },
+        {
+          "adventurous": 0.75,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.87776,
+              "low": 0.870359,
+              "mean": 0.874056
+            },
+            "long_tail_share@10": {
+              "high": 0.412425,
+              "low": 0.374334,
+              "mean": 0.393709
+            },
+            "mean_popularity@10": {
+              "high": 542.837219,
+              "low": 514.867368,
+              "mean": 529.438079
+            },
+            "ndcg@10": {
+              "high": 0.10742,
+              "low": 0.088171,
+              "mean": 0.097629
+            },
+            "novelty@10": {
+              "high": 11.125137,
+              "low": 10.99961,
+              "mean": 11.062435
+            }
+          },
+          "coverage@10": 0.322122,
+          "intra_list_diversity@10": 0.874056,
+          "label": "Further",
+          "long_tail_share@10": 0.393709,
+          "mean_popularity@10": 529.438079,
+          "n_eval_users": 604,
+          "ndcg@10": 0.097629,
+          "novelty@10": 11.062435,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.292348,
+            "low": -0.331207,
+            "mean": -0.3113,
+            "n_users": 604
+          },
+          "recall@10": 0.014611
+        },
+        {
+          "adventurous": 1.0,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.882371,
+              "low": 0.875401,
+              "mean": 0.878631
+            },
+            "long_tail_share@10": {
+              "high": 0.429309,
+              "low": 0.390559,
+              "mean": 0.409768
+            },
+            "mean_popularity@10": {
+              "high": 421.938729,
+              "low": 403.30738,
+              "mean": 412.371523
+            },
+            "ndcg@10": {
+              "high": 0.069287,
+              "low": 0.054466,
+              "mean": 0.061952
+            },
+            "novelty@10": {
+              "high": 11.288388,
+              "low": 11.169823,
+              "mean": 11.228529
+            }
+          },
+          "coverage@10": 0.319661,
+          "intra_list_diversity@10": 0.878631,
+          "label": "Adventurous",
+          "long_tail_share@10": 0.409768,
+          "mean_popularity@10": 412.371523,
+          "n_eval_users": 604,
+          "ndcg@10": 0.061952,
+          "novelty@10": 11.228529,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.327367,
+            "low": -0.367965,
+            "mean": -0.346978,
+            "n_users": 604
+          },
+          "recall@10": 0.009571
+        }
+      ],
+      "target": "all_later_ratings"
+    }
+  ],
+  "dataset": "ml-1m",
+  "dataset_sha256": "a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20",
+  "host": {
+    "cpu_count": 4,
+    "machine": "x86_64",
+    "numpy_simd": [
+      "AVX2",
+      "AVX512F",
+      "AVX512_ICL",
+      "AVX512_SKX",
+      "FMA3",
+      "SSE42"
+    ],
+    "os": "Linux",
+    "os_release": "6.12.113+",
+    "processor": "x86_64",
+    "python": "3.12.3"
+  },
+  "library_versions": {
+    "implicit": "0.7.3",
+    "lightgbm": "4.6.0",
+    "movielens-recommender": "0.1.0",
+    "numpy": "2.2.6",
+    "pandas": "2.2.3",
+    "pyyaml": "6.0.3",
+    "scipy": "1.15.3",
+    "torch": "2.6.0+cpu"
+  },
+  "positions": [
+    {
+      "adventurous": 0.0,
+      "label": "Familiar"
+    },
+    {
+      "adventurous": 0.25,
+      "label": "Closer"
+    },
+    {
+      "adventurous": 0.5,
+      "label": "In between"
+    },
+    {
+      "adventurous": 0.75,
+      "label": "Further"
+    },
+    {
+      "adventurous": 1.0,
+      "label": "Adventurous"
+    }
+  ],
+  "profile_sizes": [
+    3,
+    5,
+    10
+  ],
+  "protocol": {
+    "bootstrap_alpha": 0.05,
+    "held_out_users": 604,
+    "n_bootstrap": 1000,
+    "relevance_threshold": 4.0,
+    "seed": 42,
+    "source_holdout": "results/cold-start/ml-1m.json",
+    "weights_sha256": "f6cbc0d77d435834493b85835215211874307d827ac2910121894bb56be7dbfd"
+  },
+  "runtime_sec": 200.986,
+  "sensitivity_last_20_percent": [
+    {
+      "counts": {
+        "n_eval_users": 599,
+        "n_held_out_users": 604,
+        "n_relevant_dropped_cold_item": 1,
+        "n_users_no_warm_relevant": 5,
+        "n_users_shorter_than_or_equal_n": 0
+      },
+      "n": 3,
+      "n_eval_users": 599,
+      "positions": [
+        {
+          "adventurous": 0.0,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.698903,
+              "low": 0.689765,
+              "mean": 0.694243
+            },
+            "long_tail_share@10": {
+              "high": 0.0,
+              "low": 0.0,
+              "mean": 0.0
+            },
+            "mean_popularity@10": {
+              "high": 2133.850822,
+              "low": 2124.372567,
+              "mean": 2129.180467
+            },
+            "ndcg@10": {
+              "high": 0.053293,
+              "low": 0.038991,
+              "mean": 0.04613
+            },
+            "novelty@10": {
+              "high": 8.422148,
+              "low": 8.414915,
+              "mean": 8.418514
+            }
+          },
+          "coverage@10": 0.015587,
+          "intra_list_diversity@10": 0.694243,
+          "label": "Familiar",
+          "long_tail_share@10": 0.0,
+          "mean_popularity@10": 2129.180467,
+          "n_eval_users": 599,
+          "ndcg@10": 0.04613,
+          "novelty@10": 8.418514,
+          "paired_ndcg_minus_familiar": null,
+          "recall@10": 0.03351
+        },
+        {
+          "adventurous": 0.25,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.742249,
+              "low": 0.733902,
+              "mean": 0.738081
+            },
+            "long_tail_share@10": {
+              "high": 0.002003,
+              "low": 0.000501,
+              "mean": 0.001169
+            },
+            "mean_popularity@10": {
+              "high": 2058.484111,
+              "low": 2043.620943,
+              "mean": 2050.568781
+            },
+            "ndcg@10": {
+              "high": 0.051466,
+              "low": 0.037531,
+              "mean": 0.044376
+            },
+            "novelty@10": {
+              "high": 8.498327,
+              "low": 8.482477,
+              "mean": 8.490672
+            }
+          },
+          "coverage@10": 0.024884,
+          "intra_list_diversity@10": 0.738081,
+          "label": "Closer",
+          "long_tail_share@10": 0.001169,
+          "mean_popularity@10": 2050.568781,
+          "n_eval_users": 599,
+          "ndcg@10": 0.044376,
+          "novelty@10": 8.490672,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": false,
+            "high": 0.000949,
+            "low": -0.004416,
+            "mean": -0.001754,
+            "n_users": 599
+          },
+          "recall@10": 0.032142
+        },
+        {
+          "adventurous": 0.5,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.828991,
+              "low": 0.820827,
+              "mean": 0.824986
+            },
+            "long_tail_share@10": {
+              "high": 0.268447,
+              "low": 0.237387,
+              "mean": 0.252922
+            },
+            "mean_popularity@10": {
+              "high": 1258.509203,
+              "low": 1205.344053,
+              "mean": 1231.801002
+            },
+            "ndcg@10": {
+              "high": 0.035532,
+              "low": 0.024725,
+              "mean": 0.030082
+            },
+            "novelty@10": {
+              "high": 10.175692,
+              "low": 10.019167,
+              "mean": 10.097073
+            }
+          },
+          "coverage@10": 0.249932,
+          "intra_list_diversity@10": 0.824986,
+          "label": "In between",
+          "long_tail_share@10": 0.252922,
+          "mean_popularity@10": 1231.801002,
+          "n_eval_users": 599,
+          "ndcg@10": 0.030082,
+          "novelty@10": 10.097073,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.010383,
+            "low": -0.021736,
+            "mean": -0.016047,
+            "n_users": 599
+          },
+          "recall@10": 0.019226
+        },
+        {
+          "adventurous": 0.75,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.868421,
+              "low": 0.858391,
+              "mean": 0.86355
+            },
+            "long_tail_share@10": {
+              "high": 0.504178,
+              "low": 0.467613,
+              "mean": 0.486644
+            },
+            "mean_popularity@10": {
+              "high": 501.761941,
+              "low": 475.418427,
+              "mean": 488.601836
+            },
+            "ndcg@10": {
+              "high": 0.020199,
+              "low": 0.01251,
+              "mean": 0.016292
+            },
+            "novelty@10": {
+              "high": 11.383031,
+              "low": 11.257756,
+              "mean": 11.321201
+            }
+          },
+          "coverage@10": 0.408258,
+          "intra_list_diversity@10": 0.86355,
+          "label": "Further",
+          "long_tail_share@10": 0.486644,
+          "mean_popularity@10": 488.601836,
+          "n_eval_users": 599,
+          "ndcg@10": 0.016292,
+          "novelty@10": 11.321201,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.022914,
+            "low": -0.037237,
+            "mean": -0.029837,
+            "n_users": 599
+          },
+          "recall@10": 0.009329
+        },
+        {
+          "adventurous": 1.0,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.857231,
+              "low": 0.846806,
+              "mean": 0.852036
+            },
+            "long_tail_share@10": {
+              "high": 0.578802,
+              "low": 0.541732,
+              "mean": 0.560935
+            },
+            "mean_popularity@10": {
+              "high": 353.631895,
+              "low": 335.768301,
+              "mean": 344.395993
+            },
+            "ndcg@10": {
+              "high": 0.015057,
+              "low": 0.009243,
+              "mean": 0.012089
+            },
+            "novelty@10": {
+              "high": 11.650635,
+              "low": 11.530044,
+              "mean": 11.590823
+            }
+          },
+          "coverage@10": 0.421931,
+          "intra_list_diversity@10": 0.852036,
+          "label": "Adventurous",
+          "long_tail_share@10": 0.560935,
+          "mean_popularity@10": 344.395993,
+          "n_eval_users": 599,
+          "ndcg@10": 0.012089,
+          "novelty@10": 11.590823,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.026763,
+            "low": -0.04116,
+            "mean": -0.03404,
+            "n_users": 599
+          },
+          "recall@10": 0.008239
+        }
+      ],
+      "target": "harness_tail"
+    },
+    {
+      "counts": {
+        "n_eval_users": 599,
+        "n_held_out_users": 604,
+        "n_relevant_dropped_cold_item": 1,
+        "n_users_no_warm_relevant": 5,
+        "n_users_shorter_than_or_equal_n": 0
+      },
+      "n": 5,
+      "n_eval_users": 599,
+      "positions": [
+        {
+          "adventurous": 0.0,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.693656,
+              "low": 0.684021,
+              "mean": 0.688873
+            },
+            "long_tail_share@10": {
+              "high": 0.0,
+              "low": 0.0,
+              "mean": 0.0
+            },
+            "mean_popularity@10": {
+              "high": 2110.125492,
+              "low": 2095.80227,
+              "mean": 2103.151252
+            },
+            "ndcg@10": {
+              "high": 0.051109,
+              "low": 0.037895,
+              "mean": 0.044411
+            },
+            "novelty@10": {
+              "high": 8.44536,
+              "low": 8.433665,
+              "mean": 8.439154
+            }
+          },
+          "coverage@10": 0.019415,
+          "intra_list_diversity@10": 0.688873,
+          "label": "Familiar",
+          "long_tail_share@10": 0.0,
+          "mean_popularity@10": 2103.151252,
+          "n_eval_users": 599,
+          "ndcg@10": 0.044411,
+          "novelty@10": 8.439154,
+          "paired_ndcg_minus_familiar": null,
+          "recall@10": 0.032552
+        },
+        {
+          "adventurous": 0.25,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.733912,
+              "low": 0.725298,
+              "mean": 0.729646
+            },
+            "long_tail_share@10": {
+              "high": 0.001836,
+              "low": 0.000334,
+              "mean": 0.001002
+            },
+            "mean_popularity@10": {
+              "high": 2038.565467,
+              "low": 2020.873072,
+              "mean": 2029.544407
+            },
+            "ndcg@10": {
+              "high": 0.052133,
+              "low": 0.039109,
+              "mean": 0.045785
+            },
+            "novelty@10": {
+              "high": 8.515884,
+              "low": 8.498345,
+              "mean": 8.507146
+            }
+          },
+          "coverage@10": 0.026798,
+          "intra_list_diversity@10": 0.729646,
+          "label": "Closer",
+          "long_tail_share@10": 0.001002,
+          "mean_popularity@10": 2029.544407,
+          "n_eval_users": 599,
+          "ndcg@10": 0.045785,
+          "novelty@10": 8.507146,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": false,
+            "high": 0.004011,
+            "low": -0.001215,
+            "mean": 0.001374,
+            "n_users": 599
+          },
+          "recall@10": 0.033982
+        },
+        {
+          "adventurous": 0.5,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.82601,
+              "low": 0.817966,
+              "mean": 0.822054
+            },
+            "long_tail_share@10": {
+              "high": 0.212859,
+              "low": 0.18414,
+              "mean": 0.198164
+            },
+            "mean_popularity@10": {
+              "high": 1357.51821,
+              "low": 1307.370726,
+              "mean": 1332.578464
+            },
+            "ndcg@10": {
+              "high": 0.038926,
+              "low": 0.027444,
+              "mean": 0.033012
+            },
+            "novelty@10": {
+              "high": 9.897283,
+              "low": 9.756956,
+              "mean": 9.824053
+            }
+          },
+          "coverage@10": 0.208641,
+          "intra_list_diversity@10": 0.822054,
+          "label": "In between",
+          "long_tail_share@10": 0.198164,
+          "mean_popularity@10": 1332.578464,
+          "n_eval_users": 599,
+          "ndcg@10": 0.033012,
+          "novelty@10": 9.824053,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.006557,
+            "low": -0.016284,
+            "mean": -0.011398,
+            "n_users": 599
+          },
+          "recall@10": 0.022914
+        },
+        {
+          "adventurous": 0.75,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.876355,
+              "low": 0.868217,
+              "mean": 0.872113
+            },
+            "long_tail_share@10": {
+              "high": 0.413865,
+              "low": 0.380634,
+              "mean": 0.397162
+            },
+            "mean_popularity@10": {
+              "high": 569.249474,
+              "low": 542.892183,
+              "mean": 556.376127
+            },
+            "ndcg@10": {
+              "high": 0.020758,
+              "low": 0.013428,
+              "mean": 0.017009
+            },
+            "novelty@10": {
+              "high": 11.098637,
+              "low": 10.983186,
+              "mean": 11.037416
+            }
+          },
+          "coverage@10": 0.366147,
+          "intra_list_diversity@10": 0.872113,
+          "label": "Further",
+          "long_tail_share@10": 0.397162,
+          "mean_popularity@10": 556.376127,
+          "n_eval_users": 599,
+          "ndcg@10": 0.017009,
+          "novelty@10": 11.037416,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.020489,
+            "low": -0.034348,
+            "mean": -0.027402,
+            "n_users": 599
+          },
+          "recall@10": 0.011781
+        },
+        {
+          "adventurous": 1.0,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.871993,
+              "low": 0.863091,
+              "mean": 0.867602
+            },
+            "long_tail_share@10": {
+              "high": 0.477796,
+              "low": 0.44207,
+              "mean": 0.460267
+            },
+            "mean_popularity@10": {
+              "high": 400.886661,
+              "low": 384.527095,
+              "mean": 392.758765
+            },
+            "ndcg@10": {
+              "high": 0.015822,
+              "low": 0.009618,
+              "mean": 0.012539
+            },
+            "novelty@10": {
+              "high": 11.362478,
+              "low": 11.252824,
+              "mean": 11.305641
+            }
+          },
+          "coverage@10": 0.380366,
+          "intra_list_diversity@10": 0.867602,
+          "label": "Adventurous",
+          "long_tail_share@10": 0.460267,
+          "mean_popularity@10": 392.758765,
+          "n_eval_users": 599,
+          "ndcg@10": 0.012539,
+          "novelty@10": 11.305641,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.024757,
+            "low": -0.039166,
+            "mean": -0.031872,
+            "n_users": 599
+          },
+          "recall@10": 0.007811
+        }
+      ],
+      "target": "harness_tail"
+    },
+    {
+      "counts": {
+        "n_eval_users": 599,
+        "n_held_out_users": 604,
+        "n_relevant_dropped_cold_item": 1,
+        "n_users_no_warm_relevant": 5,
+        "n_users_shorter_than_or_equal_n": 0
+      },
+      "n": 10,
+      "n_eval_users": 599,
+      "positions": [
+        {
+          "adventurous": 0.0,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.654993,
+              "low": 0.639571,
+              "mean": 0.646982
+            },
+            "long_tail_share@10": {
+              "high": 0.007012,
+              "low": 0.00217,
+              "mean": 0.004341
+            },
+            "mean_popularity@10": {
+              "high": 1863.296448,
+              "low": 1817.809687,
+              "mean": 1841.45192
+            },
+            "ndcg@10": {
+              "high": 0.049722,
+              "low": 0.03645,
+              "mean": 0.043151
+            },
+            "novelty@10": {
+              "high": 8.726762,
+              "low": 8.672405,
+              "mean": 8.698355
+            }
+          },
+          "coverage@10": 0.07137,
+          "intra_list_diversity@10": 0.646982,
+          "label": "Familiar",
+          "long_tail_share@10": 0.004341,
+          "mean_popularity@10": 1841.45192,
+          "n_eval_users": 599,
+          "ndcg@10": 0.043151,
+          "novelty@10": 8.698355,
+          "paired_ndcg_minus_familiar": null,
+          "recall@10": 0.032727
+        },
+        {
+          "adventurous": 0.25,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.697195,
+              "low": 0.681498,
+              "mean": 0.689415
+            },
+            "long_tail_share@10": {
+              "high": 0.014858,
+              "low": 0.007179,
+              "mean": 0.010684
+            },
+            "mean_popularity@10": {
+              "high": 1767.092842,
+              "low": 1720.249783,
+              "mean": 1744.845743
+            },
+            "ndcg@10": {
+              "high": 0.048037,
+              "low": 0.034775,
+              "mean": 0.041263
+            },
+            "novelty@10": {
+              "high": 8.844027,
+              "low": 8.783866,
+              "mean": 8.81306
+            }
+          },
+          "coverage@10": 0.090238,
+          "intra_list_diversity@10": 0.689415,
+          "label": "Closer",
+          "long_tail_share@10": 0.010684,
+          "mean_popularity@10": 1744.845743,
+          "n_eval_users": 599,
+          "ndcg@10": 0.041263,
+          "novelty@10": 8.81306,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": false,
+            "high": 0.000228,
+            "low": -0.004091,
+            "mean": -0.001889,
+            "n_users": 599
+          },
+          "recall@10": 0.030338
+        },
+        {
+          "adventurous": 0.5,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.797204,
+              "low": 0.786186,
+              "mean": 0.791674
+            },
+            "long_tail_share@10": {
+              "high": 0.211352,
+              "low": 0.181803,
+              "mean": 0.195826
+            },
+            "mean_popularity@10": {
+              "high": 1237.488986,
+              "low": 1182.391089,
+              "mean": 1210.189983
+            },
+            "ndcg@10": {
+              "high": 0.040671,
+              "low": 0.028592,
+              "mean": 0.034573
+            },
+            "novelty@10": {
+              "high": 9.989494,
+              "low": 9.847878,
+              "mean": 9.915232
+            }
+          },
+          "coverage@10": 0.206453,
+          "intra_list_diversity@10": 0.791674,
+          "label": "In between",
+          "long_tail_share@10": 0.195826,
+          "mean_popularity@10": 1210.189983,
+          "n_eval_users": 599,
+          "ndcg@10": 0.034573,
+          "novelty@10": 9.915232,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.003545,
+            "low": -0.013521,
+            "mean": -0.008579,
+            "n_users": 599
+          },
+          "recall@10": 0.023166
+        },
+        {
+          "adventurous": 0.75,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.877879,
+              "low": 0.869765,
+              "mean": 0.874003
+            },
+            "long_tail_share@10": {
+              "high": 0.410184,
+              "low": 0.37078,
+              "mean": 0.391152
+            },
+            "mean_popularity@10": {
+              "high": 543.974286,
+              "low": 517.96273,
+              "mean": 531.092988
+            },
+            "ndcg@10": {
+              "high": 0.022391,
+              "low": 0.014685,
+              "mean": 0.018379
+            },
+            "novelty@10": {
+              "high": 11.113269,
+              "low": 10.993626,
+              "mean": 11.051358
+            }
+          },
+          "coverage@10": 0.321028,
+          "intra_list_diversity@10": 0.874003,
+          "label": "Further",
+          "long_tail_share@10": 0.391152,
+          "mean_popularity@10": 531.092988,
+          "n_eval_users": 599,
+          "ndcg@10": 0.018379,
+          "novelty@10": 11.051358,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.01841,
+            "low": -0.031728,
+            "mean": -0.024772,
+            "n_users": 599
+          },
+          "recall@10": 0.013045
+        },
+        {
+          "adventurous": 1.0,
+          "confidence_intervals": {
+            "intra_list_diversity@10": {
+              "high": 0.882124,
+              "low": 0.875045,
+              "mean": 0.8785
+            },
+            "long_tail_share@10": {
+              "high": 0.426886,
+              "low": 0.387642,
+              "mean": 0.407679
+            },
+            "mean_popularity@10": {
+              "high": 423.036227,
+              "low": 404.552992,
+              "mean": 413.800501
+            },
+            "ndcg@10": {
+              "high": 0.018823,
+              "low": 0.011916,
+              "mean": 0.015166
+            },
+            "novelty@10": {
+              "high": 11.277384,
+              "low": 11.162797,
+              "mean": 11.218006
+            }
+          },
+          "coverage@10": 0.31802,
+          "intra_list_diversity@10": 0.8785,
+          "label": "Adventurous",
+          "long_tail_share@10": 0.407679,
+          "mean_popularity@10": 413.800501,
+          "n_eval_users": 599,
+          "ndcg@10": 0.015166,
+          "novelty@10": 11.218006,
+          "paired_ndcg_minus_familiar": {
+            "excludes_zero": true,
+            "high": -0.020579,
+            "low": -0.035694,
+            "mean": -0.027985,
+            "n_users": 599
+          },
+          "recall@10": 0.010443
+        }
+      ],
+      "target": "harness_tail"
+    }
+  ]
+}

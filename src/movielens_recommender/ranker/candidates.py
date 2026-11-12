@@ -131,6 +131,59 @@ def unbalanced_union(left: Sequence[int], right: Sequence[int], k: int) -> list[
     return selected
 
 
+def balanced_three_way_union(
+    first: Sequence[int],
+    second: Sequence[int],
+    third: Sequence[int],
+    k: int,
+) -> list[int]:
+    """Round-robin union of three retrievers up to exact budget ``k`` (ADR-0031)."""
+    if k <= 0:
+        return []
+    lists = [dedupe_ids(first)[:k], dedupe_ids(second)[:k], dedupe_ids(third)[:k]]
+    cursors = [0, 0, 0]
+    selected: list[int] = []
+    seen: set[int] = set()
+    while len(selected) < k:
+        progressed = False
+        for src in range(3):
+            arr = lists[src]
+            while cursors[src] < len(arr) and arr[cursors[src]] in seen:
+                cursors[src] += 1
+            if cursors[src] < len(arr):
+                item = arr[cursors[src]]
+                cursors[src] += 1
+                seen.add(item)
+                selected.append(item)
+                progressed = True
+                if len(selected) >= k:
+                    break
+        if not progressed:
+            break
+    return selected
+
+
+def unbalanced_three_way_union(
+    first: Sequence[int],
+    second: Sequence[int],
+    third: Sequence[int],
+    k: int,
+) -> list[int]:
+    """Round-robin union of the top ``k`` of three retrievers without truncating at ``k``."""
+    if k <= 0:
+        return []
+    lists = [dedupe_ids(first)[:k], dedupe_ids(second)[:k], dedupe_ids(third)[:k]]
+    max_len = max((len(arr) for arr in lists), default=0)
+    selected: list[int] = []
+    seen: set[int] = set()
+    for pos in range(max_len):
+        for arr in lists:
+            if pos < len(arr) and arr[pos] not in seen:
+                seen.add(arr[pos])
+                selected.append(arr[pos])
+    return selected
+
+
 def candidate_ids_for_user(
     name: str,
     left: Sequence[int],

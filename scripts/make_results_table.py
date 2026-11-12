@@ -3050,6 +3050,272 @@ def render_ease_dan(path: Path | None = None) -> str:
     return "\n".join(lines)
 
 
+def _slider_n_block(payload: dict, n: int) -> dict:
+    for block in payload["by_n"]:
+        if int(block["n"]) == int(n):
+            return block
+    raise KeyError(n)
+
+
+def _position(block: dict, label: str) -> dict:
+    for row in block["positions"]:
+        if row["label"] == label:
+            return row
+    raise KeyError(label)
+
+
+def _published_sequence_context() -> str:
+    """Point estimates from other committed runs. This file has no paired test against them."""
+    headline_path = RESULTS_DIR / "ml-1m.json"
+    demo_path = RESULTS_DIR / "demographics" / "ml-1m.json"
+    if not headline_path.is_file() or not demo_path.is_file():
+        return ""
+    headline = json.loads(headline_path.read_text(encoding="utf-8"))
+    demo = json.loads(demo_path.read_text(encoding="utf-8"))
+    tower = float(headline["metrics"]["two_tower"]["ndcg@10"])
+    ranker = float(headline["metrics"]["lambdarank"]["ndcg@10"])
+    both = float(demo["variants"]["both"]["summary"]["ndcg@10_mean"])
+    return (
+        "Published headline points from other runs, not paired in this file, are "
+        f"{_fmt(tower)} for the two-tower and {_fmt(ranker)} for LambdaRank "
+        f"({_fmt(both)} with demographics)."
+    )
+
+
+def render_sequence_modern(path: Path | None = None) -> str:
+    """eSASRec vs PCTM vs SASRec panel (ADR-0030). Empty when the file is absent."""
+    path = RESULTS_DIR / "sequence-modern" / "ml-1m.json" if path is None else path
+    if not path.is_file():
+        return ""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    models = payload["models"]
+    pctm = models["pctm"]
+    esas = models["esasrec"]
+    sas = models["sasrec_reference"]
+    paired = payload["paired"]
+    decision = payload["decision"]
+    beyond = payload["beyond_accuracy"]
+    pctm_ci = pctm["ndcg@10_ci"]
+    sas_ci = sas["ndcg@10_ci"]
+    esas_ci = esas["primary_ndcg@10_ci"]
+    tuning = RESULTS_DIR / "tuning" / "sequence_modern_ml-1m.json"
+    if tuning.is_file():
+        tuned = json.loads(tuning.read_text(encoding="utf-8"))
+        grid_sentence = (
+            "Validation configs in the locked grids: "
+            f"{int(tuned['esasrec']['n_configs'])} eSASRec and "
+            f"{int(tuned['pctm']['n_configs'])} PCTM."
+        )
+    else:
+        grid_sentence = "Validation configs: 8 eSASRec and 36 PCTM in the locked grids."
+    lines = [
+        "### Sequential models: eSASRec and PCTM (`ml-1m`)",
+        "",
+        "From `results/sequence-modern/ml-1m.json`, with the grid in "
+        "`results/tuning/sequence_modern_ml-1m.json` (ADR-0030). "
+        "Selection is validation NDCG@10 on the existing split. "
+        "Test is scored once. `results/sasrec/ml-1m.json` and `results/ml-1m.json` "
+        "are unchanged. The eSASRec test column is the mean across test seeds, "
+        "and its interval is the primary seed. PCTM and the SASRec reference "
+        "are single fits on the same users.",
+        "",
+        f"PCTM validation selected decay `{pctm['hyperparams']['decay']}`, "
+        f"max distance {_plain_num(pctm['hyperparams']['max_distance'])}, "
+        f"smoothing tau {_plain_num(pctm['hyperparams']['smoothing_tau'])}, "
+        f"popularity beta {_plain_num(pctm['hyperparams']['pop_beta'])} "
+        f"(validation NDCG@10 {_fmt(float(pctm['val_ndcg@10']))}). "
+        f"eSASRec selected max sequence length "
+        f"{_plain_num(esas['hyperparams']['max_seq_len'])}, "
+        f"{_plain_num(esas['hyperparams']['n_layers'])} LiGR layers, "
+        f"dropout {_plain_num(esas['hyperparams']['dropout'])}, "
+        f"best epoch {_plain_num(esas['best_epoch'])} "
+        f"(validation NDCG@10 {_fmt(float(esas['val_ndcg@10']))}). "
+        f"The SASRec reference keeps the committed architecture "
+        f"(validation NDCG@10 {_fmt(float(sas['val_ndcg@10']))}).",
+        "",
+        f"**{'Win' if decision['pctm_beats_sasrec'] else 'Negative result'} "
+        f"(`pctm_beats_sasrec={decision['pctm_beats_sasrec']}`).** "
+        f"Paired PCTM minus SASRec test NDCG@10 is "
+        f"{_pair_text(paired['pctm_minus_sasrec'])}.",
+        f"**{'Win' if decision['esasrec_beats_sasrec'] else 'Negative result'} "
+        f"(`esasrec_beats_sasrec={decision['esasrec_beats_sasrec']}`).** "
+        f"Paired eSASRec minus SASRec is {_pair_text(paired['esasrec_minus_sasrec'])}. "
+        f"The three-seed eSASRec mean is {_fmt(float(esas['ndcg@10_mean']))} "
+        f"(std {_fmt(float(esas['ndcg@10_std']))}); the primary seed is "
+        f"{_fmt(float(esas_ci['mean']))} {_fmt_ci_cell(esas_ci)}.",
+        f"**{'Win' if decision['higher_order_beats_pairwise_pctm'] else 'Negative result'} "
+        f"(`higher_order_beats_pairwise_pctm="
+        f"{decision['higher_order_beats_pairwise_pctm']}`).** "
+        f"Paired eSASRec minus PCTM is {_pair_text(paired['esasrec_minus_pctm'])}."
+        + (
+            " On this split the higher-order transformer stays below the pairwise probe."
+            if not decision["higher_order_beats_pairwise_pctm"]
+            else ""
+        ),
+        "",
+        "PCTM catalog coverage@10 is "
+        f"{_fmt(float(beyond['pctm']['coverage@10']))}, against "
+        f"{_fmt(float(beyond['sasrec']['coverage@10']))} for the SASRec reference "
+        f"and {_fmt(float(beyond['esasrec']['coverage@10']))} for eSASRec. "
+        + _published_sequence_context(),
+        "",
+        grid_sentence,
+        "",
+        "| model | val NDCG@10 | test NDCG@10 | 95% CI | Coverage@10 | "
+        "Novelty@10 | Long-tail share@10 |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+        f"| PCTM | {_fmt(float(pctm['val_ndcg@10']))} | "
+        f"{_fmt(float(pctm['ndcg@10']))} | {_fmt_ci_cell(pctm_ci)} | "
+        f"{_fmt(float(beyond['pctm']['coverage@10']))} | "
+        f"{_fmt(float(beyond['pctm']['novelty@10']))} | "
+        f"{_fmt(float(beyond['pctm']['long_tail_share@10']))} |",
+        f"| SASRec reference | {_fmt(float(sas['val_ndcg@10']))} | "
+        f"{_fmt(float(sas['ndcg@10']))} | {_fmt_ci_cell(sas_ci)} | "
+        f"{_fmt(float(beyond['sasrec']['coverage@10']))} | "
+        f"{_fmt(float(beyond['sasrec']['novelty@10']))} | "
+        f"{_fmt(float(beyond['sasrec']['long_tail_share@10']))} |",
+        f"| eSASRec | {_fmt(float(esas['val_ndcg@10']))} | "
+        f"{_fmt(float(esas['ndcg@10_mean']))} | {_fmt_ci_cell(esas_ci)} | "
+        f"{_fmt(float(beyond['esasrec']['coverage@10']))} | "
+        f"{_fmt(float(beyond['esasrec']['novelty@10']))} | "
+        f"{_fmt(float(beyond['esasrec']['long_tail_share@10']))} |",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def render_slider_eval(path: Path | None = None) -> str:
+    """Discovery-slider trade-off on the cold-start holdout (ADR-0032)."""
+    path = RESULTS_DIR / "slider-eval" / "ml-1m.json" if path is None else path
+    if not path.is_file():
+        return ""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    block = _slider_n_block(payload, 5)
+    familiar = _position(block, "Familiar")
+    closer = _position(block, "Closer")
+    middle = _position(block, "In between")
+    sens = _slider_n_block(
+        {"by_n": payload["sensitivity_last_20_percent"]},
+        5,
+    )
+    sens_familiar = _position(sens, "Familiar")
+    sens_closer = _position(sens, "Closer")
+    lines = [
+        "### Discovery slider (`ml-1m` cold start)",
+        "",
+        "From `results/slider-eval/ml-1m.json` (ADR-0032). "
+        "The five Familiar-to-Adventurous positions re-rank the deployed "
+        "cold-start list. Model weights stay fixed. The table is profile size "
+        "N=5 on the 604 held-out cold-start users. N=3 and N=10 are in the same file.",
+        "",
+        f"Familiar NDCG@10 is {_fmt(float(familiar['ndcg@10']))} "
+        f"{_fmt_ci_cell(familiar['confidence_intervals']['ndcg@10'])}. "
+        f"The committed cold-start point at N=5 is "
+        f"{_fmt(float(block['committed_familiar_ndcg@10']))} "
+        f"(matches at 4 decimals: {block['matches_committed_at_4_decimals']}). "
+        "The gap is the documented serving-snapshot refit, not a new model.",
+        f"Closer changes NDCG@10 by {_pair_text(closer['paired_ndcg_minus_familiar'])} "
+        f"and coverage@10 from {_fmt(float(familiar['coverage@10']))} to "
+        f"{_fmt(float(closer['coverage@10']))}. "
+        f"In between reaches coverage@10 {_fmt(float(middle['coverage@10']))} "
+        f"and long-tail share@10 {_fmt(float(middle['long_tail_share@10']))}, "
+        f"with NDCG@10 {_fmt(float(middle['ndcg@10']))}.",
+        f"On the last-20% target at N=5, Familiar NDCG@10 is "
+        f"{_fmt(float(sens_familiar['ndcg@10']))} and Closer is "
+        f"{_fmt(float(sens_closer['ndcg@10']))}.",
+        "",
+        "| position | weight | NDCG@10 | 95% CI | Coverage@10 | Novelty@10 | "
+        "Diversity@10 | Long-tail share@10 |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for row in block["positions"]:
+        lines.append(
+            f"| {row['label']} | {_plain_num(row['adventurous'])} | "
+            f"{_fmt(float(row['ndcg@10']))} | "
+            f"{_fmt_ci_cell(row['confidence_intervals']['ndcg@10'])} | "
+            f"{_fmt(float(row['coverage@10']))} | "
+            f"{_fmt(float(row['novelty@10']))} | "
+            f"{_fmt(float(row['intra_list_diversity@10']))} | "
+            f"{_fmt(float(row['long_tail_share@10']))} |"
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
+_RANKER_VARIANT_LABELS = {
+    "bi_off": "2 retrievers, demographics off",
+    "tri_off": "3 retrievers, demographics off",
+    "bi_both": "2 retrievers, demographics on",
+    "tri_both": "3 retrievers, demographics on",
+    "tri_unbalanced_both": "3 retrievers, unbalanced, demographics on",
+}
+
+
+def render_ranker_ease_dan(path: Path | None = None) -> str:
+    """Tri-retriever LambdaRank panel (ADR-0031). Empty when the file is absent."""
+    path = RESULTS_DIR / "ranker-ease-dan" / "ml-1m.json" if path is None else path
+    if not path.is_file():
+        return ""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    decision = payload["decision"]
+    paired = payload["paired"]
+    variants = payload["variants"]
+    val = payload["validation_candidates"]
+    lines = [
+        "### EASE-DAN as a third retriever (`ml-1m`)",
+        "",
+        "From `results/ranker-ease-dan/ml-1m.json` (ADR-0031). "
+        "Retriever hyperparameters stay frozen from `results/ml-1m.json` and "
+        "`results/ease-dan/ml-1m.json`. The candidate budget is K="
+        f"{_plain_num(payload['candidate_k'])}. "
+        "Validation Recall@200 chooses the K=200 set. "
+        "Test NDCG@10 is the mean across ranker seeds 42, 43, and 44. "
+        "The interval is the primary seed. "
+        "`results/ml-1m.json` and `results/demographics/ml-1m.json` are unchanged.",
+        "",
+        "Validation Recall@200: "
+        + ", ".join(
+            f"`{name}` {_fmt(float(val[name]['recall@200']))}"
+            for name in (
+                "two_tower",
+                "union_balanced",
+                "tri_union_balanced",
+                "tri_union_unbalanced",
+            )
+            if name in val
+        )
+        + f". Selected K=200 set: `{payload['selected_tri_candidate_set']}`.",
+        "",
+        f"**{'Win' if decision['tri_off_lifts_bi_off'] else 'Negative result'} "
+        f"(`tri_off_lifts_bi_off={decision['tri_off_lifts_bi_off']}`).** "
+        f"Paired three-retriever minus two-retriever, demographics off, is "
+        f"{_pair_text(paired['tri_off_minus_bi_off'])}.",
+        f"**{'Win' if decision['tri_both_lifts_bi_both'] else 'Negative result'} "
+        f"(`tri_both_lifts_bi_both={decision['tri_both_lifts_bi_both']}`).** "
+        f"Paired three-retriever minus two-retriever, demographics on, is "
+        f"{_pair_text(paired['tri_both_minus_bi_both'])}.",
+        f"**{'Win' if decision['tri_unbalanced_both_lifts_bi_both'] else 'Negative result'} "
+        f"(`tri_unbalanced_both_lifts_bi_both="
+        f"{decision['tri_unbalanced_both_lifts_bi_both']}`).** "
+        f"Paired unbalanced three-way union minus the two-retriever ranker, "
+        f"demographics on, is {_pair_text(paired['tri_unbalanced_both_minus_bi_both'])}.",
+        "",
+        "| variant | candidate set | features | test NDCG@10 | 95% CI | Coverage@10 |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for key, label in _RANKER_VARIANT_LABELS.items():
+        block = variants[key]
+        lines.append(
+            f"| {label} | `{block['candidate_set']}` | "
+            f"{_plain_num(block['n_features'])} | "
+            f"{_fmt(float(block['ndcg@10_mean']))} | "
+            f"{_fmt_ci_cell(block['primary_ndcg@10_ci'])} | "
+            f"{_fmt(float(block['coverage@10_mean']))} |"
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
 def build_section(results: list[tuple[str, dict]]) -> str:
     parts = [BEGIN, ""]
     for filename, payload in results:
@@ -3084,6 +3350,15 @@ def build_section(results: list[tuple[str, dict]]) -> str:
     ease_dan = render_ease_dan()
     if ease_dan:
         parts.append(ease_dan)
+    sequence_modern = render_sequence_modern()
+    if sequence_modern:
+        parts.append(sequence_modern)
+    slider = render_slider_eval()
+    if slider:
+        parts.append(slider)
+    ranker_dan = render_ranker_ease_dan()
+    if ranker_dan:
+        parts.append(ranker_dan)
     parts.append(END)
     return "\n".join(parts) + "\n"
 

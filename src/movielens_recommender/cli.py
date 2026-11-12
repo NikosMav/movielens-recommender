@@ -211,6 +211,7 @@ def run_pipeline(
             n_users=sample_n,
             seed=sample_seed,
             relevance_threshold=config.eval.relevance_threshold,
+            mode=config.eval.user_sample_mode,
         )
         info = split.eval_user_sample or {}
         print(

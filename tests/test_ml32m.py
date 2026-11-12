@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -115,6 +117,51 @@ def test_eval_sample_keeps_full_histories_and_is_stable():
     assert len(after_items) > len(
         set(first.test.loc[first.test["user_id"] == uid, "item_id"].astype(int))
     )
+
+
+def test_train_only_eval_sample_is_invariant_to_test_ratings_and_reproduction_keeps_warm_test(
+    tmp_path,
+):
+    import json
+
+    from movielens_recommender.experiments import prepare_reproduction
+
+    base_ratings = _ratings_for_sample()
+    split_a = time_based_split(
+        base_ratings,
+        SplitConfig(min_ratings=5, test_fraction=0.2, val_fraction=0.1),
+    )
+    # Perturb every test rating below relevance threshold in a copy of split_a.
+    perturbed_test = split_a.test.copy()
+    perturbed_test["rating"] = 1.0
+    split_b = time_based_split(
+        base_ratings,
+        SplitConfig(min_ratings=5, test_fraction=0.2, val_fraction=0.1),
+    )
+    split_b.test = perturbed_test
+
+    sampled_a = apply_eval_user_sample(
+        split_a, n_users=3, seed=42, relevance_threshold=4.0, mode="train_only"
+    )
+    sampled_b = apply_eval_user_sample(
+        split_b, n_users=3, seed=42, relevance_threshold=4.0, mode="train_only"
+    )
+    assert sampled_a.eval_user_sample["mode"] == "train_only"
+    assert (
+        sampled_a.eval_user_sample["user_ids_sha256"]
+        == sampled_b.eval_user_sample["user_ids_sha256"]
+    )
+    with pytest.raises(ValueError, match="No warm-relevant users"):
+        apply_eval_user_sample(
+            split_b, n_users=3, seed=42, relevance_threshold=4.0, mode="warm_test"
+        )
+
+    # Historical ml-32m.json lacks user_sample_mode; prepare_reproduction freezes warm_test.
+    ml32_record = Path(__file__).resolve().parents[1] / "results" / "ml-32m.json"
+    cfg, _run_dir = prepare_reproduction(ml32_record, tmp_path / "runs", run_id="ml32-repro")
+    assert cfg.eval.user_sample_mode == "warm_test"
+    raw_saved = json.loads(ml32_record.read_text(encoding="utf-8"))
+    assert "user_sample_mode" not in raw_saved["config"]["eval"]
 
 
 def test_ease_top_n_matches_closed_form_and_drops_the_tail():

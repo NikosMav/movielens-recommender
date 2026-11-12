@@ -247,6 +247,8 @@ def train_sasrec(
         n_heads=int(hyperparams["n_heads"]),
         dropout=float(hyperparams["dropout"]),
         max_seq_len=max_seq_len,
+        block_type=str(hyperparams.get("block_type", "sasrec")),
+        ff_mult=int(hyperparams.get("ff_mult", 2)),
     )
     if n_epochs is not None:
         trained, result = _run_epochs(
@@ -357,6 +359,8 @@ def time_one_epoch(
         n_heads=int(hyperparams["n_heads"]),
         dropout=float(hyperparams["dropout"]),
         max_seq_len=max_seq_len,
+        block_type=str(hyperparams.get("block_type", "sasrec")),
+        ff_mult=int(hyperparams.get("ff_mult", 2)),
     )
     # Encode the users who appear in the validation frame, from fit-train windows.
     val_ids = set(int(uid) for uid in val_users_frame["user_id"].unique())

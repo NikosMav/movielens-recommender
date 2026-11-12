@@ -41,6 +41,9 @@ The generic reproduction command intentionally accepts headline records with emb
 | ALS retune | `python scripts/run_als_retune.py --stage all` | ADR-0018; probe, 144-config grid + one-step edge check, and sealed test |
 | SASRec sequence model | `python scripts/run_sasrec.py --stage all` | ADR-0019; probe, grid + edge check, shuffled-order check, and paired refits |
 | EASE-DAN | `python scripts/run_ease_dan.py --stage all` | ADR-0028; probe, 108-config grid + one-step edge check, and sealed test |
+| eSASRec and PCTM | `python scripts/run_sequence_modern.py --stage all` | ADR-0030; 8-config eSASRec grid, 36-config PCTM grid, and sealed paired test |
+| EASE-DAN third retriever | `python scripts/run_ranker_ease_dan.py` | ADR-0031; frozen retrievers, validation candidate choice, 3 ranker seeds |
+| Discovery slider | `python scripts/run_slider_eval.py` | ADR-0032; five slider positions on the 604 held-out cold-start users |
 
 Historical revision references are `c82b6da` for demographics, `7227d01` for the corrected Docker cold-start record, `9e34701` for the alternative-loss work, `d6ed85f` for serving measurements, and `c4d96fe` for the drift replay. Later code can add corrections, so record the revision actually used instead of assuming these experiments share one implementation.
 
