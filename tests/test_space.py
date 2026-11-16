@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 SPACE = Path(__file__).resolve().parents[1] / "space"
-_PIN = "02a07abd5c849160350e5bbeaeab055648c59ffc"
+_PIN = "962675f136c1bc2971f496c959c2faacee9fac9b"
 _DEMO_REASON = (
     "demo_",
     "group_",
