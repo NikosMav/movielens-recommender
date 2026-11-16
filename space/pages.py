@@ -64,6 +64,8 @@ from quality import (
     sasrec_lead,
     sequence_modern_caption,
     sequence_modern_lead,
+    served_caption,
+    served_lead,
     serving_latency_notes,
     slider_caption,
     slider_lead,
@@ -113,13 +115,47 @@ def render_header() -> str:
     return str(choice)
 
 
-def render_discover(cold_path: str, api_key: str) -> None:
+def render_discover(cold_path: str, api_key: str, extended_path: str = "") -> None:
     st.markdown(hero_html(), unsafe_allow_html=True)
     if not cold_path:
         st.markdown("The new-user snapshot is missing.")
         st.code("make space-snapshot", language="bash")
         return
-    _discover_body(cold_path, api_key)
+    _discover_body(cold_path, api_key, extended_path)
+
+
+# Discover catalogues (ADR-0034). The first is the measured ml-1m ranker pipeline.
+_CATALOGUES = ("Films to 2000", "Films to 2018")
+
+
+def _reset_new_user() -> None:
+    """A catalogue switch starts a fresh profile: the two do not hold the same films."""
+    for row in _ratings():
+        st.session_state.pop(f"rate-{int(row['item_id'])}", None)
+    st.session_state["new_user_ratings"] = []
+    st.session_state.pop("new_user_result", None)
+
+
+def _catalogue_path(cold_path: str, extended_path: str) -> tuple[str, bool]:
+    """The snapshot Discover reads, and whether it is the larger catalogue."""
+    if not extended_path:
+        return cold_path, False
+    if "catalogue" not in st.session_state:
+        wanted = str(st.query_params.get("catalog") or "")
+        st.session_state["catalogue"] = _CATALOGUES[1 if wanted == "extended" else 0]
+    choice = st.segmented_control(
+        "Catalogue",
+        _CATALOGUES,
+        key="catalogue",
+        on_change=_reset_new_user,
+        help=(
+            "Films to 2000 is MovieLens 1M with the full new-user model. "
+            "Films to 2018 is a larger catalogue from MovieLens 32M with a simpler "
+            "similar-films model. Switching clears your ratings."
+        ),
+    )
+    extended = choice == _CATALOGUES[1]
+    return (extended_path if extended else cold_path), extended
 
 
 def render_explore(prod_path: str, api_key: str) -> None:
@@ -130,12 +166,25 @@ def render_explore(prod_path: str, api_key: str) -> None:
     _explore_body(prod_path, api_key)
 
 
-def render_quality() -> None:
-    _quality_body(str(results_dir().resolve()))
+def render_quality(prod_path: str = "") -> None:
+    _quality_body(str(results_dir().resolve()), _serves_sequence_model(prod_path))
+
+
+def _serves_sequence_model(prod_path: str) -> bool:
+    """True when the loaded production snapshot has the ADR-0033 transition model."""
+    if not prod_path:
+        return False
+    try:
+        bundle, _summaries = load_bundle(prod_path)
+    except Exception:
+        return False
+    return getattr(bundle, "pctm", None) is not None
 
 
 @st.fragment
-def _discover_body(cold_path: str, api_key: str) -> None:
+def _discover_body(cold_path: str, api_key: str, extended_path: str = "") -> None:
+    cold_path, extended = _catalogue_path(cold_path, extended_path)
+    st.session_state["catalogue_extended"] = extended
     records, ranks = catalog(cold_path)
     by_id = {int(record["item_id"]): record for record in records}
     _restore_shared_ratings(cold_path, by_id)
@@ -161,7 +210,13 @@ def _discover_body(cold_path: str, api_key: str) -> None:
                 key="movie_query",
                 placeholder="e.g. The Matrix, Toy Story, Fargo",
             )
-            st.caption("Search the MovieLens 1M catalog: films released through 2000.")
+            if extended:
+                st.caption(
+                    f"Search {len(records):,} films released through 2018, from MovieLens 32M. "
+                    "This catalogue uses a simpler similar-films model."
+                )
+            else:
+                st.caption("Search the MovieLens 1M catalog: films released through 2000.")
             st.caption(
                 "Or try a sample profile. This replaces your ratings with up to four 5-star films."
             )
@@ -288,7 +343,7 @@ def _explore_body(prod_path: str, api_key: str) -> None:
     _viewer_result(result, api_key, genres_by_title, bundle, prod_path)
 
 
-def _quality_body(path_str: str) -> None:
+def _quality_body(path_str: str, sequence_live: bool = False) -> None:
     st.markdown(
         f'<h1 class="display icon-heading">{icon_html("chart")}How good is it?</h1>',
         unsafe_allow_html=True,
@@ -300,11 +355,34 @@ def _quality_body(path_str: str) -> None:
     except FileNotFoundError:
         st.markdown("The committed results JSON is not next to this app.")
         return
+    if "served" in view:
+        st.markdown(
+            f'<h2 class="section-title icon-heading">'
+            f'{icon_html("rank")}The model in this demo</h2>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(served_lead(view["served"]))
+        if not sequence_live:
+            st.caption(
+                "This copy of the demo has not loaded that model yet. "
+                "Explore a MovieLens user is still the ranker without watch order."
+            )
+        st.markdown(
+            metric_chart_html(
+                chart_rows(view["served"]["models"]),
+                caption=(
+                    "MovieLens 1M, the same held-out ratings for all three. "
+                    "The ranker bars are three-seed means. Their ranges are the primary seed."
+                ),
+            ),
+            unsafe_allow_html=True,
+        )
     _dataset_block(
         "MovieLens 1M",
         view["ml1m"]["models"],
         "MovieLens 1M",
-        "Compare the full model with similarity, retrieval, and popularity.",
+        "The earlier benchmark: a two-stage ranker against similarity, retrieval, "
+        "and popularity, before watch order was added.",
     )
     _dataset_block(
         "MovieLens 32M",
@@ -375,6 +453,10 @@ def _quality_body(path_str: str) -> None:
             unsafe_allow_html=True,
         )
     with st.expander("Detailed scores"):
+        if "served" in view:
+            st.markdown("**The model in this demo**")
+            st.markdown(detail_html(view["served"]["models"]), unsafe_allow_html=True)
+            st.markdown(served_caption(view))
         st.markdown("**MovieLens 1M**")
         st.markdown(detail_html(view["ml1m"]["models"]), unsafe_allow_html=True)
         st.markdown(ml1_caption(view))
@@ -757,7 +839,12 @@ def _ticket(
         unsafe_allow_html=True,
     )
     if not ratings:
-        st.caption(f"{_cold_start_nudge()} Ratings stay in this browser session.")
+        nudge = (
+            "Rate at least 3 films."
+            if st.session_state.get("catalogue_extended")
+            else _cold_start_nudge()
+        )
+        st.caption(f"{nudge} Ratings stay in this browser session.")
     if ratings:
         with st.expander("Review or remove ratings"):
             for row in ratings:
@@ -954,7 +1041,9 @@ def _viewer_result(
     model = getattr(bundle, "item_item", None)
     if not compare:
         st.markdown('<h2 class="section-title">Top 10</h2>', unsafe_allow_html=True)
-        st.caption("The list from the full model.")
+        st.caption(
+            "The list from the full model. It uses the order this viewer rated films in."
+        )
         production = list(result["production"])
         _card_grid(
             production,
@@ -1422,7 +1511,12 @@ def _pick_tools(
         share_open = st.checkbox("Share these picks", key="share-picks")
     if share_open:
         pairs = [(int(row["item_id"]), int(row["rating"])) for row in ratings]
-        link = share_url(st.context.url or "", pairs, mix=round(_adventurous_value() * 4))
+        link = share_url(
+            st.context.url or "",
+            pairs,
+            mix=round(_adventurous_value() * 4),
+            extended=bool(st.session_state.get("catalogue_extended")),
+        )
         st.caption(
             "Copy this link with the copy button on the code box. It includes your ratings "
             "and slider setting. Anyone with the link can see them."

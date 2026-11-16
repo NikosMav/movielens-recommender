@@ -40,6 +40,9 @@ _ITS = re.compile(r"^It's an? (?P<genre>.+) film$")
 _METHOD = {
     "most_popular": "This list is the films people have rated most often.",
     "item_item_fold_in": "This list is films similar to ones you rated.",
+    "item_item_popularity_blend": (
+        "This list is films close to the ones you rated, with widely rated films ranked higher."
+    ),
     "history_two_tower": "This list matches the films you rated, without using a saved profile.",
     "cold_start_ranker": (
         "Ranked from the films you rated: popular titles, and ones close to them."

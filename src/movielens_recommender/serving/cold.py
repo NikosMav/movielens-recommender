@@ -15,7 +15,9 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from scipy import sparse
 
+from movielens_recommender.baselines.common import top_n_indices
 from movielens_recommender.baselines.ease import EASERecommender
 from movielens_recommender.baselines.item_knn import ItemItemCosineRecommender
 from movielens_recommender.cold_start_rank import profile_bucket, union_candidate_ids
@@ -38,21 +40,29 @@ from movielens_recommender.two_tower.recommender import TwoTowerRecommender
 
 SCHEMA_VERSION = 1
 KIND = "cold_start"
+# A similarity-only snapshot for a catalogue with no ranker (ADR-0034).
+CATALOG_KIND = "catalog"
 _NEW_USER_ID = 0
 _CANDIDATE_SOURCES = ("item_item_fold_in", "ease_fold_in", "history_two_tower")
 
 
 @dataclass
 class ColdStartBundle:
-    """Retrievers and ranker for a profile that is only a list of ratings."""
+    """Retrievers and ranker for a profile that is only a list of ratings.
+
+    A ``catalog`` snapshot (ADR-0034) has the item–item model and the
+    popularity order only: ``ease``, ``two_tower``, and ``booster`` are ``None``,
+    and ``context`` carries just ``item_ids`` and ``popularity``. Its manifest
+    serves every profile size with ``item_item_fold_in`` or ``most_popular``.
+    """
 
     manifest: dict[str, Any]
     movies: pd.DataFrame
     item_item: ItemItemCosineRecommender
-    ease: EASERecommender
-    two_tower: TwoTowerRecommender
+    ease: EASERecommender | None
+    two_tower: TwoTowerRecommender | None
     booster: Any
-    context: FeatureContext
+    context: FeatureContext | Any
     popular_item_ids: np.ndarray | None = None
 
     @property
@@ -119,8 +129,153 @@ def save_cold_start_bundle(
     return directory
 
 
+BLEND_METHOD = "item_item_popularity_blend"
+_CATALOG_METHODS = frozenset({"item_item_fold_in", "most_popular", BLEND_METHOD})
+
+
+def blend_scores(fold: np.ndarray, counts: np.ndarray, lam: float) -> np.ndarray:
+    """ADR-0035 score for each row of fold-in scores ``fold`` (profiles x items).
+
+    ``fold / max(fold) + lam * log1p(counts) / log1p(max(counts))``. A row whose
+    fold-in scores are all 0 keeps only the popularity term.
+    """
+    fold = np.atleast_2d(np.asarray(fold, dtype=np.float64))
+    counts = np.asarray(counts, dtype=np.float64)
+    top = fold.max(axis=1, keepdims=True)
+    scaled = np.divide(fold, top, out=np.zeros_like(fold), where=top > 0.0)
+    peak = float(np.log1p(counts.max())) if counts.size else 0.0
+    prior = np.log1p(counts) / peak if peak > 0.0 else np.zeros_like(counts)
+    return scaled + float(lam) * prior[None, :]
+
+
+def blend_rankings(
+    model: ItemItemCosineRecommender,
+    counts: np.ndarray,
+    profiles: Mapping[int, Sequence[tuple[int, float]]],
+    lam: float,
+    n: int,
+) -> dict[int, list[tuple[int, float]]]:
+    """Top-n ``(item_id, blend score)`` per profile. Rated films are left out.
+
+    ``counts`` is aligned with the model's item order. Items outside the fit
+    catalog are ignored. Ties go to the lower item index.
+    """
+    if n <= 0 or model._similarity is None or not profiles:
+        return {}
+    uids = [int(uid) for uid in profiles]
+    rows: list[int] = []
+    cols: list[int] = []
+    data: list[float] = []
+    for row, uid in enumerate(uids):
+        for item_id, rating in profiles[uid]:
+            col = model._item_index.get(int(item_id))
+            if col is not None:
+                rows.append(row)
+                cols.append(col)
+                data.append(float(rating))
+    mat = sparse.csr_matrix(
+        (data, (rows, cols)), shape=(len(uids), len(model._item_ids)), dtype=np.float64
+    )
+    product = mat @ model._similarity.T
+    fold = product.toarray() if sparse.issparse(product) else np.asarray(product)
+    scores = blend_scores(fold, counts, lam)
+    seen_rows, seen_cols = mat.nonzero()
+    scores[seen_rows, seen_cols] = -np.inf
+    out: dict[int, list[tuple[int, float]]] = {}
+    for row, uid in enumerate(uids):
+        out[uid] = [
+            (int(model._item_ids[int(j)]), float(scores[row, int(j)]))
+            for j in top_n_indices(scores[row], n)
+            if np.isfinite(scores[row, int(j)])
+        ]
+    return out
+
+
+def save_catalog_bundle(
+    directory: Path | str,
+    *,
+    movies: pd.DataFrame,
+    item_ids: np.ndarray,
+    similarity: sparse.spmatrix,
+    item_counts: np.ndarray,
+    hyperparams: Mapping[str, Any],
+    manifest: Mapping[str, Any],
+) -> Path:
+    """Write a similarity-only snapshot (ADR-0034). No user rows are stored.
+
+    ``similarity`` is the item–item neighbourhood, row and column order
+    ``item_ids``. ``item_counts`` is the fit rating count per item, in the same
+    order. ``movies`` holds the titles for those ids and nothing else.
+    """
+    from movielens_recommender.serving.bundle import _save_movies
+    from movielens_recommender.serving.provenance import write_manifest
+
+    item_ids = np.asarray(item_ids, dtype=np.int64)
+    item_counts = np.asarray(item_counts, dtype=np.int64)
+    similarity = sparse.csr_matrix(similarity)
+    if similarity.shape != (len(item_ids), len(item_ids)) or len(item_counts) != len(item_ids):
+        raise ValueError("similarity, item_ids, and item_counts do not describe one catalogue")
+    serving = dict(manifest.get("serving_by_n") or {})
+    if not serving or not set(serving.values()) <= _CATALOG_METHODS:
+        raise ValueError(f"a catalog snapshot serves only {sorted(_CATALOG_METHODS)}")
+    known = set(item_ids.tolist())
+    listed = movies["item_id"].astype(int).isin(known)
+    kept = movies.loc[listed, ["item_id", "title", "genres", "year"]]
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    _save_movies(kept.copy(), directory / "movies.csv")
+    sparse.save_npz(directory / "item_item_similarity.npz", similarity)
+    np.save(directory / "item_ids.npy", item_ids)
+    np.save(directory / "item_counts.npy", item_counts)
+    (directory / "item_item_meta.json").write_text(
+        json.dumps(dict(hyperparams), indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    payload = dict(manifest)
+    payload["schema_version"] = SCHEMA_VERSION
+    payload["kind"] = CATALOG_KIND
+    write_manifest(directory, payload)
+    return directory
+
+
+def _load_catalog_bundle(directory: Path, manifest: dict[str, Any]) -> ColdStartBundle:
+    from types import SimpleNamespace
+
+    meta = json.loads((directory / "item_item_meta.json").read_text(encoding="utf-8"))
+    item_ids = np.load(directory / "item_ids.npy").astype(np.int64)
+    counts = np.load(directory / "item_counts.npy").astype(np.int64)
+    model = ItemItemCosineRecommender(
+        min_common=int(meta["min_common"]),
+        k_neighbors=int(meta["k_neighbors"]),
+        shrinkage=float(meta["shrinkage"]),
+    )
+    model._similarity = sparse.load_npz(directory / "item_item_similarity.npz").tocsr()
+    model._item_ids = item_ids
+    model._item_index = {int(item): index for index, item in enumerate(item_ids.tolist())}
+    model._user_index = {}
+    model._user_item = sparse.csr_matrix((0, len(item_ids)), dtype=np.float64)
+    # Most rated first. Ties go to the lower item id, as MostPopularRecommender does.
+    order = np.lexsort((item_ids, -counts))
+    movies = pd.read_csv(directory / "movies.csv")
+    if "year" in movies.columns:
+        movies["year"] = pd.to_numeric(movies["year"], errors="coerce")
+    return ColdStartBundle(
+        manifest=manifest,
+        movies=movies,
+        item_item=model,
+        ease=None,
+        two_tower=None,
+        booster=None,
+        context=SimpleNamespace(
+            item_ids=[int(item) for item in item_ids.tolist()],
+            popularity=counts.astype(np.float64),
+            names=[],
+        ),
+        popular_item_ids=item_ids[order],
+    )
+
+
 def load_cold_start_bundle(directory: Path | str) -> ColdStartBundle:
-    """Load a snapshot written by :func:`save_cold_start_bundle`."""
+    """Load a snapshot written by :func:`save_cold_start_bundle` or :func:`save_catalog_bundle`."""
     from movielens_recommender.ranker.explain import load_ranker
     from movielens_recommender.serving.bundle import (
         _load_context,
@@ -139,13 +294,15 @@ def load_cold_start_bundle(directory: Path | str) -> ColdStartBundle:
     from movielens_recommender.serving.provenance import verify_manifest
 
     verify_manifest(directory, manifest)
-    if str(manifest.get("kind")) != KIND:
+    if str(manifest.get("kind")) not in {KIND, CATALOG_KIND}:
         raise ValueError(f"{directory} is not a cold-start snapshot")
     version = int(manifest.get("schema_version", -1))
     if version != SCHEMA_VERSION:
         raise ValueError(
             f"cold-start schema_version {version} does not match supported {SCHEMA_VERSION}"
         )
+    if str(manifest.get("kind")) == CATALOG_KIND:
+        return _load_catalog_bundle(directory, manifest)
     movies = pd.read_csv(directory / "movies.csv")
     booster, _meta = load_ranker(directory)
     context = _load_context(directory)
@@ -173,6 +330,10 @@ def method_sentence(method: str, n_ratings: int, bucket: int) -> str:
     sentences = {
         "most_popular": "The list is the titles most people have rated.",
         "item_item_fold_in": "The list is neighbours of the films you rated.",
+        BLEND_METHOD: (
+            "The list scores each film by how close it is to the films you rated, "
+            "plus a fixed weight on how widely it is rated."
+        ),
         "history_two_tower": (
             "The list comes from the neural retriever, using only the films you rated."
         ),
@@ -308,6 +469,18 @@ def _recommend_served(
             if int(item) not in rated_set
         ]
         pipeline = _unscored_pipeline(bundle, [int(card["item_id"]) for card in cards], "item–item")
+    elif method == BLEND_METHOD:
+        rows = blend_rankings(
+            bundle.item_item,
+            np.asarray(bundle.context.popularity, dtype=np.float64),
+            {_NEW_USER_ID: profile},
+            float(bundle.manifest["blend_lambda"]),
+            n,
+        ).get(_NEW_USER_ID, [])
+        cards = [_plain_card(bundle, int(item), history, method) for item, _score in rows]
+        pipeline = _unscored_pipeline(
+            bundle, [int(card["item_id"]) for card in cards], "item–item and popularity"
+        )
     elif method == "history_two_tower":
         rows = bundle.two_tower.topk_for_new_histories({_NEW_USER_ID: rated}, n).get(
             _NEW_USER_ID, []
@@ -376,6 +549,9 @@ def _plain_card(
     sims = bundle.item_item.neighbor_similarities(
         int(item_id), [item.item_id for item in history]
     )
+    # A blended pick is explained by its neighbours when it has any, else by popularity.
+    close = any(value > 0.0 for value in sims.values())
+    contributions[BLEND_METHOD] = contributions["item_item_fold_in" if close else "most_popular"]
     explanation = explain_recommendation(
         contributions[method],
         history=history,

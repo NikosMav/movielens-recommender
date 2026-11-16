@@ -599,3 +599,93 @@ def test_copied_space_app_names_a_failed_dataset_download(
     assert "GroupLens is unreachable" in text
     assert "make space-snapshot" not in text
     assert "10.1145/2827872" in text
+
+
+def test_install_space_weights_replaces_a_tree_from_an_older_archive(tmp_path, monkeypatch):
+    """A moved pin must swap the extracted tree, not reuse the old one."""
+    pytest.importorskip("torch")
+    runtime = _load_runtime()
+    old = _tar_bytes({"production/manifest.json": b'{"weights_only": true, "v": 1}\n'})
+    new = _tar_bytes({"production/manifest.json": b'{"weights_only": true, "v": 2}\n'})
+    old_sha, new_sha = (hashlib.sha256(blob).hexdigest() for blob in (old, new))
+    root = tmp_path / "space"
+    root.mkdir()
+    monkeypatch.delenv("MOVIELENS_ALLOW_DOWNLOAD", raising=False)
+    monkeypatch.delenv("WEIGHTS_URL", raising=False)
+    served = {"payload": old}
+
+    def _open(url, timeout=120):
+        if served["payload"] is None:
+            raise OSError("the archive host is down")
+        return _BytesResponse(served["payload"])
+
+    monkeypatch.setattr(runtime, "urlopen", _open)
+    dest = runtime.install_space_weights(root, sha256=old_sha)
+    manifest = dest / "production" / "manifest.json"
+    assert json.loads(manifest.read_text())["v"] == 1
+    assert (dest / runtime.ARCHIVE_MARKER).read_text().strip() == old_sha
+
+    # A new process with a new pin. The host is down: the old tree keeps the page up.
+    runtime._READY_WEIGHTS.clear()
+    served["payload"] = None
+    assert runtime.install_space_weights(root, sha256=new_sha) == dest
+    assert json.loads(manifest.read_text())["v"] == 1
+
+    # The next start reaches the host and swaps the tree.
+    runtime._READY_WEIGHTS.clear()
+    served["payload"] = new
+    assert runtime.install_space_weights(root, sha256=new_sha) == dest
+    assert json.loads(manifest.read_text())["v"] == 2
+    assert (dest / runtime.ARCHIVE_MARKER).read_text().strip() == new_sha
+    runtime._READY_WEIGHTS.clear()
+    served["payload"] = None
+    assert runtime.install_space_weights(root, sha256=new_sha) == dest
+
+
+def test_install_space_weights_treats_an_unmarked_downloaded_tree_as_old(tmp_path, monkeypatch):
+    """Trees extracted before markers existed came from the cached download."""
+    pytest.importorskip("torch")
+    runtime = _load_runtime()
+    new = _tar_bytes({"production/manifest.json": b'{"weights_only": true, "v": 2}\n'})
+    root = tmp_path / "space"
+    production = root / "weights" / "production"
+    production.mkdir(parents=True)
+    (production / "manifest.json").write_text('{"weights_only": true, "v": 1}\n')
+    cache = root / ".runtime" / "cache"
+    cache.mkdir(parents=True)
+    (cache / "space-weights.tar.gz").write_bytes(b"an older download")
+    monkeypatch.delenv("MOVIELENS_ALLOW_DOWNLOAD", raising=False)
+    monkeypatch.delenv("WEIGHTS_URL", raising=False)
+    monkeypatch.setattr(runtime, "urlopen", lambda url, timeout=120: _BytesResponse(new))
+    dest = runtime.install_space_weights(root, sha256=hashlib.sha256(new).hexdigest())
+    assert json.loads((dest / "production" / "manifest.json").read_text())["v"] == 2
+    kept = sorted(path.name for path in cache.glob("*.tar.gz"))
+    assert kept == [runtime.WEIGHTS_ARCHIVE_NAME]
+
+
+def test_packed_archive_is_reproducible_and_installs(tmp_path, monkeypatch):
+    """Two packs of one tree are the same bytes, whatever the output is called."""
+    pytest.importorskip("torch")
+    spec = importlib.util.spec_from_file_location(
+        "pack_space_weights_test", SPACE.parent / "scripts" / "pack_space_weights.py"
+    )
+    pack = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pack)
+    tree = tmp_path / "tree"
+    (tree / "production").mkdir(parents=True)
+    (tree / "cold_start").mkdir()
+    (tree / "production" / "manifest.json").write_text('{"weights_only": true}\n')
+    (tree / "cold_start" / "ranker.txt").write_text("tree\n")
+    first = pack.pack(tree, tmp_path / "one.tar.gz")
+    (tree / "production" / "manifest.json").touch()
+    second = pack.pack(tree, tmp_path / "another-name.tar.gz")
+    assert first == second
+    assert (tmp_path / "one.tar.gz").read_bytes() == (tmp_path / "another-name.tar.gz").read_bytes()
+
+    runtime = _load_runtime()
+    root = tmp_path / "space"
+    root.mkdir()
+    shutil.copy(tmp_path / "one.tar.gz", root / runtime.WEIGHTS_ARCHIVE_NAME)
+    monkeypatch.setattr(runtime, "urlopen", lambda *_a, **_k: (_ for _ in ()).throw(OSError()))
+    dest = runtime.install_space_weights(root, sha256=first)
+    assert (dest / "cold_start" / "ranker.txt").read_text() == "tree\n"

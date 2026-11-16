@@ -1,0 +1,467 @@
+{
+  "adr": "0034",
+  "catalog": {
+    "listed_in": "ml-latest-small/movies.csv",
+    "min_film_ratings": 50,
+    "n_films": 8769,
+    "n_listed": 9742,
+    "n_ratings_all": 32000204,
+    "n_ratings_on_catalog": 29956318
+  },
+  "configs": [
+    {
+      "k_neighbors": 50,
+      "min_common": 1,
+      "name": "ml32m_choice",
+      "shrinkage": 0.0
+    },
+    {
+      "k_neighbors": 200,
+      "min_common": 1,
+      "name": "ml1m_choice",
+      "shrinkage": 100.0
+    }
+  ],
+  "dataset": "ml-32m",
+  "dataset_sha256": "e4a68655d7386b8f95f2f2424b2ff975dfdd15ffd59e0d864a14dca43e99d6ee",
+  "decision": {
+    "kept_config": "ml1m_choice",
+    "rule": "Ships when paired test NDCG@10, item_item_fold_in minus most_popular, has an interval low end above 0 at N=3, N=5, and N=10.",
+    "selection_n": 5,
+    "selection_scores": {
+      "ml1m_choice": 0.284568,
+      "ml32m_choice": 0.265068
+    },
+    "serving_by_n": {
+      "1": "most_popular",
+      "10": "most_popular",
+      "3": "most_popular",
+      "5": "most_popular"
+    },
+    "ships": false
+  },
+  "fit_sec": {
+    "ml1m_choice": 90.049,
+    "ml32m_choice": 85.784
+  },
+  "host": {
+    "cpu_count": 16,
+    "machine": "AMD64",
+    "numpy_simd": [
+      "AVX2",
+      "FMA3",
+      "SSE42"
+    ],
+    "os": "Windows",
+    "os_release": "11",
+    "processor": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+    "python": "3.12.1"
+  },
+  "library_versions": {
+    "implicit": "0.7.3",
+    "lightgbm": "4.6.0",
+    "movielens-recommender": "0.1.0",
+    "numpy": "2.2.6",
+    "pandas": "2.2.3",
+    "pyyaml": "6.0.3",
+    "scipy": "1.15.3",
+    "torch": "2.6.0+cpu"
+  },
+  "protocol": {
+    "alpha": 0.05,
+    "head_fraction": 0.2,
+    "min_user_ratings": 20,
+    "n_bootstrap": 1000,
+    "n_eligible_users": 198709,
+    "n_held_out": 10000,
+    "profile_ns": [
+      1,
+      3,
+      5,
+      10
+    ],
+    "relevance_threshold": 4.0,
+    "seed": 42,
+    "target": "all_later",
+    "test_user_ids_sha256": "1d3c0f94a15d14f048634c814eb4f8121ba40bcf4ba4ed7753dfc9339b1546e5",
+    "validation_user_ids_sha256": "def0dc779e91181dd19283b9c8d63880377c30ae73c5f37793ccece90f23337b"
+  },
+  "runtime_sec": 275.705,
+  "test": {
+    "1": {
+      "counts": {
+        "n_eval_users": 4992,
+        "n_held_out_users": 5000,
+        "n_relevant_dropped_cold_item": 0,
+        "n_users_no_warm_relevant": 8,
+        "n_users_shorter_than_or_equal_n": 0
+      },
+      "item_item": {
+        "ml1m_choice": {
+          "coverage@10": 0.277341,
+          "long_tail_share@10": 0.032953,
+          "ndcg@10": 0.268777,
+          "ndcg@10_ci": {
+            "high": 0.275931,
+            "low": 0.261073,
+            "mean": 0.268777
+          },
+          "paired_minus_most_popular": {
+            "excludes_zero": true,
+            "high": -0.068777,
+            "low": -0.084822,
+            "mean": -0.076705,
+            "n_users": 4992
+          }
+        }
+      },
+      "most_popular": {
+        "coverage@10": 0.001254,
+        "long_tail_share@10": 0.0,
+        "ndcg@10": 0.345482,
+        "ndcg@10_ci": {
+          "high": 0.352873,
+          "low": 0.338546,
+          "mean": 0.345482
+        }
+      }
+    },
+    "10": {
+      "counts": {
+        "n_eval_users": 4990,
+        "n_held_out_users": 5000,
+        "n_relevant_dropped_cold_item": 0,
+        "n_users_no_warm_relevant": 10,
+        "n_users_shorter_than_or_equal_n": 0
+      },
+      "item_item": {
+        "ml1m_choice": {
+          "coverage@10": 0.23412,
+          "long_tail_share@10": 0.019699,
+          "ndcg@10": 0.275086,
+          "ndcg@10_ci": {
+            "high": 0.282607,
+            "low": 0.267702,
+            "mean": 0.275086
+          },
+          "paired_minus_most_popular": {
+            "excludes_zero": true,
+            "high": -0.010309,
+            "low": -0.025964,
+            "mean": -0.017958,
+            "n_users": 4990
+          }
+        }
+      },
+      "most_popular": {
+        "coverage@10": 0.002167,
+        "long_tail_share@10": 0.0,
+        "ndcg@10": 0.293044,
+        "ndcg@10_ci": {
+          "high": 0.300753,
+          "low": 0.285367,
+          "mean": 0.293044
+        }
+      }
+    },
+    "3": {
+      "counts": {
+        "n_eval_users": 4992,
+        "n_held_out_users": 5000,
+        "n_relevant_dropped_cold_item": 0,
+        "n_users_no_warm_relevant": 8,
+        "n_users_shorter_than_or_equal_n": 0
+      },
+      "item_item": {
+        "ml1m_choice": {
+          "coverage@10": 0.23834,
+          "long_tail_share@10": 0.01861,
+          "ndcg@10": 0.292142,
+          "ndcg@10_ci": {
+            "high": 0.29996,
+            "low": 0.284564,
+            "mean": 0.292142
+          },
+          "paired_minus_most_popular": {
+            "excludes_zero": true,
+            "high": -0.027396,
+            "low": -0.043714,
+            "mean": -0.034893,
+            "n_users": 4992
+          }
+        }
+      },
+      "most_popular": {
+        "coverage@10": 0.001482,
+        "long_tail_share@10": 0.0,
+        "ndcg@10": 0.327034,
+        "ndcg@10_ci": {
+          "high": 0.334482,
+          "low": 0.319946,
+          "mean": 0.327034
+        }
+      }
+    },
+    "5": {
+      "counts": {
+        "n_eval_users": 4991,
+        "n_held_out_users": 5000,
+        "n_relevant_dropped_cold_item": 0,
+        "n_users_no_warm_relevant": 9,
+        "n_users_shorter_than_or_equal_n": 0
+      },
+      "item_item": {
+        "ml1m_choice": {
+          "coverage@10": 0.234006,
+          "long_tail_share@10": 0.017612,
+          "ndcg@10": 0.28977,
+          "ndcg@10_ci": {
+            "high": 0.297074,
+            "low": 0.282263,
+            "mean": 0.28977
+          },
+          "paired_minus_most_popular": {
+            "excludes_zero": true,
+            "high": -0.017556,
+            "low": -0.032629,
+            "mean": -0.025088,
+            "n_users": 4991
+          }
+        }
+      },
+      "most_popular": {
+        "coverage@10": 0.001711,
+        "long_tail_share@10": 0.0,
+        "ndcg@10": 0.314858,
+        "ndcg@10_ci": {
+          "high": 0.322373,
+          "low": 0.307173,
+          "mean": 0.314858
+        }
+      }
+    }
+  },
+  "titles_dataset_sha256": "696d65a3dfceac7c45750ad32df2c259311949efec81f0f144fdfb91ebc9e436",
+  "validation": {
+    "1": {
+      "counts": {
+        "n_eval_users": 4992,
+        "n_held_out_users": 5000,
+        "n_relevant_dropped_cold_item": 0,
+        "n_users_no_warm_relevant": 8,
+        "n_users_shorter_than_or_equal_n": 0
+      },
+      "item_item": {
+        "ml1m_choice": {
+          "coverage@10": 0.282244,
+          "long_tail_share@10": 0.036198,
+          "ndcg@10": 0.262994,
+          "ndcg@10_ci": {
+            "high": 0.270701,
+            "low": 0.255969,
+            "mean": 0.262994
+          },
+          "paired_minus_most_popular": {
+            "excludes_zero": true,
+            "high": -0.066617,
+            "low": -0.08225,
+            "mean": -0.074065,
+            "n_users": 4992
+          }
+        },
+        "ml32m_choice": {
+          "coverage@10": 0.338123,
+          "long_tail_share@10": 0.056951,
+          "ndcg@10": 0.253635,
+          "ndcg@10_ci": {
+            "high": 0.261193,
+            "low": 0.246473,
+            "mean": 0.253635
+          },
+          "paired_minus_most_popular": {
+            "excludes_zero": true,
+            "high": -0.075514,
+            "low": -0.091747,
+            "mean": -0.083424,
+            "n_users": 4992
+          }
+        }
+      },
+      "most_popular": {
+        "coverage@10": 0.001254,
+        "long_tail_share@10": 0.0,
+        "ndcg@10": 0.337059,
+        "ndcg@10_ci": {
+          "high": 0.34507,
+          "low": 0.330406,
+          "mean": 0.337059
+        }
+      }
+    },
+    "10": {
+      "counts": {
+        "n_eval_users": 4988,
+        "n_held_out_users": 5000,
+        "n_relevant_dropped_cold_item": 0,
+        "n_users_no_warm_relevant": 12,
+        "n_users_shorter_than_or_equal_n": 0
+      },
+      "item_item": {
+        "ml1m_choice": {
+          "coverage@10": 0.232638,
+          "long_tail_share@10": 0.019326,
+          "ndcg@10": 0.269988,
+          "ndcg@10_ci": {
+            "high": 0.277471,
+            "low": 0.262801,
+            "mean": 0.269988
+          },
+          "paired_minus_most_popular": {
+            "excludes_zero": true,
+            "high": -0.006005,
+            "low": -0.022055,
+            "mean": -0.013823,
+            "n_users": 4988
+          }
+        },
+        "ml32m_choice": {
+          "coverage@10": 0.289771,
+          "long_tail_share@10": 0.036949,
+          "ndcg@10": 0.24657,
+          "ndcg@10_ci": {
+            "high": 0.253635,
+            "low": 0.239703,
+            "mean": 0.24657
+          },
+          "paired_minus_most_popular": {
+            "excludes_zero": true,
+            "high": -0.02961,
+            "low": -0.045229,
+            "mean": -0.037241,
+            "n_users": 4988
+          }
+        }
+      },
+      "most_popular": {
+        "coverage@10": 0.002281,
+        "long_tail_share@10": 0.0,
+        "ndcg@10": 0.283811,
+        "ndcg@10_ci": {
+          "high": 0.291207,
+          "low": 0.276824,
+          "mean": 0.283811
+        }
+      }
+    },
+    "3": {
+      "counts": {
+        "n_eval_users": 4992,
+        "n_held_out_users": 5000,
+        "n_relevant_dropped_cold_item": 0,
+        "n_users_no_warm_relevant": 8,
+        "n_users_shorter_than_or_equal_n": 0
+      },
+      "item_item": {
+        "ml1m_choice": {
+          "coverage@10": 0.240278,
+          "long_tail_share@10": 0.019191,
+          "ndcg@10": 0.286909,
+          "ndcg@10_ci": {
+            "high": 0.294113,
+            "low": 0.279281,
+            "mean": 0.286909
+          },
+          "paired_minus_most_popular": {
+            "excludes_zero": true,
+            "high": -0.02431,
+            "low": -0.040319,
+            "mean": -0.031714,
+            "n_users": 4992
+          }
+        },
+        "ml32m_choice": {
+          "coverage@10": 0.289543,
+          "long_tail_share@10": 0.035517,
+          "ndcg@10": 0.269842,
+          "ndcg@10_ci": {
+            "high": 0.276899,
+            "low": 0.262812,
+            "mean": 0.269842
+          },
+          "paired_minus_most_popular": {
+            "excludes_zero": true,
+            "high": -0.041037,
+            "low": -0.056755,
+            "mean": -0.04878,
+            "n_users": 4992
+          }
+        }
+      },
+      "most_popular": {
+        "coverage@10": 0.001482,
+        "long_tail_share@10": 0.0,
+        "ndcg@10": 0.318622,
+        "ndcg@10_ci": {
+          "high": 0.326571,
+          "low": 0.311862,
+          "mean": 0.318622
+        }
+      }
+    },
+    "5": {
+      "counts": {
+        "n_eval_users": 4991,
+        "n_held_out_users": 5000,
+        "n_relevant_dropped_cold_item": 0,
+        "n_users_no_warm_relevant": 9,
+        "n_users_shorter_than_or_equal_n": 0
+      },
+      "item_item": {
+        "ml1m_choice": {
+          "coverage@10": 0.232866,
+          "long_tail_share@10": 0.017812,
+          "ndcg@10": 0.284568,
+          "ndcg@10_ci": {
+            "high": 0.29296,
+            "low": 0.276692,
+            "mean": 0.284568
+          },
+          "paired_minus_most_popular": {
+            "excludes_zero": true,
+            "high": -0.013966,
+            "low": -0.030276,
+            "mean": -0.022024,
+            "n_users": 4991
+          }
+        },
+        "ml32m_choice": {
+          "coverage@10": 0.285779,
+          "long_tail_share@10": 0.034262,
+          "ndcg@10": 0.265068,
+          "ndcg@10_ci": {
+            "high": 0.272862,
+            "low": 0.257296,
+            "mean": 0.265068
+          },
+          "paired_minus_most_popular": {
+            "excludes_zero": true,
+            "high": -0.032887,
+            "low": -0.050136,
+            "mean": -0.041524,
+            "n_users": 4991
+          }
+        }
+      },
+      "most_popular": {
+        "coverage@10": 0.001711,
+        "long_tail_share@10": 0.0,
+        "ndcg@10": 0.306592,
+        "ndcg@10_ci": {
+          "high": 0.314592,
+          "low": 0.299355,
+          "mean": 0.306592
+        }
+      }
+    }
+  }
+}

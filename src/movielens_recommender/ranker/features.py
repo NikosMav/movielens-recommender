@@ -165,6 +165,19 @@ def tri_ranker_feature_names(mode: str = "off") -> list[str]:
     return names
 
 
+def pctm_ranker_feature_names(mode: str = "off") -> list[str]:
+    """S4/S4b columns plus the pairwise-transition score and rank (ADR-0033)."""
+    mode = _check_mode(mode)
+    base = feature_names("off")
+    idx = base.index("two_tower_rank") + 1
+    names = base[:idx] + ["pctm_score", "pctm_rank"] + base[idx:]
+    if mode in {"raw", "both"}:
+        names.extend(RAW_DEMOGRAPHIC_FEATURES)
+    if mode in {"affinity", "both"}:
+        names.extend(GROUP_AFFINITY_FEATURES)
+    return names
+
+
 def annotate_cold_start_ranker_rows(
     matrix: np.ndarray,
     names: list[str],
@@ -624,6 +637,7 @@ def build_feature_matrix(
     user_stats: tuple[float, float, float, np.ndarray | None] | None = None,
     ease: Mapping[int, tuple[float, int]] | None = None,
     ease_dan: Mapping[int, tuple[float, int]] | None = None,
+    pctm: Mapping[int, tuple[float, int]] | None = None,
     demographics_missing: bool = False,
 ) -> np.ndarray:
     """One row per candidate. Missing retriever score/rank is NaN.
@@ -663,6 +677,7 @@ def build_feature_matrix(
         group_codes = ctx.user_group_codes.get(uid)
     ease_map = ease or {}
     dan_map = ease_dan or {}
+    pctm_map = pctm or {}
 
     for row, item in enumerate(items):
         ii = item_item.get(item)
@@ -682,6 +697,11 @@ def build_feature_matrix(
         if "ease_dan_score" in col and ed is not None:
             x[row, col["ease_dan_score"]] = float(ed[0])
             x[row, col["ease_dan_rank"]] = float(ed[1])
+        if "pctm_score" in col:
+            pc = pctm_map.get(item)
+            if pc is not None:
+                x[row, col["pctm_score"]] = float(pc[0])
+                x[row, col["pctm_rank"]] = float(pc[1])
         if "in_all_three" in col:
             x[row, col["in_all_three"]] = (
                 1.0 if (ii is not None and tt is not None and ed is not None) else 0.0

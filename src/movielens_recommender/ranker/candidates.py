@@ -202,6 +202,31 @@ def candidate_ids_for_user(
     raise ValueError(f"Unknown candidate set: {name!r}")
 
 
+SEQUENCE_CANDIDATE_SETS: tuple[str, ...] = ("pctm", "pctm_two_tower", "pctm_tri")
+
+
+def sequence_candidate_ids(
+    name: str,
+    item_item: Sequence[int],
+    two_tower: Sequence[int],
+    pctm: Sequence[int],
+    k: int,
+) -> list[int]:
+    """One user's candidate list for a set that can include PCTM (ADR-0033).
+
+    ``pctm`` is the transition list alone, ``pctm_two_tower`` its balanced union
+    with the two-tower list, and ``pctm_tri`` the balanced three-way union. The
+    two-retriever names fall through to :func:`candidate_ids_for_user`.
+    """
+    if name == "pctm":
+        return dedupe_ids(pctm)[:k]
+    if name == "pctm_two_tower":
+        return balanced_union(pctm, two_tower, k)
+    if name == "pctm_tri":
+        return balanced_three_way_union(item_item, two_tower, pctm, k)
+    return candidate_ids_for_user(name, item_item, two_tower, k)
+
+
 def materialize_candidate_set(
     name: str,
     item_item: Mapping[int, Sequence[tuple[int, float]]],

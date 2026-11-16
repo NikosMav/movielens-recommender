@@ -15,7 +15,7 @@ from scipy import sparse
 
 from movielens_recommender.baselines.item_knn import ItemItemCosineRecommender
 from movielens_recommender.movies import GENRES
-from movielens_recommender.ranker.candidates import candidate_ids_for_user, score_rank_maps
+from movielens_recommender.ranker.candidates import score_rank_maps, sequence_candidate_ids
 from movielens_recommender.ranker.explain import explain_candidates
 from movielens_recommender.ranker.features import (
     FeatureContext,
@@ -23,12 +23,15 @@ from movielens_recommender.ranker.features import (
     cold_start_feature_names,
     cold_start_ranker_feature_names,
     feature_names,
+    pctm_ranker_feature_names,
 )
+from movielens_recommender.sasrec.pctm import PCTMRecommender
 from movielens_recommender.serving.reasons import (
     HistoryItem,
     RecommendationExplanation,
     display_title,
     explain_recommendation,
+    explain_transition,
     format_stars,
 )
 from movielens_recommender.two_tower.features import TwoTowerFeatures
@@ -37,6 +40,11 @@ from movielens_recommender.two_tower.recommender import TwoTowerRecommender
 
 SCHEMA_VERSION = 1
 MANIFEST_FILENAME = "manifest.json"
+# ``manifest["serving_list"]``: which list is the production top n (ADR-0033).
+SERVE_RANKER = "ranker"
+SERVE_PCTM = "pctm"
+# Users folded into the transition counts at a time when the model is refit at load.
+PCTM_CHUNK_USERS = 256
 
 _GROUP_KEYS = ("age", "gender", "occupation")
 
@@ -91,11 +99,18 @@ class ServingBundle:
     two_tower: TwoTowerRecommender
     booster: Any
     context: FeatureContext
+    # Refit from ``histories`` at load when the manifest has a ``pctm`` block.
+    pctm: PCTMRecommender | None = None
     _index: _Lookups | None = field(default=None, init=False, repr=False, compare=False)
 
     @property
     def candidate_set(self) -> str:
         return str(self.manifest["candidate_set"])
+
+    @property
+    def serving_list(self) -> str:
+        """``pctm`` when the transition list is served as it is, else ``ranker``."""
+        return str(self.manifest.get("serving_list", SERVE_RANKER))
 
     @property
     def candidate_k(self) -> int:
@@ -178,7 +193,34 @@ def load_bundle(directory: Path | str) -> ServingBundle:
         two_tower=_load_two_tower(directory),
         booster=booster,
         context=context,
+        pctm=fit_pctm(histories, manifest.get("pctm")),
     )
+
+
+def pctm_manifest_block(
+    hyperparams: Mapping[str, Any], *, relevance_threshold: float, source: str
+) -> dict[str, Any]:
+    """The ``pctm`` manifest entry. The model has no file: it is refit from the histories."""
+    return {
+        "hyperparams": dict(hyperparams),
+        "relevance_threshold": float(relevance_threshold),
+        "source": str(source),
+    }
+
+
+def fit_pctm(histories: pd.DataFrame, spec: Mapping[str, Any] | None) -> PCTMRecommender | None:
+    """Refit the transition model from the training rows the snapshot already holds.
+
+    PCTM is counts of the saved histories, so it is rebuilt here and no rating
+    data is written twice. Returns ``None`` when the manifest has no block.
+    """
+    if not spec:
+        return None
+    model = PCTMRecommender(
+        relevance_threshold=float(spec.get("relevance_threshold", 4.0)),
+        **dict(spec["hyperparams"]),
+    )
+    return model.fit(histories, chunk_users=PCTM_CHUNK_USERS).release_counts()
 
 
 def movie_row(bundle: ServingBundle, item_id: int) -> dict[str, Any]:
@@ -294,45 +336,125 @@ def known_user_ids(bundle: ServingBundle) -> list[int]:
     return list(_lookups(bundle).sorted_users)
 
 
-def _score_candidates(
-    bundle: ServingBundle, user_id: int, n: int
-) -> tuple[list[int], np.ndarray, np.ndarray, dict, dict, tuple[list, list]]:
-    """Retrieve, build features, and score. Shared by ranking and explaining."""
+@dataclass
+class _Scored:
+    """One retrieval pass and the production order. Shared by ranking and explaining."""
+
+    top_items: list[int]
+    top_scores: np.ndarray
+    top_matrix: np.ndarray | None
+    maps: dict[str, dict[int, tuple[float, int]]]
+    rows: dict[str, list[tuple[int, float]]]
+    pipeline: dict[str, Any]
+
+
+def _score_candidates(bundle: ServingBundle, user_id: int, n: int) -> _Scored:
+    """Retrieve, then order by the served model: the ranker, or PCTM as it is."""
     uid = int(user_id)
     if uid not in _lookups(bundle).known_users:
         raise KeyError(f"user {uid} is not in the serving snapshot")
     k = bundle.candidate_k
-    ii_rows = bundle.item_item.topk_for_user(uid, k)
-    tt_rows = bundle.two_tower.topk_for_user(uid, k)
-    left_ids = [item for item, _score in ii_rows]
-    right_ids = [item for item, _score in tt_rows]
-    candidates = candidate_ids_for_user(bundle.candidate_set, left_ids, right_ids, k)
-    ii_map = score_rank_maps({uid: ii_rows}).get(uid, {})
-    tt_map = score_rank_maps({uid: tt_rows}).get(uid, {})
+    rows = {
+        "item_item": bundle.item_item.topk_for_user(uid, k),
+        "two_tower": bundle.two_tower.topk_for_user(uid, k),
+        "pctm": [] if bundle.pctm is None else bundle.pctm.topk_for_user(uid, k),
+    }
+    maps = {name: score_rank_maps({uid: found}).get(uid, {}) for name, found in rows.items()}
+    if bundle.serving_list == SERVE_PCTM:
+        if bundle.pctm is None:
+            raise ValueError("serving_list is 'pctm' but the snapshot has no pctm block")
+        candidates = [item for item, _score in rows["pctm"]]
+        scores = np.asarray([score for _item, score in rows["pctm"]], dtype=np.float64)
+        pipeline = _pipeline_trace(bundle, candidates, scores, SERVE_PCTM, scored=False)
+        return _Scored(candidates[:n], scores[:n], None, maps, rows, pipeline)
+    candidates = sequence_candidate_ids(
+        bundle.candidate_set,
+        [item for item, _score in rows["item_item"]],
+        [item for item, _score in rows["two_tower"]],
+        [item for item, _score in rows["pctm"]],
+        k,
+    )
     if len(candidates) == 0:
         empty = np.zeros(0, dtype=np.float64)
         no_rows = np.zeros((0, len(bundle.context.names)))
         pipeline = _pipeline_trace(bundle, [], empty, bundle.candidate_set, scored=False)
-        return [], empty, no_rows, ii_map, tt_map, (ii_rows, tt_rows), pipeline
-    matrix = build_feature_matrix(bundle.context, uid, candidates, ii_map, tt_map)
+        return _Scored([], empty, no_rows, maps, rows, pipeline)
+    matrix = build_feature_matrix(
+        bundle.context, uid, candidates, maps["item_item"], maps["two_tower"], pctm=maps["pctm"]
+    )
     scores = np.asarray(bundle.booster.predict(matrix), dtype=np.float64)
     order = np.argsort(-scores, kind="mergesort")
     top_idx = [int(i) for i in order[:n]]
     top_items = [int(candidates[i]) for i in top_idx]
     pipeline = _pipeline_trace(bundle, candidates, scores, bundle.candidate_set, scored=True)
-    return top_items, scores[top_idx], matrix[top_idx], ii_map, tt_map, (ii_rows, tt_rows), pipeline
+    return _Scored(top_items, scores[top_idx], matrix[top_idx], maps, rows, pipeline)
 
 
 def rank_for_user(bundle: ServingBundle, user_id: int, *, n: int = 10) -> list[tuple[int, float]]:
-    """Production top-n as ``(item_id, ranker score)``, best first, with no explanations.
+    """Production top-n as ``(item_id, score)``, best first, with no explanations.
 
     Same items and order as ``recommend_for_user(...)["production"]``. An unknown
     user id raises ``KeyError``.
     """
-    items, scores, _matrix, _ii_map, _tt_map, _rows, _pipeline = _score_candidates(
-        bundle, user_id, n
+    scored = _score_candidates(bundle, user_id, n)
+    return [
+        (item, float(score))
+        for item, score in zip(scored.top_items, scored.top_scores, strict=True)
+    ]
+
+
+def _transition_cards(
+    bundle: ServingBundle, uid: int, scored: _Scored, history: list[HistoryItem]
+) -> list[dict[str, Any]]:
+    """Cards for a PCTM-served list. Each names the rated films behind its score."""
+    assert bundle.pctm is not None
+    by_id = {item.item_id: item for item in history}
+    cards = []
+    for item_id, score in zip(scored.top_items, scored.top_scores.tolist(), strict=True):
+        parts = [
+            (by_id[source], value)
+            for source, value in bundle.pctm.evidence(uid, item_id, n=3)
+            if source in by_id
+        ]
+        cards.append(_card(bundle, item_id, explain_transition(parts, raw_score=float(score))))
+    return cards
+
+
+def _ranker_cards(
+    bundle: ServingBundle, uid: int, scored: _Scored, history: list[HistoryItem]
+) -> list[dict[str, Any]]:
+    provenance = [
+        {name: _hit(found.get(int(item))) for name, found in scored.maps.items()}
+        for item in scored.top_items
+    ]
+    explained = explain_candidates(
+        bundle.booster,
+        scored.top_matrix,
+        list(bundle.context.names),
+        item_ids=scored.top_items,
+        retrievers=provenance,
     )
-    return [(item, float(score)) for item, score in zip(items, scores, strict=True)]
+    history_ids = [item.item_id for item in history]
+    by_id = {item.item_id: item for item in history}
+    cards = []
+    for row in explained:
+        item_id = int(row["item_id"])
+        sims = bundle.item_item.neighbor_similarities(item_id, history_ids)
+        transition = None
+        if bundle.pctm is not None:
+            parts = bundle.pctm.evidence(uid, item_id, n=1)
+            if parts and parts[0][0] in by_id:
+                transition = by_id[parts[0][0]]
+        explanation = explain_recommendation(
+            row["contributions"],
+            history=history,
+            neighbor_similarity=sims,
+            bias=float(row["bias"]),
+            raw_score=float(row["raw_score"]),
+            transition_from=transition,
+        )
+        cards.append(_card(bundle, item_id, explanation))
+    return cards
 
 
 def recommend_for_user(
@@ -341,60 +463,37 @@ def recommend_for_user(
     *,
     n: int = 10,
 ) -> dict[str, Any]:
-    """Top-n production list, plus item–item and two-tower lists for comparison.
+    """Top-n production list, plus the single-retriever lists for comparison.
 
-    Explanations are attached only to the production list. An unknown user id
-    raises ``KeyError``; the two-tower has no embedding for them.
+    Explanations are attached only to the production list. ``pctm`` is present
+    when the snapshot has a transition model. An unknown user id raises
+    ``KeyError``; the two-tower has no embedding for them.
     """
     uid = int(user_id)
-    top_items, top_scores, top_matrix, ii_map, tt_map, (ii_rows, tt_rows), pipeline = (
-        _score_candidates(bundle, uid, n)
-    )
-    if not top_items:
-        production: list[dict[str, Any]] = []
-    else:
-        provenance = []
-        for item in top_items:
-            provenance.append(
-                {
-                    "item_item": _hit(ii_map.get(int(item))),
-                    "two_tower": _hit(tt_map.get(int(item))),
-                }
-            )
-        explained = explain_candidates(
-            bundle.booster,
-            top_matrix,
-            list(bundle.context.names),
-            item_ids=top_items,
-            retrievers=provenance,
-        )
+    scored = _score_candidates(bundle, uid, n)
+    production: list[dict[str, Any]] = []
+    if scored.top_items:
         history = user_history_items(bundle, uid)
-        history_ids = [item.item_id for item in history]
-        production = []
-        for row in explained:
-            item_id = int(row["item_id"])
-            sims = bundle.item_item.neighbor_similarities(item_id, history_ids)
-            explanation = explain_recommendation(
-                row["contributions"],
-                history=history,
-                neighbor_similarity=sims,
-                bias=float(row["bias"]),
-                raw_score=float(row["raw_score"]),
-            )
-            production.append(_card(bundle, item_id, explanation))
-        for card, score in zip(production, top_scores.tolist(), strict=True):
+        build = _transition_cards if bundle.serving_list == SERVE_PCTM else _ranker_cards
+        production = build(bundle, uid, scored, history)
+        for card, score in zip(production, scored.top_scores.tolist(), strict=True):
             card["score"] = float(score)
-    return {
+    ranked = scored.pipeline["ranked_ids"][: len(production)]
+    if ranked != [int(card["item_id"]) for card in production]:
+        raise AssertionError("the candidate order and the top list diverged")
+    result = {
         "user_id": uid,
         "candidate_set": bundle.candidate_set,
+        "serving_list": bundle.serving_list,
         "cold_start": str(bundle.manifest.get("cold_start", "existing_users_only")),
         "production": production,
-        "item_item": [_card(bundle, item) for item, _score in ii_rows[:n]],
-        "two_tower": [_card(bundle, item) for item, _score in tt_rows[:n]],
-        "pipeline": pipeline,
+        "item_item": [_card(bundle, item) for item, _score in scored.rows["item_item"][:n]],
+        "two_tower": [_card(bundle, item) for item, _score in scored.rows["two_tower"][:n]],
+        "pipeline": scored.pipeline,
     }
-    if pipeline["ranked_ids"][: len(production)] != [int(card["item_id"]) for card in production]:
-        raise AssertionError("the candidate order and the top list diverged")
+    if bundle.pctm is not None:
+        result["pctm"] = [_card(bundle, item) for item, _score in scored.rows["pctm"][:n]]
+    return result
 
 
 def _pipeline_trace(
@@ -701,7 +800,7 @@ def _save_context(ctx: FeatureContext, directory: Path) -> None:
         "relevance_threshold": float(ctx.relevance_threshold),
     }
     expected = feature_names(ctx.demo_mode)
-    allowed = [expected]
+    allowed = [expected, pctm_ranker_feature_names(ctx.demo_mode)]
     if ctx.demo_mode in {"off", "both"}:
         allowed.append(cold_start_feature_names(ctx.demo_mode))
     if ctx.demo_mode == "off":

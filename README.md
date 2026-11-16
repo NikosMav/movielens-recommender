@@ -32,12 +32,14 @@ It covers the path from data to a demo: download and cleaning, a per-user time s
 Every number behind these sentences is in [Results](#results), generated from `results/*.json`.
 
 - **ml-1m.** Tuned item–item kNN is a strong baseline. The two-tower model does not beat it on NDCG@10 (a recorded negative result), but it leads on Recall@100/200, catalog coverage, and the long tail. LambdaRank over two-tower candidates clears the item–item gate.
+- **The served model (ml-1m).** A LambdaRank ranker over the union of pairwise-transition (PCTM) and two-tower candidates, with PCTM score and rank as features, scores NDCG@10 `0.2021`. The ranker served before it scores `0.1309` on the same run (paired `+0.0720 [+0.0668, +0.0776]`), and PCTM alone scores `0.1787` (paired `+0.0228 [+0.0203, +0.0253]`). Demographic features add nothing on top (`+0.0001 [-0.0013, +0.0018]`), so the served ranker has none. The pre-registered rule chose it, and Explore a MovieLens user now runs it (ADR-0033).
 - **ml-32M.** The two-tower model and LambdaRank tie at the top and both beat item–item (ADR-0011).
 - **Baselines.** EASE^R and RP3beta are tuned on the same validation split and compared in the results tables (ADR-0008). Adding Data-Adaptive Normalization / dropout-regularized EASE (`EASE-DAN`, Park et al. 2025 / Steck 2020) beats `EASE^R` on ml-1m (`0.1195` vs `0.1184`, paired 95% CI `[+0.0004, +0.0017]`) and closes the statistical gap to item–item cosine (`0.1201`) in a 2.4s closed-form solve (ADR-0028).
 - **Sequence modeling (ml-1m).** Causal SASRec with full-catalog softmax beats a shuffled-order control (`0.0924` vs `0.0892`, paired `[+0.0024, +0.0052]`), confirming sequential order carries a small signal (+4% relative), while trailing bag-of-history retrieval and LambdaRank on MovieLens ratings (ADR-0019). Replacing the blocks with LiGR and SwiGLU (`eSASRec`, RecSys 2025) scores below that SASRec reference (paired primary-seed `-0.0134`, interval excludes 0). A pairwise transition probe (`PCTM`, RecSys 2026) scores `0.1787` against the refit SASRec `0.0929` (paired `+0.0857 [+0.0796, +0.0917]`) and covers `71.1%` of the catalog at 10, against `3.3%` for SASRec. The enhanced transformer stays below that pairwise probe (ADR-0030).
 - **Discovery slider.** On the 604 held-out cold-start users with 5 ratings, Familiar keeps the highest NDCG@10 (`0.4095`). Closer costs about `0.006` NDCG@10 and raises coverage from `1.9%` to `2.7%`. In between raises coverage to `21.1%` and long-tail share to `20.0%` (ADR-0032). Familiar stays the default.
 - **Third retriever (ml-1m).** A balanced union of item–item, two-tower, and EASE-DAN wins validation Recall@200 (`0.6607` vs `0.6552` for two-tower alone). Inside that same K=200 budget the demographics-on ranker then scores lower: three-seed NDCG@10 `0.1291` vs `0.1327`, paired primary-seed `-0.0032 [-0.0061, -0.0003]` (excludes 0). Demographics off, the paired interval includes 0 and the three-seed mean is lower. Letting the union grow past 200 candidates (mean size 301) returns the demographics-on mean to `0.1325`, and that paired interval includes 0. All three pre-registered lifts fail. EASE-DAN score and rank are still among the strongest split features (ADR-0031).
-- **Demographics (ml-1m).** User age, gender, and occupation features passed their pre-registered rule, so `configs/ml-1m.yaml` turns them on for the ranker (ADR-0009). The headline LambdaRank row in `results/ml-1m.json` is still the S4 feature set.
+- **A larger Discover catalogue (ml-32M, not shipped).** 8,769 films through 2018 can be served from MovieLens 32M ratings with titles from the 1 MB `ml-latest-small` download. Two registered attempts at a model small enough for the 1 GB server both failed their ship rule. Item–item fold-in loses to most-popular at every profile size (N=5: `0.2898` vs `0.3149`, paired `-0.0251 [-0.0326, -0.0176]`; ADR-0034). Blending similarity with popularity, on new test users, wins at 5 and 10 ratings (`+0.0134 [+0.0077, +0.0198]` and `+0.0231 [+0.0176, +0.0291]`) but not at 3 (`+0.0033 [-0.0028, +0.0096]`), and the rule needed all three (ADR-0035). Discover still serves ml-1m.
+- **Demographics (ml-1m).** User age, gender, and occupation features passed their pre-registered rule, so `configs/ml-1m.yaml` turns them on for the two-tower ranker (ADR-0009). The headline LambdaRank row in `results/ml-1m.json` is still the S4 feature set. The ranker served since ADR-0033 does not use them: with watch order in the model they no longer help.
 - **New users.** Someone with no MovieLens id rates a few films and gets an explained top 10. The cold-start panel reports quality after 1, 3, 5, and 10 ratings, next to known users and popularity (ADR-0012). On the main protocol the list beats popularity from 3 ratings on; after a single rating it cannot be told apart from it.
 - **Reproducibility.** Top-n selection used to break ties differently on different CPUs, which moved the new-user results between machines; ties now always go to the lower item index. Small floating-point differences between math-library builds still change the new-user ranker's details across platforms, so its results are regenerated in the Docker image and record the host they ran on (ADR-0015).
 - **Other two-tower losses (S3e).** On ml-1m, full softmax and sampled softmax both beat the in-batch two-tower on test NDCG@10. LambdaRank on the validation-chosen new tower is worse than LambdaRank on the current two-tower, and worse than the new tower's own list (both paired intervals exclude 0). On ml-32M, sampled softmax does not beat the in-batch two-tower on validation, even at the same epoch budget, and full softmax was skipped for compute. The app keeps the current model (ADR-0013).
@@ -72,7 +74,7 @@ streamlit run app/streamlit_app.py
 
 The local research page (`app/streamlit_app.py`) has two modes:
 
-- **Existing user.** Pick an ml-1m user. The list is the production pipeline: validation-chosen candidates re-ranked by LambdaRank with the ADR-0009 demographic features. Each title opens a plain-language explanation, and a checkbox shows the item–item and two-tower lists side by side (ADR-0010).
+- **Existing user.** Pick an ml-1m user. The list is the production pipeline: the ADR-0033 candidate set (pairwise transitions and two-tower) re-ranked by LambdaRank, with no demographic features. Each title opens a plain-language explanation, and a checkbox shows the item–item and two-tower lists side by side (ADR-0010).
 - **New user.** Search titles and rate at least three (about five is a good start). The page says which method produced the list for that profile size. It does not ask for gender, age, occupation, or ZIP, and it does not save the profile (ADR-0012).
 
 The public page is the Community Cloud app below. It has the same three jobs in one navigation (ADR-0024).
@@ -86,7 +88,7 @@ For the local React and Astryx frontend, follow the [frontend setup guide](front
 The [public demo](https://nikosmav-movielens-recommender.streamlit.app/) runs on [Streamlit Community Cloud](https://share.streamlit.io/). One page has three sections (ADR-0024):
 
 - **Discover.** Search a title or browse a genre shelf, rate films you have seen, and get ten picks with a short reason.
-- **Explore a MovieLens user.** Look up a viewer id. The default list is the full model. A checkbox compares it with similar films and a taste match.
+- **Explore a MovieLens user.** Look up a viewer id. The default list is the full model, which reads the order the viewer rated films in (ADR-0033). A checkbox compares it with similar films and a taste match.
 - **How good is it?** A plain summary and a bar chart. Every number is read from the committed results JSON (ADR-0022).
 
 Posters use the Streamlit secret `TMDB_API_KEY` when it is set. Without that secret, each card uses a placeholder. The page follows Streamlit's System, Light, and Dark setting.
@@ -116,7 +118,7 @@ uvicorn --factory movielens_recommender.serving.api:create_app_from_env --port 8
 | GET | `/health` | `ok`, or 503 with the build command when no snapshot is mounted |
 | GET | `/v1/snapshot` | Dataset checksum, git SHA, and creation time of the loaded snapshot |
 | GET | `/v1/users/{user_id}/recommendations?n=10&explain=true` | Production top n for a known ml-1m user, with plain-language reasons |
-| GET | `/v1/users/{user_id}/comparison?n=10` | Recent training ratings and ranked lists from the production ranker, item–item, and two-tower models |
+| GET | `/v1/users/{user_id}/comparison?n=10` | Recent training ratings and ranked lists from the production ranker, item–item, and two-tower models, plus the pairwise-transition list when the snapshot has it |
 | POST | `/v1/recommendations/new-user` | Top n for `{"ratings": [{"item_id": 2571, "rating": 5}], "n": 10}` |
 | GET | `/v1/movies/search?q=matrix` | Find item ids by title |
 | GET | `/metrics` | Prometheus metrics: requests and latency by route, snapshot age, new-user input drift |
@@ -200,6 +202,8 @@ Model improvements are assessed on **NDCG@10** on the same harness. The historic
 | S9 | Done | eSASRec vs pairwise transitions (PCTM) | [0030](docs/adr/0030-esasrec-and-pctm.md) |
 | S10 | Done | EASE-DAN as a third LambdaRank retriever | [0031](docs/adr/0031-ranker-ease-dan.md) |
 | S11 | Done | Offline evaluation of the discovery slider | [0032](docs/adr/0032-discovery-slider-evaluation.md) |
+| S12 | Done | Pairwise transitions in the ranker, and the served model | [0033](docs/adr/0033-pctm-in-the-ranker.md) |
+| S13 | Done (negative) | A larger Discover catalogue from ml-32M: fold-in, then a popularity blend | [0034](docs/adr/0034-extended-discover-catalogue.md)–[0035](docs/adr/0035-extended-catalogue-popularity-blend.md) |
 
 ## Data
 
@@ -273,6 +277,7 @@ Metrics are averaged over eligible test users, with 95% bootstrap intervals over
 | `esasrec` | SASRec with LiGR residual blocks and a SwiGLU feed-forward (eSASRec, RecSys 2025; ADR-0030) |
 | `pctm` | Pairwise transition model with Dirichlet smoothing and recency log-pooling (PCTM, RecSys 2026; ADR-0030) |
 | `lambdarank` | LightGBM LambdaRank re-ranking the validation-chosen candidate set (ADR-0007) |
+| `seq_off` | The served ranker: LambdaRank over PCTM and two-tower candidates, with PCTM score and rank as features and no demographics (ADR-0033) |
 
 Tuning grids and per-trial validation scores are in `results/tuning/`.
 
@@ -301,6 +306,7 @@ movielens-recommender run --config configs/default.yaml   # ml-latest-small
 movielens-recommender run --config configs/ml-1m.yaml
 movielens-recommender run --config configs/ml-32m.yaml    # long; budget in ADR-0011
 movielens-recommender drift-study --config configs/ml-1m.yaml   # S6 replay, about 3 min
+python scripts/run_ranker_pctm.py                         # ADR-0033, about 8 min
 python scripts/run_beyond_accuracy.py                     # ADR-0017, ml-1m only
 python scripts/run_als_retune.py --stage all              # ADR-0018, ml-1m ALS retune
 python scripts/run_sasrec.py --stage all                  # ADR-0019, ml-1m SASRec
@@ -1319,5 +1325,55 @@ Validation Recall@200: `two_tower` 0.6552, `union_balanced` 0.6531, `tri_union_b
 | 2 retrievers, demographics on | `two_tower` | 61 | 0.1327 | [0.1298, 0.1381] | 0.4013 |
 | 3 retrievers, demographics on | `tri_union_balanced` | 64 | 0.1291 | [0.1265, 0.1348] | 0.3815 |
 | 3 retrievers, unbalanced, demographics on | `tri_union_unbalanced` | 64 | 0.1325 | [0.1288, 0.1372] | 0.3916 |
+
+### Pairwise transitions in the ranker, and the served model (`ml-1m`)
+
+From `results/ranker-pctm/ml-1m.json` (ADR-0033). Item–item and two-tower hyperparameters stay frozen from `results/ml-1m.json`, and PCTM's from `results/sequence-modern/ml-1m.json`. The candidate budget is K=200. Validation Recall@200 chooses the sequence-aware set. Ranker rows are the mean across ranker seeds 42, 43, and 44, and their interval is the primary seed. PCTM alone is one fit. No other results file is changed.
+
+Validation Recall@200: `two_tower` 0.6552, `pctm` 0.6942, `pctm_two_tower` 0.7251, `pctm_tri` 0.7189. Selected sequence-aware set: `pctm_two_tower`.
+
+**Serving rule 2: serve the ranker over the sequence-aware set, demographics off (`serve=seq_off`).**
+
+| paired test NDCG@10 difference | mean and 95% interval | win |
+| --- | --- | --- |
+| PCTM alone minus the earlier ranker | 0.0492 [0.0435, 0.0550] (excludes 0: yes) | yes |
+| Sequence ranker, demographics off, minus PCTM alone | 0.0228 [0.0203, 0.0253] (excludes 0: yes) | yes |
+| Sequence ranker, demographics on, minus PCTM alone | 0.0229 [0.0205, 0.0255] (excludes 0: yes) | yes |
+| Demographics on minus demographics off | 0.0001 [-0.0013, 0.0018] (excludes 0: no) | no |
+| Sequence ranker, demographics off, minus the earlier ranker | 0.0720 [0.0668, 0.0776] (excludes 0: yes) | yes |
+| Sequence ranker, demographics on, minus the earlier ranker | 0.0721 [0.0670, 0.0781] (excludes 0: yes) | yes |
+
+| variant | candidate set | features | test NDCG@10 | 95% CI | Coverage@10 |
+| --- | --- | --- | --- | --- | --- |
+| Earlier ranker: two-tower candidates, demographics on | `two_tower` | 61 | 0.1309 | [0.1251, 0.1336] | 0.3970 |
+| PCTM list, no ranker | `pctm` | 0 | 0.1787 | [0.1737, 0.1837] | 0.7112 |
+| Ranker over the sequence-aware set, demographics off | `pctm_two_tower` | 53 | 0.2021 | [0.1961, 0.2068] | 0.5100 |
+| Ranker over the sequence-aware set, demographics on | `pctm_two_tower` | 63 | 0.2019 | [0.1966, 0.2067] | 0.4974 |
+
+Top feature gains of the served ranker (primary seed): `pctm_rank` 68084, `two_tower_rank` 13229, `pctm_score` 10347, `item_item_score` 5509, `item_popularity` 3114, `two_tower_score` 1961.
+
+### A larger Discover catalogue (`ml-32m`)
+
+From `results/extended-catalog/ml-32m.json` (ADR-0034). The catalogue is the 8769 films listed in `ml-latest-small` with at least 50 ratings in ml-32m. 10000 users are held out of the fit, half for validation and half for test. The profile is a user's first N ratings and the target is every later rating of 4 or higher. Test NDCG@10 is scored once.
+
+**Negative result (`ships=False`).** Validation kept `ml1m_choice`. Item–item fold-in against most-popular on the test users:
+
+| N | test users | most popular | fold-in | paired fold-in − popular | fold-in Coverage@10 | popular Coverage@10 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4992 | 0.3455 | 0.2688 | -0.0767 [-0.0848, -0.0688] (excludes 0: yes) | 0.2773 | 0.0013 |
+| 3 | 4992 | 0.3270 | 0.2921 | -0.0349 [-0.0437, -0.0274] (excludes 0: yes) | 0.2383 | 0.0015 |
+| 5 | 4991 | 0.3149 | 0.2898 | -0.0251 [-0.0326, -0.0176] (excludes 0: yes) | 0.2340 | 0.0017 |
+| 10 | 4990 | 0.2930 | 0.2751 | -0.0180 [-0.0260, -0.0103] (excludes 0: yes) | 0.2341 | 0.0022 |
+
+From `results/extended-catalog/ml-32m-blend.json` (ADR-0035). The score is fold-in similarity scaled to 1, plus a weight λ on log rating count. The validation users are the same. The test users are a new sample, and all 15000 held-out users stay out of the fit.
+
+**Negative result (`ships=False`).** Validation kept λ=4.0. Per-N serving choice on validation: N=1 `most_popular`, N=3 `item_item_popularity_blend`, N=5 `item_item_popularity_blend`, N=10 `item_item_popularity_blend`.
+
+| N | test users | most popular | blend | paired blend − popular | blend Coverage@10 | popular Coverage@10 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4995 | 0.3406 | 0.3149 | -0.0256 [-0.0320, -0.0192] (excludes 0: yes) | 0.1024 | 0.0013 |
+| 3 | 4993 | 0.3217 | 0.3250 | 0.0033 [-0.0028, 0.0096] (excludes 0: no) | 0.1019 | 0.0015 |
+| 5 | 4992 | 0.3094 | 0.3228 | 0.0134 [0.0077, 0.0198] (excludes 0: yes) | 0.0981 | 0.0017 |
+| 10 | 4988 | 0.2873 | 0.3104 | 0.0231 [0.0176, 0.0291] (excludes 0: yes) | 0.0998 | 0.0023 |
 
 <!-- END RESULTS TABLE -->

@@ -322,14 +322,26 @@ def encode_ratings(pairs: Sequence[tuple[int, int]]) -> str:
     return ".".join(parts)
 
 
-def share_url(base_url: str, pairs: Sequence[tuple[int, int]], *, mix: int = 0) -> str:
-    """One public URL, including a reproducible slider setting and no stale query."""
+def share_url(
+    base_url: str,
+    pairs: Sequence[tuple[int, int]],
+    *,
+    mix: int = 0,
+    extended: bool = False,
+) -> str:
+    """One public URL, including a reproducible slider setting and no stale query.
+
+    ``extended`` adds ``catalog=extended`` so the link opens the larger catalogue
+    the ratings were made in (ADR-0034).
+    """
     if mix not in range(5):
         raise ValueError("mix must be an integer from 0 to 4")
     parsed = urlsplit(base_url)
     # Community Cloud runs the app inside a /~/+/ iframe. Share the public page.
     path = parsed.path.split("/~/", 1)[0] or "/"
     params = {"view": "discover", "ratings": encode_ratings(pairs), "mix": str(mix)}
+    if extended:
+        params["catalog"] = "extended"
     return urlunsplit((parsed.scheme, parsed.netloc, path, urlencode(params), ""))
 
 

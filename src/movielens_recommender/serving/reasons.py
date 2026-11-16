@@ -45,6 +45,7 @@ _SLUG_TO_GENRE: dict[str, str] = {slug_genre(genre): genre for genre in GENRES}
 _NEIGHBOR_FEATURES = frozenset({"item_item_score", "item_item_rank"})
 _RETRIEVER_FEATURES = frozenset({"two_tower_score", "two_tower_rank"})
 _EASE_FEATURES = frozenset({"ease_score", "ease_rank"})
+_TRANSITION_FEATURES = frozenset({"pctm_score", "pctm_rank"})
 _ACTIVITY_FEATURES = frozenset({"user_n_ratings", "user_mean_rating", "user_std_rating"})
 
 _GENERIC_SIMILAR_VIEWERS = "Popular with viewers similar to you"
@@ -57,6 +58,8 @@ POPULAR_WITH_MANY_VIEWERS = "Popular with many viewers"
 _RECENCY_TEXT = "Recently active in other viewers' ratings"
 _YEAR_TEXT = "Its release year fits the films you rate"
 _ACTIVITY_TEXT = "Your rating history is a pattern this ranker scores up"
+_TRANSITION_FALLBACK = "Viewers with a recent history like yours often rated this next"
+TRANSITION_NOTE = "Viewers who rated those films often rated this one soon after"
 
 
 @dataclass(frozen=True)
@@ -128,6 +131,8 @@ def _family(feature: str) -> str | None:
         return "retriever"
     if feature in _EASE_FEATURES:
         return "ease"
+    if feature in _TRANSITION_FEATURES:
+        return "transition"
     if feature == "in_both":
         return "in_both"
     if feature == "item_popularity":
@@ -214,6 +219,48 @@ def _neighbor_text(history: Sequence[HistoryItem], similarity: Mapping[int, floa
     return f"You rated {title} {stars} and this is one of its nearest neighbours"
 
 
+def _transition_text(source: HistoryItem | None) -> str:
+    """One sentence for the pairwise-transition signal, naming the rated film behind it."""
+    if source is None:
+        return _TRANSITION_FALLBACK
+    title = display_title(source.title)
+    if float(source.rating) >= 4.0:
+        return f"Because you rated {title} {format_stars(source.rating)}"
+    return f"Viewers who rated {title} often rated this one soon after"
+
+
+def explain_transition(
+    parts: Sequence[tuple[HistoryItem, float]],
+    *,
+    raw_score: float | None = None,
+    top_k: int = 2,
+) -> RecommendationExplanation:
+    """Reasons for a list served by the transition model (ADR-0033).
+
+    ``parts`` is ``(rated film, recency weight x log-evidence)``, largest first.
+    A film rated 4 or higher is named as a reason. A film rated lower is named
+    as context only, because the model reads it as history, not as a like.
+    The details list every part under the title it came from.
+    """
+    reasons = [
+        Reason(text=_transition_text(source), contribution=float(value))
+        for source, value in list(parts)[:top_k]
+    ]
+    if not reasons:
+        reasons = [Reason(text=_TRANSITION_FALLBACK, contribution=0.0)]
+    elif any(float(source.rating) >= 4.0 for source, _value in list(parts)[:top_k]):
+        reasons.append(Reason(text=TRANSITION_NOTE, contribution=0.0))
+    details = [
+        (f"after {display_title(source.title)}", float(value)) for source, value in parts
+    ]
+    return RecommendationExplanation(
+        reasons=reasons,
+        details=details,
+        bias=0.0,
+        raw_score=None if raw_score is None else float(raw_score),
+    )
+
+
 def _genre_text(
     slug: str,
     *,
@@ -246,6 +293,7 @@ def explain_recommendation(
     include_demographics: bool = True,
     because_rated: bool = False,
     popularity_text: str | None = None,
+    transition_from: HistoryItem | None = None,
 ) -> RecommendationExplanation:
     """Turn positive contributions into at most ``top_k`` sentences.
 
@@ -288,6 +336,7 @@ def explain_recommendation(
             sims,
             affinity_pos,
             popularity_text=popularity_text,
+            transition_from=transition_from,
         )
         if text is None:
             continue
@@ -333,9 +382,12 @@ def _render(
     affinity_pos: Mapping[str, bool],
     *,
     popularity_text: str | None = None,
+    transition_from: HistoryItem | None = None,
 ) -> str | None:
     if family == "neighbor":
         return _neighbor_text(history, similarity)
+    if family == "transition":
+        return _transition_text(transition_from)
     if family == "retriever":
         return _RETRIEVER_TEXT
     if family == "ease":

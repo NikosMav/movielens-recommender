@@ -18,6 +18,7 @@ if str(_SPACE_DIR) not in sys.path:
 
 from cards import THEME_CSS, footer_html, load_logo_svg, section_scroll_script  # noqa: E402
 from loading import (  # noqa: E402
+    extended_snapshot,
     last_failure,
     resolve_snapshots,
     tmdb_api_key,
@@ -106,11 +107,15 @@ def main() -> None:
         warm(prod, cold, has_prod=has_prod, has_cold=has_cold)
     with st.spinner("Opening this view…"):
         if section == "Discover":
-            render_discover(str(cold.resolve()) if has_cold else "", api_key)
+            render_discover(
+                str(cold.resolve()) if has_cold else "",
+                api_key,
+                extended_snapshot(cold) if has_cold else "",
+            )
         elif section == "Explore a MovieLens user":
             render_explore(str(prod.resolve()) if has_prod else "", api_key)
         else:
-            render_quality()
+            render_quality(str(prod.resolve()) if has_prod else "")
     _footer(api_key)
     if st.session_state.pop("nav_scroll_pending", False):
         components.html(section_scroll_script(), height=0)

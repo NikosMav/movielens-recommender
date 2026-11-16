@@ -3316,6 +3316,179 @@ def render_ranker_ease_dan(path: Path | None = None) -> str:
     return "\n".join(lines)
 
 
+_SERVED_LABELS = {
+    "bi_both": "Earlier ranker: two-tower candidates, demographics on",
+    "pctm_only": "PCTM list, no ranker",
+    "seq_off": "Ranker over the sequence-aware set, demographics off",
+    "seq_both": "Ranker over the sequence-aware set, demographics on",
+}
+_SERVED_PAIRS = (
+    ("pctm_only_minus_bi_both", "PCTM alone minus the earlier ranker"),
+    ("seq_off_minus_pctm_only", "Sequence ranker, demographics off, minus PCTM alone"),
+    ("seq_both_minus_pctm_only", "Sequence ranker, demographics on, minus PCTM alone"),
+    ("seq_both_minus_seq_off", "Demographics on minus demographics off"),
+    ("seq_off_minus_bi_both", "Sequence ranker, demographics off, minus the earlier ranker"),
+    ("seq_both_minus_bi_both", "Sequence ranker, demographics on, minus the earlier ranker"),
+)
+_SERVED_TEXT = {
+    "seq_off": "the ranker over the sequence-aware set, demographics off",
+    "seq_both": "the ranker over the sequence-aware set, demographics on",
+    "pctm_only": "the PCTM list as it is",
+    "bi_both": "the two-tower ranker, unchanged",
+}
+
+
+def render_ranker_pctm(path: Path | None = None) -> str:
+    """PCTM retriever, ranker feature, and serving choice (ADR-0033). Empty when absent."""
+    path = RESULTS_DIR / "ranker-pctm" / "ml-1m.json" if path is None else path
+    if not path.is_file():
+        return ""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    decision = payload["decision"]
+    paired = payload["paired"]
+    variants = payload["variants"]
+    val = payload["validation_candidates"]
+    lines = [
+        "### Pairwise transitions in the ranker, and the served model (`ml-1m`)",
+        "",
+        "From `results/ranker-pctm/ml-1m.json` (ADR-0033). Item–item and two-tower "
+        "hyperparameters stay frozen from `results/ml-1m.json`, and PCTM's from "
+        "`results/sequence-modern/ml-1m.json`. The candidate budget is K="
+        f"{_plain_num(payload['candidate_k'])}. Validation Recall@200 chooses the "
+        "sequence-aware set. Ranker rows are the mean across ranker seeds 42, 43, and 44, "
+        "and their interval is the primary seed. PCTM alone is one fit. "
+        "No other results file is changed.",
+        "",
+        "Validation Recall@200: "
+        + ", ".join(
+            f"`{name}` {_fmt(float(val[name]['recall@200']))}"
+            for name in ("two_tower", "pctm", "pctm_two_tower", "pctm_tri")
+            if name in val
+        )
+        + f". Selected sequence-aware set: `{payload['selected_sequence_candidate_set']}`.",
+        "",
+        f"**Serving rule {decision['serving_rule']}: serve "
+        f"{_SERVED_TEXT[decision['serve']]} (`serve={decision['serve']}`).**",
+        "",
+        "| paired test NDCG@10 difference | mean and 95% interval | win |",
+        "| --- | --- | --- |",
+    ]
+    for key, label in _SERVED_PAIRS:
+        lines.append(
+            f"| {label} | {_pair_text(paired[key])} | "
+            f"{'yes' if decision['wins'][key] else 'no'} |"
+        )
+    lines.extend(
+        [
+            "",
+            "| variant | candidate set | features | test NDCG@10 | 95% CI | Coverage@10 |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for key in ("bi_both", "pctm_only", "seq_off", "seq_both"):
+        block = variants[key]
+        lines.append(
+            f"| {_SERVED_LABELS[key]} | `{block['candidate_set']}` | "
+            f"{_plain_num(block['n_features'])} | "
+            f"{_fmt(float(block['ndcg@10_mean']))} | "
+            f"{_fmt_ci_cell(block['primary_ndcg@10_ci'])} | "
+            f"{_fmt(float(block['coverage@10_mean']))} |"
+        )
+    served = variants.get(decision["serve"], {})
+    gains = served.get("top_feature_gains") or []
+    if gains:
+        lines.extend(
+            [
+                "",
+                "Top feature gains of the served ranker (primary seed): "
+                + ", ".join(
+                    f"`{row['feature']}` {_plain_num(round(float(row['gain'])))}"
+                    for row in gains[:6]
+                )
+                + ".",
+            ]
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _extended_rows(block: dict, model_key: str, name: str) -> list[str]:
+    rows = []
+    for n in ("1", "3", "5", "10"):
+        row = block[n]
+        model = row[model_key][name]
+        popular = row["most_popular"]
+        rows.append(
+            f"| {n} | {_plain_num(row['counts']['n_eval_users'])} | "
+            f"{_fmt(float(popular['ndcg@10']))} | {_fmt(float(model['ndcg@10']))} | "
+            f"{_pair_text(model['paired_minus_most_popular'])} | "
+            f"{_fmt(float(model['coverage@10']))} | {_fmt(float(popular['coverage@10']))} |"
+        )
+    return rows
+
+
+def render_extended_catalog(
+    path: Path | None = None, blend_path: Path | None = None
+) -> str:
+    """Larger Discover catalogue (ADR-0034, ADR-0035). Empty when the first file is absent."""
+    base = RESULTS_DIR / "extended-catalog"
+    path = base / "ml-32m.json" if path is None else path
+    blend_path = base / "ml-32m-blend.json" if blend_path is None else blend_path
+    if not path.is_file():
+        return ""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    decision = payload["decision"]
+    catalog = payload["catalog"]
+    kept = decision["kept_config"]
+    header = [
+        "| N | test users | most popular | {model} | paired {model} − popular | "
+        "{model} Coverage@10 | popular Coverage@10 |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    lines = [
+        "### A larger Discover catalogue (`ml-32m`)",
+        "",
+        "From `results/extended-catalog/ml-32m.json` (ADR-0034). The catalogue is the "
+        f"{_plain_num(catalog['n_films'])} films listed in `ml-latest-small` with at least "
+        f"{_plain_num(catalog['min_film_ratings'])} ratings in ml-32m. "
+        f"{_plain_num(payload['protocol']['n_held_out'])} users are held out of the fit, half for "
+        "validation and half for test. The profile is a user's first N ratings and the target "
+        "is every later rating of 4 or higher. Test NDCG@10 is scored once.",
+        "",
+        f"**{'Ships' if decision['ships'] else 'Negative result'} (`ships={decision['ships']}`).** "
+        f"Validation kept `{kept}`. Item–item fold-in against most-popular on the test users:",
+        "",
+        *[line.format(model="fold-in") for line in header],
+        *_extended_rows(payload["test"], "item_item", kept),
+        "",
+    ]
+    if blend_path.is_file():
+        blend = json.loads(blend_path.read_text(encoding="utf-8"))
+        choice = blend["decision"]
+        lam = str(choice["kept_lambda"])
+        served = ", ".join(
+            f"N={n} `{choice['serving_by_n'][n]}`" for n in ("1", "3", "5", "10")
+        )
+        lines.extend(
+            [
+                "From `results/extended-catalog/ml-32m-blend.json` (ADR-0035). The score is "
+                "fold-in similarity scaled to 1, plus a weight λ on log rating count. The "
+                "validation users are the same. The test users are a new sample, and all "
+                f"{_plain_num(blend['protocol']['n_left_out_users'])} held-out users stay out "
+                "of the fit.",
+                "",
+                f"**{'Ships' if choice['ships'] else 'Negative result'} "
+                f"(`ships={choice['ships']}`).** Validation kept λ={lam}. "
+                f"Per-N serving choice on validation: {served}.",
+                "",
+                *[line.format(model="blend") for line in header],
+                *_extended_rows(blend["test"], "blend", lam),
+                "",
+            ]
+        )
+    return "\n".join(lines)
+
+
 def build_section(results: list[tuple[str, dict]]) -> str:
     parts = [BEGIN, ""]
     for filename, payload in results:
@@ -3359,6 +3532,12 @@ def build_section(results: list[tuple[str, dict]]) -> str:
     ranker_dan = render_ranker_ease_dan()
     if ranker_dan:
         parts.append(ranker_dan)
+    ranker_pctm = render_ranker_pctm()
+    if ranker_pctm:
+        parts.append(ranker_pctm)
+    extended = render_extended_catalog()
+    if extended:
+        parts.append(extended)
     parts.append(END)
     return "\n".join(parts) + "\n"
 

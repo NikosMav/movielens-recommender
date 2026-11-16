@@ -66,6 +66,19 @@ def usable_snapshot(path: Path) -> bool:
     return manifest is not None and not manifest.get("weights_only")
 
 
+def extended_snapshot(cold: Path) -> str:
+    """Path of the larger-catalogue snapshot (ADR-0034), or "" when there is none.
+
+    ``MOVIELENS_EXTENDED_ARTIFACTS`` wins. Otherwise it is the ``extended``
+    directory the startup rebuild writes beside the new-user snapshot.
+    """
+    override = os.environ.get("MOVIELENS_EXTENDED_ARTIFACTS")
+    path = Path(override) if override else Path(cold).parent / "extended"
+    if (path / "manifest.json").is_file() and usable_snapshot(path):
+        return str(path.resolve())
+    return ""
+
+
 def tmdb_api_key() -> str:
     """Environment first, then a Streamlit secret. Never a committed value."""
     env = os.environ.get("TMDB_API_KEY", "").strip()

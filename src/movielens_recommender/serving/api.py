@@ -259,7 +259,9 @@ def create_app(
                 **summary,
                 "recent_ratings": history,
                 "recommendations": {
-                    key: result[key] for key in ("production", "item_item", "two_tower")
+                    key: result[key]
+                    for key in ("production", "item_item", "two_tower", "pctm")
+                    if key in result
                 },
             }
         )

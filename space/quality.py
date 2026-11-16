@@ -38,6 +38,9 @@ MODEL_GROUPS: dict[str, str] = {
     "two_tower": "Retrieval",
     "no_ranker": "Retrieval",
     "lambdarank": "Full pipeline",
+    "served_ranker": "Full pipeline",
+    "pctm_only": "Full pipeline",
+    "previous_ranker": "Full pipeline",
     "sasrec_reference": "Sequence",
     "esasrec": "Sequence",
     "pctm": "Sequence",
@@ -87,6 +90,8 @@ def load_quality(results_dir: Path | str) -> dict[str, Any]:
     slider = _read_json(slider_path) if slider_path.is_file() else None
     ranker_path = root / "ranker-ease-dan" / "ml-1m.json"
     ranker_dan = _read_json(ranker_path) if ranker_path.is_file() else None
+    served_path = root / "ranker-pctm" / "ml-1m.json"
+    served = _read_json(served_path) if served_path.is_file() else None
     sample = ml32["eval_user_sample"]
     shuffled = sas["paired"]["real_minus_shuffled"]
     sources = {
@@ -102,6 +107,8 @@ def load_quality(results_dir: Path | str) -> dict[str, Any]:
         sources["slider-eval"] = "results/slider-eval/ml-1m.json"
     if ranker_dan is not None:
         sources["ranker-ease-dan"] = "results/ranker-ease-dan/ml-1m.json"
+    if served is not None:
+        sources["ranker-pctm"] = "results/ranker-pctm/ml-1m.json"
     out: dict[str, Any] = {
         "sources": sources,
         "ml1m": {
@@ -173,6 +180,8 @@ def load_quality(results_dir: Path | str) -> dict[str, Any]:
         out["slider"] = _slider_block(slider, n=5)
     if ranker_dan is not None:
         out["ranker_ease_dan"] = _ranker_ease_dan_block(ranker_dan)
+    if served is not None:
+        out["served"] = _served_block(served)
     return out
 
 
@@ -293,7 +302,10 @@ MODEL_NAMES: dict[str, str] = {
     "item_item_cosine_tuned": "Similar films, tuned",
     "two_tower": "Two-tower match",
     "no_ranker": "Two-tower match alone",
-    "lambdarank": "Full model",
+    "lambdarank": "Two-stage ranker",
+    "served_ranker": "Full model, served",
+    "pctm_only": "Watch-order model alone",
+    "previous_ranker": "Ranker without watch order",
     "sasrec": "Sequence model",
     "sasrec_shuffled": "Shuffled sequence",
     "sasrec_reference": "Sequence model, refit",
@@ -648,6 +660,86 @@ def ranker_ease_dan_lead(block: dict[str, Any]) -> str:
         f"{verdict}{extra} Paired three-retriever minus two-retriever NDCG@10, "
         f"demographics on, is {signed(pair['mean'])} "
         f"(range {signed(pair['low'])} to {signed(pair['high'])})."
+    )
+
+
+# ADR-0033 variant ids, and the ids this page charts them under.
+_SERVED_IDS = {"seq_off": "served_ranker", "seq_both": "served_ranker", "pctm_only": "pctm_only"}
+
+
+def _served_block(payload: dict[str, Any]) -> dict[str, Any]:
+    """The model behind Explore, beside the two lists it was chosen over (ADR-0033)."""
+    decision = payload["decision"]
+    serve = str(decision["serve"])
+    ranker = str(decision["ranker_candidate"])
+    variants = payload["variants"]
+    order = [(ranker, "served_ranker"), ("pctm_only", "pctm_only"), ("bi_both", "previous_ranker")]
+    models = []
+    for name, shown in order:
+        block = variants[name]
+        models.append(
+            {
+                "model": shown,
+                "variant": name,
+                "ndcg@10": block["ndcg@10_mean"],
+                **_ci_fields(block["primary_ndcg@10_ci"]),
+                "n_seeds": len(block.get("per_seed") or [None]),
+                "candidate_set": block["candidate_set"],
+                "n_features": block["n_features"],
+                "coverage@10": block["coverage@10_mean"],
+            }
+        )
+    return {
+        "serve": serve,
+        "serving_rule": str(decision["serving_rule"]),
+        "ranker_candidate": ranker,
+        "served_model": _SERVED_IDS.get(serve, "previous_ranker"),
+        "candidate_set": payload["selected_sequence_candidate_set"],
+        "wins": decision["wins"],
+        "paired": payload["paired"],
+        "models": models,
+    }
+
+
+def served_lead(block: dict[str, Any]) -> str:
+    """Plain reading of the stored serving choice. The numbers are the JSON fields."""
+    ranker = block["ranker_candidate"]
+    over_old = block["paired"][f"{ranker}_minus_bi_both"]
+    over_pctm = block["paired"][f"{ranker}_minus_pctm_only"]
+    if block["serve"] == ranker:
+        verdict = (
+            "The model behind Explore a MovieLens user reads the order a viewer "
+            "rated films in, then re-ranks that shortlist."
+        )
+    elif block["serve"] == "pctm_only":
+        verdict = (
+            "The model behind Explore a MovieLens user is the watch-order model "
+            "on its own. Re-ranking its list did not clear the registered bar."
+        )
+    else:
+        verdict = "The watch-order model did not clear the registered bar, so the ranker is kept."
+    return (
+        f"{verdict} Against the ranker without watch order, the paired NDCG@10 "
+        f"difference is {signed(over_old['mean'])} "
+        f"(range {signed(over_old['low'])} to {signed(over_old['high'])}). "
+        f"Against the watch-order model alone it is {signed(over_pctm['mean'])} "
+        f"(range {signed(over_pctm['low'])} to {signed(over_pctm['high'])})."
+    )
+
+
+def served_caption(view: dict[str, Any]) -> str:
+    block = view["served"]
+    ranker = block["ranker_candidate"]
+    demo = block["paired"]["seq_both_minus_seq_off"]
+    return (
+        f"Selected candidate set: {block['candidate_set']}. "
+        f"Serving rule {block['serving_rule']} chose {block['serve']}. "
+        f"{ranker} minus bi_both is {fmt(block['paired'][f'{ranker}_minus_bi_both']['mean'])}. "
+        f"{ranker} minus pctm_only is "
+        f"{fmt(block['paired'][f'{ranker}_minus_pctm_only']['mean'])}. "
+        "Adding demographic features (seq_both minus seq_off) changes NDCG@10 by "
+        f"{fmt(demo['mean'])} ({fmt(demo['low'])} to {fmt(demo['high'])}). "
+        f"{plain_excludes_zero(bool(demo['excludes_zero']))}."
     )
 
 

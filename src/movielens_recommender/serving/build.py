@@ -3,6 +3,10 @@
 This is the ADR-0007 refit, not the ablation suite and not a metric run.
 Hyperparameters are read from the committed tuning files. The candidate set
 and ``best_iteration`` are computed again on the validation window.
+
+When ``results/ranker-pctm/<dataset>.json`` exists, its ADR-0033 serving choice
+is applied: the candidate set, the feature columns, and the transition model
+come from that record, and are not chosen again here.
 """
 
 from __future__ import annotations
@@ -14,6 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from movielens_recommender.baselines.item_knn import ItemItemCosineRecommender
@@ -21,12 +26,18 @@ from movielens_recommender.cli import set_seeds
 from movielens_recommender.config import RunConfig
 from movielens_recommender.data import DATASET_SHA256, download_dataset, load_ratings, load_users
 from movielens_recommender.movies import load_movies
-from movielens_recommender.ranker.candidates import choose_candidate_set, score_rank_maps
+from movielens_recommender.ranker.candidates import (
+    choose_candidate_set,
+    score_rank_maps,
+    sequence_candidate_ids,
+)
 from movielens_recommender.ranker.features import (
     assert_context_uses_only,
     assert_group_affinity_uses_only,
     build_feature_context,
+    build_feature_matrix,
     categorical_feature_names,
+    pctm_ranker_feature_names,
     relevance_pairs,
 )
 from movielens_recommender.ranker.pipeline import (
@@ -35,7 +46,16 @@ from movielens_recommender.ranker.pipeline import (
     _ranker_kwargs,
 )
 from movielens_recommender.ranker.train import assemble_matrices, train_with_early_stop_then_refit
-from movielens_recommender.serving.bundle import ServingBundle, manifest_template, save_bundle
+from movielens_recommender.sasrec.pctm import PCTMRecommender
+from movielens_recommender.serving.bundle import (
+    SERVE_PCTM,
+    SERVE_RANKER,
+    ServingBundle,
+    fit_pctm,
+    manifest_template,
+    pctm_manifest_block,
+    save_bundle,
+)
 from movielens_recommender.serving.provenance import git_sha
 from movielens_recommender.split import SplitConfig, SplitResult, time_based_split
 from movielens_recommender.two_tower.train import fit_two_tower_recommender
@@ -66,6 +86,54 @@ def load_production_hyperparams(config: RunConfig) -> tuple[dict[str, Any], dict
     return item_hp, dict(block["best_hyperparams"]), int(block["best_epoch"])
 
 
+_SEQUENCE_RANKERS = {"seq_off": "off", "seq_both": "both"}
+
+
+def load_sequence_serving(config: RunConfig) -> dict[str, Any] | None:
+    """The ADR-0033 serving choice for this dataset, or ``None`` when none is recorded.
+
+    ``serve`` is ``seq_off`` or ``seq_both`` (the ranker over the recorded
+    sequence-aware candidate set, with that demographics mode), ``pctm_only``
+    (the transition list as it is, beside the ADR-0007 ranker), or ``bi_both``
+    (no change). The hyperparameters are the ones the record was scored with.
+    """
+    path = Path(config.results_dir) / "ranker-pctm" / f"{config.dataset}.json"
+    if not path.is_file():
+        return None
+    record = json.loads(path.read_text(encoding="utf-8"))
+    serve = str(record["decision"]["serve"])
+    if serve == "bi_both":
+        return None
+    if serve not in {*_SEQUENCE_RANKERS, "pctm_only"}:
+        raise ValueError(f"{path} has an unknown serving choice {serve!r}")
+    return {
+        "serve": serve,
+        "candidate_set": str(record["selected_sequence_candidate_set"]),
+        "demographics": _SEQUENCE_RANKERS.get(serve),
+        "pctm_hyperparams": dict(record["pctm_hyperparams"]),
+        "source": f"results/ranker-pctm/{config.dataset}.json",
+    }
+
+
+def _sequence_blocks(ctx, lists, ii_maps, tt_maps, pc_maps, positives, users):
+    blocks = []
+    for uid in sorted(lists):
+        items = [int(item) for item in lists[uid]]
+        if int(uid) not in users or len(items) < 2:
+            continue
+        matrix = build_feature_matrix(
+            ctx,
+            int(uid),
+            items,
+            ii_maps.get(int(uid), {}),
+            tt_maps.get(int(uid), {}),
+            pctm=pc_maps.get(int(uid), {}),
+        )
+        labels = [1.0 if (int(uid), item) in positives else 0.0 for item in items]
+        blocks.append((int(uid), matrix, np.asarray(labels, dtype=np.float64)))
+    return blocks
+
+
 def fit_serving_bundle(
     *,
     config: RunConfig,
@@ -78,14 +146,25 @@ def fit_serving_bundle(
     dataset_sha256: str,
     git_sha_value: str,
     show_progress: bool = False,
+    sequence: Mapping[str, Any] | None = None,
 ) -> ServingBundle:
-    """Fit retrievers and the primary-seed refit ranker. No test evaluation."""
+    """Fit retrievers and the primary-seed refit ranker. No test evaluation.
+
+    ``sequence`` is :func:`load_sequence_serving` output. With a sequence ranker
+    it fixes the candidate set and the demographics mode, and PCTM score and
+    rank join the feature columns.
+    """
     if split.val is None or split.val.empty or split.test is None:
         raise ValueError("serving fit requires a non-empty validation window and a test frame")
     if not config.models.two_tower.enabled or not config.models.ranker.enabled:
         raise ValueError("build-artifacts requires two_tower and ranker to be enabled")
     rank_cfg = config.models.ranker
     demo_mode = str(rank_cfg.demographics)
+    seq_ranker = bool(sequence) and sequence["serve"] in _SEQUENCE_RANKERS
+    if seq_ranker:
+        demo_mode = str(sequence["demographics"])
+    if demo_mode == "off":
+        users = None
     if demo_mode != "off" and (users is None or users.empty):
         raise ValueError(f"demographics={demo_mode!r} requires a users frame")
     k = int(rank_cfg.candidate_k)
@@ -117,6 +196,29 @@ def fit_serving_bundle(
     )
     winner = choose_candidate_set(reports)
     print(f"Validation candidate-set winner: {winner}", flush=True)
+    threshold_pctm = float(config.eval.relevance_threshold)
+    pc_maps: dict[int, dict[int, tuple[float, int]]] = {}
+    if seq_ranker:
+        winner = str(sequence["candidate_set"])
+        print(f"ADR-0033 record fixes the candidate set: {winner}", flush=True)
+        pctm_fit = PCTMRecommender(
+            relevance_threshold=threshold_pctm, **dict(sequence["pctm_hyperparams"])
+        ).fit(split.train)
+        pc_val = pctm_fit.topk_with_scores(k)
+        pc_maps = score_rank_maps(pc_val)
+        lists_val = {
+            winner: {
+                int(uid): sequence_candidate_ids(
+                    winner,
+                    [int(i) for i, _s in ii_val.get(uid, ())],
+                    [int(i) for i, _s in tt_val.get(uid, ())],
+                    [int(i) for i, _s in pc_val.get(uid, ())],
+                    k,
+                )
+                for uid in set(ii_val) | set(tt_val) | set(pc_val)
+            }
+        }
+        del pctm_fit, pc_val
 
     ctx_fit = build_feature_context(
         split.train,
@@ -125,6 +227,8 @@ def fit_serving_bundle(
         mode=demo_mode,
         relevance_threshold=threshold,
     )
+    if seq_ranker:
+        ctx_fit.names = pctm_ranker_feature_names(demo_mode)
     assert_context_uses_only(ctx_fit, split.train, split.val)
     assert_context_uses_only(ctx_fit, split.train, split.test)
     if demo_mode in {"affinity", "both"}:
@@ -140,14 +244,19 @@ def fit_serving_bundle(
     tt_maps = score_rank_maps(tt_val)
     positives = relevance_pairs(split.val, relevance_threshold=threshold)
     label_users = {int(uid) for uid in split.val["user_id"].unique()}
-    blocks = _blocks_for_users(
-        ctx_fit,
-        lists_val[winner],
-        ii_maps,
-        tt_maps,
-        positives,
-        users=label_users,
-    )
+    if seq_ranker:
+        blocks = _sequence_blocks(
+            ctx_fit, lists_val[winner], ii_maps, tt_maps, pc_maps, positives, label_users
+        )
+    else:
+        blocks = _blocks_for_users(
+            ctx_fit,
+            lists_val[winner],
+            ii_maps,
+            tt_maps,
+            positives,
+            users=label_users,
+        )
     matrices = assemble_matrices(blocks, ctx_fit.names)
     matrices.categorical_features = categorical_feature_names(demo_mode)
     print(
@@ -164,7 +273,7 @@ def fit_serving_bundle(
         **_ranker_kwargs(config),
     )
     # Fit-train retrievers are only for ranker labels. Scoring uses full train.
-    del item_fit, tower_fit, ii_maps, tt_maps
+    del item_fit, tower_fit, ii_maps, tt_maps, pc_maps
 
     print("Refitting item-item and two-tower on full train...", flush=True)
     item_full = _fit_item_item(split.full_train, item_item_hp)
@@ -185,6 +294,8 @@ def fit_serving_bundle(
         group_frame=split.train,
         relevance_threshold=threshold,
     )
+    if seq_ranker:
+        ctx_full.names = pctm_ranker_feature_names(demo_mode)
     assert_context_uses_only(ctx_full, split.full_train, split.test)
     if demo_mode in {"affinity", "both"}:
         assert users is not None
@@ -207,6 +318,17 @@ def fit_serving_bundle(
         two_tower_hyperparams=dict(two_tower_hp),
     )
     histories = split.full_train.loc[:, ["user_id", "item_id", "rating", "timestamp"]].copy()
+    if sequence:
+        manifest["pctm"] = pctm_manifest_block(
+            sequence["pctm_hyperparams"],
+            relevance_threshold=threshold_pctm,
+            source=str(sequence["source"]),
+        )
+        manifest["serving_list"] = SERVE_RANKER if seq_ranker else SERVE_PCTM
+        manifest["protocol"] += (
+            " ADR-0033: the transition model (PCTM) is refit from the saved "
+            "histories at load, and its recorded serving choice is applied."
+        )
     return ServingBundle(
         manifest=manifest,
         movies=movies.loc[:, ["item_id", "title", "genres", "year"]].copy(),
@@ -215,6 +337,7 @@ def fit_serving_bundle(
         two_tower=tower_full,
         booster=trained.booster,
         context=ctx_full,
+        pctm=fit_pctm(histories, manifest.get("pctm")),
     )
 
 
@@ -259,6 +382,7 @@ def build_artifacts(
         dataset_sha256=DATASET_SHA256[config.dataset],
         git_sha_value=git_sha(),
         show_progress=show_progress,
+        sequence=load_sequence_serving(config),
     )
     elapsed = time.perf_counter() - t0
     bundle.manifest["build_runtime_sec"] = round(float(elapsed), 3)

@@ -44,6 +44,8 @@ The generic reproduction command intentionally accepts headline records with emb
 | eSASRec and PCTM | `python scripts/run_sequence_modern.py --stage all` | ADR-0030; 8-config eSASRec grid, 36-config PCTM grid, and sealed paired test |
 | EASE-DAN third retriever | `python scripts/run_ranker_ease_dan.py` | ADR-0031; frozen retrievers, validation candidate choice, 3 ranker seeds |
 | Discovery slider | `python scripts/run_slider_eval.py` | ADR-0032; five slider positions on the 604 held-out cold-start users |
+| Served ranker with pairwise transitions | `python scripts/run_ranker_pctm.py` | ADR-0033; frozen retrievers, validation candidate choice, 3 ranker seeds, and the serving rule. `build-artifacts` reads this record |
+| Larger Discover catalogue | `python scripts/run_extended_catalog.py` then `python scripts/run_extended_blend.py` | ADR-0034 and ADR-0035; needs ml-32m and ml-latest-small in `data/`, about 4 GB of RAM, and 4 to 5 minutes each. Both failed their ship rule, so neither writes parameter files |
 
 Historical revision references are `c82b6da` for demographics, `7227d01` for the corrected Docker cold-start record, `9e34701` for the alternative-loss work, `d6ed85f` for serving measurements, and `c4d96fe` for the drift replay. Later code can add corrections, so record the revision actually used instead of assuming these experiments share one implementation.
 

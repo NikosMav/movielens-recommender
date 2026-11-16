@@ -1,0 +1,852 @@
+{
+  "adr": "0033",
+  "candidate_k": 200,
+  "dataset": "ml-1m",
+  "dataset_sha256": "a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20",
+  "decision": {
+    "ranker_candidate": "seq_off",
+    "rule": "A comparison is a win when the primary-seed paired 95% interval low end is above 0. Serving follows ADR-0033 rules 1 to 4.",
+    "serve": "seq_off",
+    "serving_rule": "2",
+    "wins": {
+      "pctm_only_minus_bi_both": true,
+      "seq_both_minus_bi_both": true,
+      "seq_both_minus_pctm_only": true,
+      "seq_both_minus_seq_off": false,
+      "seq_off_minus_bi_both": true,
+      "seq_off_minus_pctm_only": true
+    }
+  },
+  "host": {
+    "cpu_count": 16,
+    "machine": "AMD64",
+    "numpy_simd": [
+      "AVX2",
+      "FMA3",
+      "SSE42"
+    ],
+    "os": "Windows",
+    "os_release": "11",
+    "processor": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+    "python": "3.12.1"
+  },
+  "library_versions": {
+    "implicit": "0.7.3",
+    "lightgbm": "4.6.0",
+    "movielens-recommender": "0.1.0",
+    "numpy": "2.2.6",
+    "pandas": "2.2.3",
+    "pyyaml": "6.0.3",
+    "scipy": "1.15.3",
+    "torch": "2.6.0+cpu"
+  },
+  "paired": {
+    "pctm_only_minus_bi_both": {
+      "excludes_zero": true,
+      "high": 0.054955,
+      "low": 0.043479,
+      "mean": 0.049236,
+      "n_users": 5958
+    },
+    "seq_both_minus_bi_both": {
+      "excludes_zero": true,
+      "high": 0.078063,
+      "low": 0.067034,
+      "mean": 0.072125,
+      "n_users": 5958
+    },
+    "seq_both_minus_pctm_only": {
+      "excludes_zero": true,
+      "high": 0.025462,
+      "low": 0.020519,
+      "mean": 0.022889,
+      "n_users": 5958
+    },
+    "seq_both_minus_seq_off": {
+      "excludes_zero": false,
+      "high": 0.001816,
+      "low": -0.001251,
+      "mean": 0.000133,
+      "n_users": 5958
+    },
+    "seq_off_minus_bi_both": {
+      "excludes_zero": true,
+      "high": 0.077553,
+      "low": 0.06675,
+      "mean": 0.071992,
+      "n_users": 5958
+    },
+    "seq_off_minus_pctm_only": {
+      "excludes_zero": true,
+      "high": 0.025301,
+      "low": 0.020327,
+      "mean": 0.022756,
+      "n_users": 5958
+    }
+  },
+  "pctm_hyperparams": {
+    "decay": "harmonic",
+    "max_distance": 20,
+    "max_history": 200,
+    "pop_beta": -0.5,
+    "smoothing_tau": 50.0
+  },
+  "runtime_sec": 473.816,
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "selected_sequence_candidate_set": "pctm_two_tower",
+  "split": {
+    "config": {
+      "min_ratings": 5,
+      "relevance_threshold": 4.0,
+      "test_fraction": 0.2,
+      "val_fraction": 0.1
+    },
+    "n_full_train": 802553,
+    "n_full_train_items": 3667,
+    "n_full_train_users": 6040,
+    "n_test": 197656,
+    "n_test_users": 6040,
+    "n_train": 724973,
+    "n_train_items": 3655,
+    "n_train_users": 6040,
+    "n_users_dropped": 0,
+    "n_users_kept": 6040,
+    "n_val": 77580,
+    "n_val_users": 6040
+  },
+  "validation_candidates": {
+    "pctm": {
+      "mean_size": 200.0,
+      "n_eval_users": 5619.0,
+      "recall@100": 0.584243,
+      "recall@200": 0.694187
+    },
+    "pctm_tri": {
+      "mean_size": 200.0,
+      "n_eval_users": 5619.0,
+      "recall@100": 0.576471,
+      "recall@200": 0.718931
+    },
+    "pctm_two_tower": {
+      "mean_size": 200.0,
+      "n_eval_users": 5619.0,
+      "recall@100": 0.591431,
+      "recall@200": 0.725132
+    },
+    "two_tower": {
+      "mean_size": 200.0,
+      "n_eval_users": 5619.0,
+      "recall@100": 0.489363,
+      "recall@200": 0.655227
+    }
+  },
+  "variants": {
+    "bi_both": {
+      "across_seeds": {
+        "coverage@10": {
+          "max": 0.402236,
+          "mean": 0.396964,
+          "min": 0.388601,
+          "std": 0.00598,
+          "values": [
+            0.388601,
+            0.400055,
+            0.402236
+          ]
+        },
+        "ndcg@10": {
+          "max": 0.131915,
+          "mean": 0.130861,
+          "min": 0.12943,
+          "std": 0.001049,
+          "values": [
+            0.12943,
+            0.131239,
+            0.131915
+          ]
+        },
+        "ndcg@20": {
+          "max": 0.14745,
+          "mean": 0.146999,
+          "min": 0.146757,
+          "std": 0.000319,
+          "values": [
+            0.146757,
+            0.146791,
+            0.14745
+          ]
+        },
+        "recall@10": {
+          "max": 0.095978,
+          "mean": 0.095942,
+          "min": 0.095891,
+          "std": 3.7e-05,
+          "values": [
+            0.095956,
+            0.095978,
+            0.095891
+          ]
+        },
+        "recall@100": {
+          "max": 0.451195,
+          "mean": 0.450581,
+          "min": 0.450089,
+          "std": 0.00046,
+          "values": [
+            0.450089,
+            0.450459,
+            0.451195
+          ]
+        },
+        "recall@200": {
+          "max": 0.602547,
+          "mean": 0.602547,
+          "min": 0.602547,
+          "std": 0.0,
+          "values": [
+            0.602547,
+            0.602547,
+            0.602547
+          ]
+        }
+      },
+      "candidate_set": "two_tower",
+      "coverage@10_mean": 0.396964,
+      "feature_names": [
+        "item_item_score",
+        "item_item_rank",
+        "two_tower_score",
+        "two_tower_rank",
+        "in_both",
+        "item_popularity",
+        "item_recency",
+        "item_year",
+        "user_n_ratings",
+        "user_mean_rating",
+        "user_std_rating",
+        "genre_action",
+        "genre_adventure",
+        "genre_animation",
+        "genre_children",
+        "genre_comedy",
+        "genre_crime",
+        "genre_documentary",
+        "genre_drama",
+        "genre_fantasy",
+        "genre_film_noir",
+        "genre_horror",
+        "genre_imax",
+        "genre_musical",
+        "genre_mystery",
+        "genre_romance",
+        "genre_sci_fi",
+        "genre_thriller",
+        "genre_war",
+        "genre_western",
+        "genre_no_genres_listed",
+        "affinity_action",
+        "affinity_adventure",
+        "affinity_animation",
+        "affinity_children",
+        "affinity_comedy",
+        "affinity_crime",
+        "affinity_documentary",
+        "affinity_drama",
+        "affinity_fantasy",
+        "affinity_film_noir",
+        "affinity_horror",
+        "affinity_imax",
+        "affinity_musical",
+        "affinity_mystery",
+        "affinity_romance",
+        "affinity_sci_fi",
+        "affinity_thriller",
+        "affinity_war",
+        "affinity_western",
+        "affinity_no_genres_listed",
+        "demo_gender",
+        "demo_age",
+        "demo_occupation",
+        "demo_region",
+        "group_age_pos_rate",
+        "group_age_pop_share",
+        "group_gender_pos_rate",
+        "group_gender_pop_share",
+        "group_occupation_pos_rate",
+        "group_occupation_pop_share"
+      ],
+      "n_features": 61,
+      "ndcg@10_mean": 0.130861,
+      "ndcg@10_std": 0.001049,
+      "per_seed": [
+        {
+          "best_iteration": 76,
+          "coverage@10": 0.388601,
+          "ndcg@10": 0.12943,
+          "ndcg@10_ci": {
+            "high": 0.133625,
+            "low": 0.125127,
+            "mean": 0.12943
+          },
+          "recall@10": 0.095956,
+          "seed": 42
+        },
+        {
+          "best_iteration": 44,
+          "coverage@10": 0.400055,
+          "ndcg@10": 0.131239,
+          "ndcg@10_ci": {
+            "high": 0.135336,
+            "low": 0.127241,
+            "mean": 0.131239
+          },
+          "recall@10": 0.095978,
+          "seed": 43
+        },
+        {
+          "best_iteration": 84,
+          "coverage@10": 0.402236,
+          "ndcg@10": 0.131915,
+          "ndcg@10_ci": {
+            "high": 0.136212,
+            "low": 0.127681,
+            "mean": 0.131915
+          },
+          "recall@10": 0.095891,
+          "seed": 44
+        }
+      ],
+      "primary_ndcg@10_ci": {
+        "high": 0.133625,
+        "low": 0.125127,
+        "mean": 0.12943
+      },
+      "recall@10_mean": 0.095942,
+      "top_feature_gains": [
+        {
+          "feature": "two_tower_rank",
+          "gain": 12877.920743
+        },
+        {
+          "feature": "item_item_score",
+          "gain": 4646.624785
+        },
+        {
+          "feature": "demo_occupation",
+          "gain": 4204.309398
+        },
+        {
+          "feature": "user_n_ratings",
+          "gain": 3634.870677
+        },
+        {
+          "feature": "item_item_rank",
+          "gain": 3501.236107
+        },
+        {
+          "feature": "group_gender_pos_rate",
+          "gain": 2840.967908
+        },
+        {
+          "feature": "group_age_pop_share",
+          "gain": 2806.462382
+        },
+        {
+          "feature": "two_tower_score",
+          "gain": 2776.700507
+        },
+        {
+          "feature": "affinity_romance",
+          "gain": 1803.872199
+        },
+        {
+          "feature": "item_popularity",
+          "gain": 1790.829704
+        },
+        {
+          "feature": "group_gender_pop_share",
+          "gain": 1514.572099
+        },
+        {
+          "feature": "affinity_drama",
+          "gain": 1481.17821
+        }
+      ]
+    },
+    "pctm_only": {
+      "candidate_set": "pctm",
+      "coverage@10_mean": 0.711208,
+      "n_features": 0,
+      "ndcg@10_mean": 0.178666,
+      "ndcg@10_std": 0.0,
+      "primary_ndcg@10_ci": {
+        "high": 0.183685,
+        "low": 0.173683,
+        "mean": 0.178666
+      },
+      "recall@10_mean": 0.142721
+    },
+    "seq_both": {
+      "across_seeds": {
+        "coverage@10": {
+          "max": 0.501773,
+          "mean": 0.49741,
+          "min": 0.489774,
+          "std": 0.005418,
+          "values": [
+            0.501773,
+            0.500682,
+            0.489774
+          ]
+        },
+        "ndcg@10": {
+          "max": 0.203295,
+          "mean": 0.201948,
+          "min": 0.200995,
+          "std": 0.000979,
+          "values": [
+            0.201555,
+            0.200995,
+            0.203295
+          ]
+        },
+        "ndcg@20": {
+          "max": 0.223161,
+          "mean": 0.221622,
+          "min": 0.220607,
+          "std": 0.001106,
+          "values": [
+            0.221099,
+            0.220607,
+            0.223161
+          ]
+        },
+        "recall@10": {
+          "max": 0.157504,
+          "mean": 0.15606,
+          "min": 0.154985,
+          "std": 0.001061,
+          "values": [
+            0.154985,
+            0.155692,
+            0.157504
+          ]
+        },
+        "recall@100": {
+          "max": 0.517621,
+          "mean": 0.514901,
+          "min": 0.51141,
+          "std": 0.002594,
+          "values": [
+            0.51141,
+            0.515672,
+            0.517621
+          ]
+        },
+        "recall@200": {
+          "max": 0.637528,
+          "mean": 0.637528,
+          "min": 0.637528,
+          "std": 0.0,
+          "values": [
+            0.637528,
+            0.637528,
+            0.637528
+          ]
+        }
+      },
+      "candidate_set": "pctm_two_tower",
+      "coverage@10_mean": 0.49741,
+      "feature_names": [
+        "item_item_score",
+        "item_item_rank",
+        "two_tower_score",
+        "two_tower_rank",
+        "pctm_score",
+        "pctm_rank",
+        "in_both",
+        "item_popularity",
+        "item_recency",
+        "item_year",
+        "user_n_ratings",
+        "user_mean_rating",
+        "user_std_rating",
+        "genre_action",
+        "genre_adventure",
+        "genre_animation",
+        "genre_children",
+        "genre_comedy",
+        "genre_crime",
+        "genre_documentary",
+        "genre_drama",
+        "genre_fantasy",
+        "genre_film_noir",
+        "genre_horror",
+        "genre_imax",
+        "genre_musical",
+        "genre_mystery",
+        "genre_romance",
+        "genre_sci_fi",
+        "genre_thriller",
+        "genre_war",
+        "genre_western",
+        "genre_no_genres_listed",
+        "affinity_action",
+        "affinity_adventure",
+        "affinity_animation",
+        "affinity_children",
+        "affinity_comedy",
+        "affinity_crime",
+        "affinity_documentary",
+        "affinity_drama",
+        "affinity_fantasy",
+        "affinity_film_noir",
+        "affinity_horror",
+        "affinity_imax",
+        "affinity_musical",
+        "affinity_mystery",
+        "affinity_romance",
+        "affinity_sci_fi",
+        "affinity_thriller",
+        "affinity_war",
+        "affinity_western",
+        "affinity_no_genres_listed",
+        "demo_gender",
+        "demo_age",
+        "demo_occupation",
+        "demo_region",
+        "group_age_pos_rate",
+        "group_age_pop_share",
+        "group_gender_pos_rate",
+        "group_gender_pop_share",
+        "group_occupation_pos_rate",
+        "group_occupation_pop_share"
+      ],
+      "n_features": 63,
+      "ndcg@10_mean": 0.201948,
+      "ndcg@10_std": 0.000979,
+      "per_seed": [
+        {
+          "best_iteration": 16,
+          "coverage@10": 0.501773,
+          "ndcg@10": 0.201555,
+          "ndcg@10_ci": {
+            "high": 0.206673,
+            "low": 0.196606,
+            "mean": 0.201555
+          },
+          "recall@10": 0.154985,
+          "seed": 42
+        },
+        {
+          "best_iteration": 37,
+          "coverage@10": 0.500682,
+          "ndcg@10": 0.200995,
+          "ndcg@10_ci": {
+            "high": 0.206251,
+            "low": 0.195981,
+            "mean": 0.200995
+          },
+          "recall@10": 0.155692,
+          "seed": 43
+        },
+        {
+          "best_iteration": 82,
+          "coverage@10": 0.489774,
+          "ndcg@10": 0.203295,
+          "ndcg@10_ci": {
+            "high": 0.208604,
+            "low": 0.198113,
+            "mean": 0.203295
+          },
+          "recall@10": 0.157504,
+          "seed": 44
+        }
+      ],
+      "primary_ndcg@10_ci": {
+        "high": 0.206673,
+        "low": 0.196606,
+        "mean": 0.201555
+      },
+      "recall@10_mean": 0.15606,
+      "top_feature_gains": [
+        {
+          "feature": "pctm_rank",
+          "gain": 53238.477362
+        },
+        {
+          "feature": "two_tower_rank",
+          "gain": 11144.577991
+        },
+        {
+          "feature": "pctm_score",
+          "gain": 6470.065523
+        },
+        {
+          "feature": "item_item_score",
+          "gain": 3354.380095
+        },
+        {
+          "feature": "group_age_pop_share",
+          "gain": 1406.199501
+        },
+        {
+          "feature": "two_tower_score",
+          "gain": 1394.165396
+        },
+        {
+          "feature": "user_n_ratings",
+          "gain": 1264.098894
+        },
+        {
+          "feature": "item_item_rank",
+          "gain": 618.991508
+        },
+        {
+          "feature": "item_popularity",
+          "gain": 571.695095
+        },
+        {
+          "feature": "group_gender_pos_rate",
+          "gain": 558.089701
+        },
+        {
+          "feature": "affinity_drama",
+          "gain": 544.078897
+        },
+        {
+          "feature": "group_gender_pop_share",
+          "gain": 535.098505
+        }
+      ]
+    },
+    "seq_off": {
+      "across_seeds": {
+        "coverage@10": {
+          "max": 0.515135,
+          "mean": 0.509954,
+          "min": 0.506409,
+          "std": 0.003746,
+          "values": [
+            0.508317,
+            0.515135,
+            0.506409
+          ]
+        },
+        "ndcg@10": {
+          "max": 0.202685,
+          "mean": 0.202149,
+          "min": 0.201422,
+          "std": 0.000533,
+          "values": [
+            0.201422,
+            0.20234,
+            0.202685
+          ]
+        },
+        "ndcg@20": {
+          "max": 0.221551,
+          "mean": 0.220925,
+          "min": 0.220032,
+          "std": 0.000648,
+          "values": [
+            0.220032,
+            0.221193,
+            0.221551
+          ]
+        },
+        "recall@10": {
+          "max": 0.156137,
+          "mean": 0.155884,
+          "min": 0.155407,
+          "std": 0.000337,
+          "values": [
+            0.155407,
+            0.156137,
+            0.156108
+          ]
+        },
+        "recall@100": {
+          "max": 0.515408,
+          "mean": 0.513349,
+          "min": 0.512221,
+          "std": 0.001458,
+          "values": [
+            0.512417,
+            0.512221,
+            0.515408
+          ]
+        },
+        "recall@200": {
+          "max": 0.637528,
+          "mean": 0.637528,
+          "min": 0.637528,
+          "std": 0.0,
+          "values": [
+            0.637528,
+            0.637528,
+            0.637528
+          ]
+        }
+      },
+      "candidate_set": "pctm_two_tower",
+      "coverage@10_mean": 0.509954,
+      "feature_names": [
+        "item_item_score",
+        "item_item_rank",
+        "two_tower_score",
+        "two_tower_rank",
+        "pctm_score",
+        "pctm_rank",
+        "in_both",
+        "item_popularity",
+        "item_recency",
+        "item_year",
+        "user_n_ratings",
+        "user_mean_rating",
+        "user_std_rating",
+        "genre_action",
+        "genre_adventure",
+        "genre_animation",
+        "genre_children",
+        "genre_comedy",
+        "genre_crime",
+        "genre_documentary",
+        "genre_drama",
+        "genre_fantasy",
+        "genre_film_noir",
+        "genre_horror",
+        "genre_imax",
+        "genre_musical",
+        "genre_mystery",
+        "genre_romance",
+        "genre_sci_fi",
+        "genre_thriller",
+        "genre_war",
+        "genre_western",
+        "genre_no_genres_listed",
+        "affinity_action",
+        "affinity_adventure",
+        "affinity_animation",
+        "affinity_children",
+        "affinity_comedy",
+        "affinity_crime",
+        "affinity_documentary",
+        "affinity_drama",
+        "affinity_fantasy",
+        "affinity_film_noir",
+        "affinity_horror",
+        "affinity_imax",
+        "affinity_musical",
+        "affinity_mystery",
+        "affinity_romance",
+        "affinity_sci_fi",
+        "affinity_thriller",
+        "affinity_war",
+        "affinity_western",
+        "affinity_no_genres_listed"
+      ],
+      "n_features": 53,
+      "ndcg@10_mean": 0.202149,
+      "ndcg@10_std": 0.000533,
+      "per_seed": [
+        {
+          "best_iteration": 40,
+          "coverage@10": 0.508317,
+          "ndcg@10": 0.201422,
+          "ndcg@10_ci": {
+            "high": 0.206814,
+            "low": 0.196142,
+            "mean": 0.201422
+          },
+          "recall@10": 0.155407,
+          "seed": 42
+        },
+        {
+          "best_iteration": 30,
+          "coverage@10": 0.515135,
+          "ndcg@10": 0.20234,
+          "ndcg@10_ci": {
+            "high": 0.207576,
+            "low": 0.197222,
+            "mean": 0.20234
+          },
+          "recall@10": 0.156137,
+          "seed": 43
+        },
+        {
+          "best_iteration": 70,
+          "coverage@10": 0.506409,
+          "ndcg@10": 0.202685,
+          "ndcg@10_ci": {
+            "high": 0.208131,
+            "low": 0.197485,
+            "mean": 0.202685
+          },
+          "recall@10": 0.156108,
+          "seed": 44
+        }
+      ],
+      "primary_ndcg@10_ci": {
+        "high": 0.206814,
+        "low": 0.196142,
+        "mean": 0.201422
+      },
+      "recall@10_mean": 0.155884,
+      "top_feature_gains": [
+        {
+          "feature": "pctm_rank",
+          "gain": 68084.261482
+        },
+        {
+          "feature": "two_tower_rank",
+          "gain": 13228.944073
+        },
+        {
+          "feature": "pctm_score",
+          "gain": 10346.977844
+        },
+        {
+          "feature": "item_item_score",
+          "gain": 5509.404289
+        },
+        {
+          "feature": "item_popularity",
+          "gain": 3114.393806
+        },
+        {
+          "feature": "two_tower_score",
+          "gain": 1961.255005
+        },
+        {
+          "feature": "user_n_ratings",
+          "gain": 1768.517498
+        },
+        {
+          "feature": "item_item_rank",
+          "gain": 1042.897589
+        },
+        {
+          "feature": "affinity_drama",
+          "gain": 808.123799
+        },
+        {
+          "feature": "user_mean_rating",
+          "gain": 653.049205
+        },
+        {
+          "feature": "affinity_romance",
+          "gain": 641.521708
+        },
+        {
+          "feature": "affinity_action",
+          "gain": 573.458899
+        }
+      ]
+    }
+  }
+}

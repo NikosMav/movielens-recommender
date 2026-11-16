@@ -94,8 +94,17 @@ class PCTMRecommender:
         self._log_evidence: sparse.csr_matrix | None = None
         self._log_pop: np.ndarray | None = None
 
-    def fit(self, train: pd.DataFrame) -> PCTMRecommender:
-        """Count forward causal transitions on ``train`` and build sparse log-evidence."""
+    def fit(self, train: pd.DataFrame, *, chunk_users: int | None = None) -> PCTMRecommender:
+        """Count forward causal transitions on ``train`` and build sparse log-evidence.
+
+        ``chunk_users`` folds the pair list into the count matrix every that many
+        users, which bounds the temporary memory (the live demo's case). ``None``
+        builds one list for all users, as the committed experiments did. The two
+        paths add the same terms in a different order, so counts can differ in
+        the last float bits.
+        """
+        if chunk_users is not None and chunk_users < 1:
+            raise ValueError("chunk_users must be >= 1")
         ordered = train.sort_values(["user_id", "timestamp"], kind="mergesort")
         items = np.sort(ordered["item_id"].unique().astype(np.int64))
         self._item_ids = items
@@ -109,8 +118,26 @@ class PCTMRecommender:
         vals_all: list[np.ndarray] = []
         histories: dict[int, np.ndarray] = {}
         seen: dict[int, np.ndarray] = {}
+        counts = sparse.csr_matrix((n_items, n_items), dtype=np.float64)
 
-        for uid, group in ordered.groupby("user_id", sort=False):
+        def flush(total: sparse.csr_matrix) -> sparse.csr_matrix:
+            if not rows_all:
+                return total
+            part = sparse.csr_matrix(
+                (
+                    np.concatenate(vals_all),
+                    (np.concatenate(rows_all), np.concatenate(cols_all)),
+                ),
+                shape=(n_items, n_items),
+                dtype=np.float64,
+            )
+            part.sum_duplicates()
+            rows_all.clear()
+            cols_all.clear()
+            vals_all.clear()
+            return part if total.nnz == 0 else (total + part).tocsr()
+
+        for position, (uid, group) in enumerate(ordered.groupby("user_id", sort=False), start=1):
             uid_i = int(uid)
             seq = group["item_id"].map(self._item_index).to_numpy(dtype=np.int32)
             ratings = group["rating"].to_numpy(dtype=np.float64)
@@ -131,19 +158,9 @@ class PCTMRecommender:
                     vals_all.append(
                         np.full(int(pos_target.sum()), gammas[d - 1], dtype=np.float64)
                     )
-
-        if rows_all:
-            counts = sparse.csr_matrix(
-                (
-                    np.concatenate(vals_all),
-                    (np.concatenate(rows_all), np.concatenate(cols_all)),
-                ),
-                shape=(n_items, n_items),
-                dtype=np.float64,
-            )
-            counts.sum_duplicates()
-        else:
-            counts = sparse.csr_matrix((n_items, n_items), dtype=np.float64)
+            if chunk_users is not None and position % chunk_users == 0:
+                counts = flush(counts)
+        counts = flush(counts)
 
         self._counts = counts
         self._user_histories = histories
@@ -151,6 +168,15 @@ class PCTMRecommender:
         pop = (freq + 1.0) / (float(freq.sum()) + float(n_items))
         self._log_pop = np.log(pop)
         self._rebuild_log_evidence()
+        return self
+
+    def release_counts(self) -> PCTMRecommender:
+        """Drop the raw count matrix once scoring parameters are final.
+
+        Scoring reads only the log-evidence. :meth:`set_scoring_params` with a
+        new ``smoothing_tau`` needs the counts and fails after this call.
+        """
+        self._counts = None
         return self
 
     def _rebuild_log_evidence(self) -> None:
@@ -171,14 +197,8 @@ class PCTMRecommender:
         self.pop_beta = float(pop_beta)
         return self
 
-    def recommend(self, user_id: int, n: int) -> list[int]:
-        if n <= 0 or self._log_evidence is None or self._log_pop is None:
-            return []
-        uid = int(user_id)
-        hist = self._user_histories.get(uid)
-        if hist is None or len(hist) == 0:
-            return []
-        # Newest item is hist[-1], corresponding to j=1 in head_tail_kernel.
+    def _query(self, hist: np.ndarray) -> sparse.csr_matrix:
+        """Recency weights over one history as a 1 x n_items row (newest item first)."""
         recent_first = hist[::-1]
         weights = head_tail_kernel(
             len(recent_first),
@@ -186,21 +206,91 @@ class PCTMRecommender:
             head_mass=self.head_mass,
             head_decay=self.head_decay,
         )
-        # Aggregate weights if a user rated the same item twice (cleaned data has unique pairs).
-        n_items = len(self._item_ids)
-        query = sparse.csr_matrix(
+        # Duplicate columns are summed. Cleaned data has one row per (user, item).
+        return sparse.csr_matrix(
             (weights, (np.zeros(len(recent_first), dtype=np.int32), recent_first)),
-            shape=(1, n_items),
+            shape=(1, len(self._item_ids)),
             dtype=np.float64,
         )
-        scores = np.asarray((query @ self._log_evidence).toarray(), dtype=np.float64).ravel()
+
+    def _user_scores(self, uid: int) -> np.ndarray | None:
+        """Scores over the catalog with seen items at ``-inf``. None for an unknown user."""
+        if self._log_evidence is None or self._log_pop is None:
+            return None
+        hist = self._user_histories.get(uid)
+        if hist is None or len(hist) == 0:
+            return None
+        scores = np.asarray(
+            (self._query(hist) @ self._log_evidence).toarray(), dtype=np.float64
+        ).ravel()
         if self.pop_beta != 0.0:
             scores = scores + self.pop_beta * self._log_pop
         seen_cols = self._seen.get(uid)
         if seen_cols is not None and len(seen_cols):
             scores[seen_cols] = -np.inf
+        return scores
+
+    def recommend(self, user_id: int, n: int) -> list[int]:
+        if n <= 0:
+            return []
+        scores = self._user_scores(int(user_id))
+        if scores is None:
+            return []
         chosen = top_n_indices(scores, n)
         return [int(self._item_ids[int(i)]) for i in chosen]
+
+    def topk_with_scores(
+        self,
+        n: int,
+        user_ids: Sequence[int] | None = None,
+    ) -> dict[int, list[tuple[int, float]]]:
+        """Top-n ``(item_id, score)`` per fit user, excluding seen train items.
+
+        The item order matches :meth:`recommend`.
+        """
+        if n <= 0:
+            return {}
+        if user_ids is None:
+            wanted = list(self._user_histories.keys())
+        else:
+            wanted = [int(uid) for uid in user_ids if int(uid) in self._user_histories]
+        out: dict[int, list[tuple[int, float]]] = {}
+        for uid in wanted:
+            scores = self._user_scores(uid)
+            if scores is None:
+                continue
+            out[uid] = [
+                (int(self._item_ids[int(j)]), float(scores[int(j)]))
+                for j in top_n_indices(scores, n)
+                if np.isfinite(scores[int(j)])
+            ]
+        return out
+
+    def topk_for_user(self, user_id: int, n: int) -> list[tuple[int, float]]:
+        """Top-n ``(item_id, score)`` for one fit user. Empty for an unknown user."""
+        return self.topk_with_scores(n, [int(user_id)]).get(int(user_id), [])
+
+    def evidence(self, user_id: int, item_id: int, n: int = 2) -> list[tuple[int, float]]:
+        """The history films that add most to one item's score, largest first.
+
+        Each pair is ``(history item id, recency weight x log-evidence)``. Films
+        with no counted transition to ``item_id`` are left out.
+        """
+        if n <= 0 or self._log_evidence is None:
+            return []
+        hist = self._user_histories.get(int(user_id))
+        col = self._item_index.get(int(item_id))
+        if hist is None or len(hist) == 0 or col is None:
+            return []
+        query = self._query(hist)
+        column = np.asarray(self._log_evidence[:, col].toarray(), dtype=np.float64).ravel()
+        parts = [
+            (int(src), float(weight) * float(column[int(src)]))
+            for src, weight in zip(query.indices, query.data, strict=True)
+            if column[int(src)] > 0.0
+        ]
+        parts.sort(key=lambda row: (-row[1], row[0]))
+        return [(int(self._item_ids[src]), value) for src, value in parts[:n]]
 
     def hyperparams(self) -> dict[str, Any]:
         return {

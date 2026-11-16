@@ -45,6 +45,9 @@ from movielens_recommender.two_tower.model import TwoTowerModel
 from movielens_recommender.two_tower.recommender import TwoTowerRecommender
 
 SPACE_WEIGHTS_VERSION = 1
+# The optional larger-catalogue tree inside the archive (ADR-0034).
+EXTENDED_DIR = "extended"
+CATALOG_WEIGHTS_VERSION = 1
 
 # Gzip of production/ and cold_start/. This GitHub repo gitignores the file.
 WEIGHTS_ARCHIVE_NAME = "space-weights.tar.gz"
@@ -233,6 +236,12 @@ def materialize_space(
     weights_root = Path(weights_root)
     runtime_dir = Path(runtime_dir)
     runtime_dir.mkdir(parents=True, exist_ok=True)
+    # Snapshots are rebuilt on every start. Clear the last ones first, so a file a
+    # newer archive no longer writes cannot fail the snapshot checksum.
+    import shutil
+
+    for name in ("production", "cold_start", EXTENDED_DIR):
+        shutil.rmtree(runtime_dir / name, ignore_errors=True)
     if ratings is None:
         ratings, movies, users, data_dir = _download_ml1m(
             Path(data_dir) if data_dir is not None else runtime_dir / "data"
@@ -261,7 +270,67 @@ def materialize_space(
             ratings=cold_ratings,
             movies=cold_movies,
         )
+    if data_dir is not None and (weights_root / EXTENDED_DIR / "manifest.json").is_file():
+        # Optional (ADR-0034). A failure here leaves Discover on the ml-1m catalogue.
+        try:
+            materialize_extended(
+                weights_root / EXTENDED_DIR, runtime_dir / EXTENDED_DIR, data_dir=data_dir
+            )
+        except Exception:
+            import shutil
+
+            shutil.rmtree(runtime_dir / EXTENDED_DIR, ignore_errors=True)
     return production, cold_runtime
+
+
+def materialize_extended(
+    weights_dir: Path | str,
+    runtime_dir: Path | str,
+    *,
+    data_dir: Path | str | None = None,
+    movies: pd.DataFrame | None = None,
+) -> Path:
+    """Write the larger-catalogue snapshot (ADR-0034) from its parameter files.
+
+    The parameters are a neighbourhood matrix and per-film rating counts.
+    Titles come from ``movies``, or from the ``ml-latest-small`` download in
+    ``data_dir``. Films the title file does not list are left out of search
+    and shelves, and still score as neighbours.
+    """
+    from movielens_recommender.serving.cold import save_catalog_bundle
+
+    weights_dir = Path(weights_dir)
+    manifest = _read_json(weights_dir / "manifest.json")
+    if not manifest.get("weights_only") or str(manifest.get("kind")) != "catalog":
+        raise ValueError("manifest is not a weights-only catalog snapshot")
+    if int(manifest.get("catalog_weights_version", -1)) != CATALOG_WEIGHTS_VERSION:
+        raise ValueError("catalog_weights_version does not match this runtime")
+    if movies is None:
+        from movielens_recommender.data import download_dataset
+        from movielens_recommender.movies import load_movies
+
+        titles = str(manifest.get("titles_dataset", "ml-latest-small"))
+        if data_dir is None:
+            raise ValueError("data_dir is required to download the title file")
+        download_dataset(titles, data_dir)
+        movies = load_movies(titles, data_dir)
+    item_ids = np.load(weights_dir / "item_ids.npy").astype(np.int64)
+    listed = set(movies["item_id"].astype(int).tolist()) & set(item_ids.tolist())
+    if len(listed) < 0.9 * len(item_ids):
+        raise ValueError("the title file does not list this catalogue")
+    return save_catalog_bundle(
+        runtime_dir,
+        movies=movies,
+        item_ids=item_ids,
+        similarity=sparse.load_npz(weights_dir / "item_item_similarity.npz"),
+        item_counts=np.load(weights_dir / "item_counts.npy"),
+        hyperparams=_read_json(weights_dir / "item_item_meta.json"),
+        manifest={
+            key: value
+            for key, value in manifest.items()
+            if key not in {"weights_only", "catalog_weights_version", "kind"}
+        },
+    )
 
 
 def _download_ml1m(data_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, Path]:
@@ -286,6 +355,8 @@ def _materialize_production(
     manifest = _read_json(weights_dir / "manifest.json")
     _require_weights_manifest(manifest)
     mode = str(manifest.get("demographics", "off"))
+    if mode == "off":
+        users = None
     if mode != "off" and (users is None or users.empty):
         raise ValueError(f"demographics={mode!r} requires a users frame")
     split = _split_ratings(ratings, manifest["config"])
@@ -303,6 +374,17 @@ def _materialize_production(
     )
     booster, _meta = load_ranker(weights_dir)
     model_names = list(booster.feature_name())
+    pctm = None
+    histories = train.loc[:, ["user_id", "item_id", "rating", "timestamp"]].copy()
+    if manifest.get("pctm"):
+        # ADR-0033. The transition model has no parameter file: it is counted
+        # again from the ratings downloaded at startup.
+        from movielens_recommender.ranker.features import pctm_ranker_feature_names
+        from movielens_recommender.serving.bundle import fit_pctm
+
+        if model_names == pctm_ranker_feature_names(mode):
+            context.names = model_names
+        pctm = fit_pctm(histories, manifest["pctm"])
     if model_names != list(context.names):
         raise ValueError(
             "rebuilt production feature names do not match the ranker "
@@ -311,12 +393,13 @@ def _materialize_production(
     bundle = ServingBundle(
         manifest=_serving_manifest(manifest),
         movies=movies.loc[:, ["item_id", "title", "genres", "year"]].copy(),
-        histories=train.loc[:, ["user_id", "item_id", "rating", "timestamp"]].copy(),
+        histories=histories,
         item_item=item_item,
         two_tower=tower,
         booster=booster,
         context=context,
     )
+    bundle.pctm = pctm
     return save_bundle(bundle, runtime_dir)
 
 
@@ -589,6 +672,24 @@ def _read_json(path: Path) -> dict[str, Any]:
 _READY_WEIGHTS: set[str] = set()
 
 
+# Written beside an extracted tree: the SHA-256 of the archive it came from.
+ARCHIVE_MARKER = ".archive-sha256"
+
+
+def _stale_install(dest: Path, cache_dir: Path, expected: str) -> bool:
+    """True when ``dest`` was extracted from an archive other than the pinned one.
+
+    A tree with a marker is stale when the marker is not ``expected``. A tree
+    with no marker predates markers: it is stale when a downloaded archive is in
+    the cache, because then it came from that download. With no marker and no
+    download it is a tree built by ``make space-snapshot``, and it is kept.
+    """
+    marker = dest / ARCHIVE_MARKER
+    if marker.is_file():
+        return marker.read_text(encoding="utf-8").strip() != expected
+    return cache_dir.is_dir() and any(cache_dir.glob("*.tar.gz"))
+
+
 def _weights_ready(dest: Path) -> bool:
     """True when ``dest`` is an extracted weight tree we already accepted.
 
@@ -624,16 +725,32 @@ def install_space_weights(root: Path | str, *, sha256: str | None = None) -> Pat
     expected = WEIGHTS_SHA256 if sha256 is None else sha256
     cache = root / ".runtime" / "cache" / WEIGHTS_ARCHIVE_NAME
     try:
-        if _weights_ready(dest):
+        if str(dest.resolve()) in _READY_WEIGHTS:
+            return dest
+        stale = (dest / "production" / "manifest.json").is_file() and _stale_install(
+            dest, cache.parent, expected
+        )
+        if not stale and _weights_ready(dest):
             return dest
         payload = _weight_archive_bytes(root / WEIGHTS_ARCHIVE_NAME, cache, expected)
         if payload is None or hashlib.sha256(payload).hexdigest() != expected:
-            return None
+            # The pinned archive is out of reach. An older tree keeps the page up
+            # for this process, and the next start tries the pin again.
+            return dest if stale and _weights_ready(dest) else None
+        if stale:
+            # The pin moved. Replace the old tree only once the new archive is in hand.
+            import shutil
+
+            shutil.rmtree(dest)
         if dest.exists() and any(dest.iterdir()):
             raise ValueError(f"weight destination is not empty: {dest}")
         dest.mkdir(parents=True, exist_ok=True)
         _extract_weight_archive(payload, dest)
         assert_weights_only(dest)
+        (dest / ARCHIVE_MARKER).write_text(expected + "\n", encoding="utf-8")
+        for old in cache.parent.glob("*.tar.gz") if cache.parent.is_dir() else ():
+            if old != cache:
+                old.unlink()
         _READY_WEIGHTS.add(str(dest.resolve()))
     except Exception:
         return None
