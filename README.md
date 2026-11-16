@@ -8,7 +8,7 @@ A movie recommender built from scratch on [MovieLens](https://grouplens.org/data
 
 It covers the path from data to a demo: download and cleaning, a per-user time split, an evaluation harness with bootstrap confidence intervals, classic baselines, a two-tower retrieval model, a LightGBM LambdaRank re-ranker, a Streamlit app that explains each recommendation in plain language and also serves people with no MovieLens history, an HTTP API with batch scoring, monitoring, and a Docker image, and a time-ordered replay that tests when the models need retraining. The same harness runs on ml-latest-small, ml-1m, and MovieLens 32M.
 
-![Live page, existing user: reasons sit beside each poster placeholder](docs/demo/streamlit.png)
+![Discover: search or browse a shelf, rate films with the stars, and collect ratings in the side panel](docs/demo/discover-rate.png)
 
 ## Contents
 
@@ -91,9 +91,11 @@ The [public demo](https://nikosmav-movielens-recommender.streamlit.app/) runs on
 
 Posters use the Streamlit secret `TMDB_API_KEY` when it is set. Without that secret, each card uses a placeholder. The page follows Streamlit's System, Light, and Dark setting.
 
-![Live page, new user: a Comedy shelf with stars on each card](docs/demo/streamlit-new-user.png)
+![Discover: ten picks, each with the rated films behind it and a familiar-to-adventurous slider](docs/demo/discover-picks.png)
 
-![Live page, How good is it: NDCG@10 copied from the committed results JSON](docs/demo/streamlit-quality.png)
+![How good is it: NDCG@10 with uncertainty ranges, read from the committed results JSON](docs/demo/quality.png)
+
+The screenshots were taken from a local run with no `TMDB_API_KEY`, so cards show placeholders. The live page shows posters.
 
 The entrypoint is `space/app.py`. Community Cloud runs `streamlit run` with the repository root as the working directory and looks for dependencies in the entrypoint's directory first. `space/requirements.txt` is that file: pinned versions, Python 3.12, and CPU PyTorch from `--extra-index-url https://download.pytorch.org/whl/cpu`. `packages.txt` at the repo root installs `libgomp1` for LightGBM. In Advanced settings, select Python 3.12.
 
@@ -327,7 +329,7 @@ pytest -q
 ruff check src tests scripts app space
 ```
 
-GitHub Actions runs ruff and pytest on Python 3.10 and 3.12 with the CPU PyTorch wheel. Tests use synthetic data only; `MOVIELENS_ALLOW_DOWNLOAD=0` blocks downloads in CI. A second job builds the Docker image and checks that a container with no snapshot answers `/health` with 503.
+GitHub Actions runs ruff and pytest on Python 3.10 and 3.12 with the CPU PyTorch wheel. Tests use synthetic data only; `MOVIELENS_ALLOW_DOWNLOAD=0` blocks downloads in CI. A second job type-checks and builds the React frontend and verifies the committed `space/astryx_ui` bundle. A third builds the Docker image and checks that a container with no snapshot answers `/health` with 503.
 
 ## Engineering process
 

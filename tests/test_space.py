@@ -543,7 +543,10 @@ def test_copied_space_app_without_weights_does_not_download(tmp_path, monkeypatc
     monkeypatch.setattr(urllib.request, "urlopen", _refuse_weights)
     monkeypatch.setattr(data, "urlopen", _refuse_network)
     monkeypatch.setenv("MOVIELENS_ALLOW_DOWNLOAD", "0")
-    monkeypatch.delitem(sys.modules, "runtime", raising=False)
+    # ``loading`` keeps the directory it was first imported from. A copy cached
+    # by an earlier test would look in the checkout's own ``space/weights``.
+    for name in ("runtime", "loading"):
+        monkeypatch.delitem(sys.modules, name, raising=False)
     monkeypatch.delenv("MOVIELENS_ARTIFACTS", raising=False)
     monkeypatch.delenv("MOVIELENS_COLD_ARTIFACTS", raising=False)
 
@@ -555,4 +558,44 @@ def test_copied_space_app_without_weights_does_not_download(tmp_path, monkeypatc
     blocks = list(app.markdown) + list(app.code) + list(app.caption)
     text = "\n".join(block.value for block in blocks)
     assert "make space-snapshot" in text
+    assert "10.1145/2827872" in text
+
+
+def test_copied_space_app_names_a_failed_dataset_download(
+    artifact_dir, cold_artifact_dir, tmp_path, monkeypatch
+):
+    """Weights are present and ml-1m is unreachable: the page must not blame the weights."""
+    pytest.importorskip("torch")
+    pytest.importorskip("lightgbm")
+    pytest.importorskip("streamlit")
+    from streamlit.testing.v1 import AppTest
+
+    import movielens_recommender.data as data
+
+    def _refuse_network(*_args, **_kwargs):
+        raise OSError("GroupLens is unreachable")
+
+    monkeypatch.setattr(data, "urlopen", _refuse_network)
+    monkeypatch.setattr(urllib.request, "urlopen", _refuse_network)
+    monkeypatch.delenv("MOVIELENS_ALLOW_DOWNLOAD", raising=False)
+    # ``loading`` keeps the directory it was first imported from.
+    for name in ("runtime", "loading"):
+        monkeypatch.delitem(sys.modules, name, raising=False)
+    monkeypatch.delenv("MOVIELENS_ARTIFACTS", raising=False)
+    monkeypatch.delenv("MOVIELENS_COLD_ARTIFACTS", raising=False)
+
+    copy = _copy_space(tmp_path / "space")
+    monkeypatch.setenv("MOVIELENS_SPACE_RUNTIME", str(tmp_path / "runtime"))
+    _load_runtime().export_space_weights(
+        artifact_dir, cold_artifact_dir, copy / "weights", cold_train_protocol="caller"
+    )
+    app = AppTest.from_file(str(copy / "app.py"))
+    app.run(timeout=120)
+    assert not app.exception
+    text = "\n".join(
+        block.value for block in list(app.markdown) + list(app.code) + list(app.caption)
+    )
+    assert "could not finish starting" in text
+    assert "GroupLens is unreachable" in text
+    assert "make space-snapshot" not in text
     assert "10.1145/2827872" in text

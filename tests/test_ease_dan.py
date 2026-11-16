@@ -161,7 +161,7 @@ def test_ease_dan_readme_and_quality_panel_match_committed_json(tmp_path):
     block = view["ease_dan"]
     assert block["beats_ease"] == payload["decision"]["beats_ease"]
     assert block["paired_ease_mean"] == payload["paired"]["ease_dan_minus_ease"]["mean"]
-    assert q_mod.rounded(block["paired_ease_mean"]) in q_mod.ease_dan_lead(block)
+    assert q_mod.signed(block["paired_ease_mean"]) in q_mod.ease_dan_lead(block)
     assert q_mod.fmt(block["paired_ease_mean"]) in q_mod.ease_dan_caption(view)
     assert result_path.read_bytes() == before
 

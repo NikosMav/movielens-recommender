@@ -818,6 +818,7 @@ h2[tabindex="-1"]:focus {{
 [class*="st-key-rate-"] [role="radiogroup"] {{
   gap: 4px !important;
   column-gap: 4px !important;
+  flex-wrap: nowrap !important;
   width: max-content !important;
   max-width: 100%;
   background: transparent !important;
@@ -878,7 +879,9 @@ h2[tabindex="-1"]:focus {{
   outline: 2px solid light-dark({light["kicker"]}, {dark["kicker"]});
   outline-offset: 2px;
 }}
-@container film (max-width: 220px) {{
+/* Five 44px stars and four 4px gaps need 236px of card content width.
+   Below that the stars share the row instead of wrapping. */
+@container film (max-width: 236px) {{
   [class*="st-key-film-"] > [class*="st-key-rate-"],
   [class*="st-key-rate-"],
   [class*="st-key-rate-"] [data-testid="stButtonGroup"],

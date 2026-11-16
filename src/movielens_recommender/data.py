@@ -45,6 +45,8 @@ CSV_DATASETS = frozenset({"ml-latest-small", "ml-32m"})
 
 LICENSE_URL = "https://grouplens.org/datasets/movielens/"
 DEFAULT_DATA_DIR = Path("data")
+# Per socket operation (connect, each read), not for the whole archive.
+DOWNLOAD_TIMEOUT_SECONDS = 120
 
 # MovieLens 1M age codes are buckets, not raw ages. The labels are the
 # GroupLens README legend. Codes used as LightGBM categoricals are
@@ -250,7 +252,8 @@ def download_dataset(
     root.mkdir(parents=True, exist_ok=True)
 
     url = DATASET_URLS[name]
-    with urlopen(url) as resp:  # noqa: S310 — fixed HTTPS GroupLens URLs only
+    # A timeout, so a stalled GroupLens connection fails instead of hanging the caller.
+    with urlopen(url, timeout=DOWNLOAD_TIMEOUT_SECONDS) as resp:  # noqa: S310 — fixed HTTPS URLs
         payload = resp.read()
 
     digest = _sha256_bytes(payload)

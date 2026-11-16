@@ -324,6 +324,18 @@ def rounded(value: Any) -> str:
     return format(float(value), ".3f")
 
 
+def signed(value: Any) -> str:
+    """A stored paired difference: four decimals and a sign.
+
+    Three decimals print a +0.0004 interval bound as 0.000 and a -0.0003 bound
+    as -0.000, which hides which side of zero the bound is on.
+    """
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise TypeError(f"not a stored number: {value!r}")
+    text = format(float(value), "+.4f")
+    return "0.0000" if text in {"+0.0000", "-0.0000"} else text
+
+
 def rank_models(models: list[dict[str, Any]]) -> dict[str, Any]:
     """Pick the leader from stored NDCG@10 points. Ties break on the model id."""
     ordered = sorted(models, key=lambda row: (-float(row["ndcg@10"]), str(row["model"])))
@@ -403,9 +415,9 @@ def sasrec_lead(block: dict[str, Any]) -> str:
         )
     return (
         f"{verdict} The stored difference in NDCG@10 is "
-        f"{rounded(block['real_minus_shuffled_mean'])} "
-        f"(uncertainty range {rounded(block['real_minus_shuffled_low'])} to "
-        f"{rounded(block['real_minus_shuffled_high'])})."
+        f"{signed(block['real_minus_shuffled_mean'])} "
+        f"(uncertainty range {signed(block['real_minus_shuffled_low'])} to "
+        f"{signed(block['real_minus_shuffled_high'])})."
     )
 
 
@@ -420,8 +432,8 @@ def ease_dan_lead(block: dict[str, Any]) -> str:
         verdict = "EASE-DAN did not beat standard EASE on the stored check."
     return (
         f"{verdict} Paired EASE-DAN minus EASE NDCG@10 is "
-        f"{rounded(block['paired_ease_mean'])} "
-        f"(range {rounded(block['paired_ease_low'])} to {rounded(block['paired_ease_high'])})."
+        f"{signed(block['paired_ease_mean'])} "
+        f"(range {signed(block['paired_ease_low'])} to {signed(block['paired_ease_high'])})."
     )
 
 
@@ -498,8 +510,8 @@ def sequence_modern_lead(block: dict[str, Any]) -> str:
     else:
         verdict = "The pairwise probe stays short of the sequence model on the stored check."
     return (
-        f"{verdict} Pairwise minus sequence NDCG@10 is {rounded(pair['mean'])} "
-        f"(range {rounded(pair['low'])} to {rounded(pair['high'])})."
+        f"{verdict} Pairwise minus sequence NDCG@10 is {signed(pair['mean'])} "
+        f"(range {signed(pair['low'])} to {signed(pair['high'])})."
     )
 
 
@@ -634,8 +646,8 @@ def ranker_ease_dan_lead(block: dict[str, Any]) -> str:
         extra = " The demographics-off comparison also stays short of that lift."
     return (
         f"{verdict}{extra} Paired three-retriever minus two-retriever NDCG@10, "
-        f"demographics on, is {rounded(pair['mean'])} "
-        f"(range {rounded(pair['low'])} to {rounded(pair['high'])})."
+        f"demographics on, is {signed(pair['mean'])} "
+        f"(range {signed(pair['low'])} to {signed(pair['high'])})."
     )
 
 

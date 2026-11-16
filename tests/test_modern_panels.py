@@ -50,7 +50,7 @@ def test_sequence_and_slider_panels_match_committed_json(tmp_path):
     assert pair["mean"] == stored["mean"]
     lead = quality.sequence_modern_lead(block)
     caption = quality.sequence_modern_caption(view)
-    assert quality.rounded(pair["mean"]) in lead
+    assert quality.signed(pair["mean"]) in lead
     assert quality.fmt(pair["mean"]) in caption
     slider_block = view["slider"]
     assert slider_block["n"] == 5
@@ -70,7 +70,7 @@ def test_sequence_and_slider_panels_match_committed_json(tmp_path):
     ranker_block = view["ranker_ease_dan"]
     paired = ranker_block["paired"]["tri_both_minus_bi_both"]
     assert paired["mean"] == ranker["paired"]["tri_both_minus_bi_both"]["mean"]
-    assert quality.rounded(paired["mean"]) in quality.ranker_ease_dan_lead(ranker_block)
+    assert quality.signed(paired["mean"]) in quality.ranker_ease_dan_lead(ranker_block)
     assert quality.fmt(paired["mean"]) in quality.ranker_ease_dan_caption(view)
     assert ranker_path.read_bytes() == ranker_before
     assert (sequence_path.read_bytes(), slider_path.read_bytes()) == before

@@ -241,7 +241,25 @@ def _downloaded_weights() -> Path | None:
     return install_space_weights(_SPACE_DIR)
 
 
+# Why the last ``resolve_snapshots`` call returned None: ``stage`` is "weights"
+# (no usable parameter archive) or "data" (the archive loaded, then the ml-1m
+# download or the snapshot rebuild failed). Empty after a success.
+_FAILURE: dict[str, str] = {}
+
+
+def last_failure() -> dict[str, str]:
+    return dict(_FAILURE)
+
+
+def _failed(stage: str, exc: BaseException | None = None) -> None:
+    _FAILURE.clear()
+    _FAILURE["stage"] = stage
+    if exc is not None:
+        _FAILURE["detail"] = f"{type(exc).__name__}: {exc}"
+
+
 def resolve_snapshots() -> tuple[Path, Path] | None:
+    _FAILURE.clear()
     prod_env = os.environ.get("MOVIELENS_ARTIFACTS")
     cold_env = os.environ.get("MOVIELENS_COLD_ARTIFACTS")
     if prod_env and usable_snapshot(Path(prod_env)):
@@ -250,12 +268,15 @@ def resolve_snapshots() -> tuple[Path, Path] | None:
         return prod, cold
     try:
         weights = _downloaded_weights()
-    except Exception:
+    except Exception as exc:
+        _failed("weights", exc)
         return None
     if weights is None:
+        _failed("weights")
         return None
     try:
         prod_str, cold_str = _materialize(str(weights), str(runtime_root()))
-    except Exception:
+    except Exception as exc:
+        _failed("data", exc)
         return None
     return Path(prod_str), Path(cold_str)

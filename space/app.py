@@ -18,6 +18,7 @@ if str(_SPACE_DIR) not in sys.path:
 
 from cards import THEME_CSS, footer_html, load_logo_svg, section_scroll_script  # noqa: E402
 from loading import (  # noqa: E402
+    last_failure,
     resolve_snapshots,
     tmdb_api_key,
     usable_snapshot,
@@ -51,6 +52,17 @@ def _missing(prod: Path, cold: Path) -> None:
     st.caption(f"Looked in `{prod}` and `{cold}`.")
 
 
+def _data_failed(detail: str) -> None:
+    """The parameters loaded. The ml-1m download or the rebuild after it did not."""
+    st.markdown(
+        "The model parameters loaded, but the demo could not finish starting. "
+        "It downloads MovieLens ml-1m from GroupLens and rebuilds its lookup "
+        "tables from that file. That step failed. Reload the page to try again."
+    )
+    if detail:
+        st.code(detail, language="text")
+
+
 def _footer(api_key: str) -> None:
     st.caption(_CITATION)
     logo = load_logo_svg(_SPACE_DIR / "tmdb_blue_short.svg")
@@ -73,7 +85,11 @@ def main() -> None:
         cold_env = os.environ.get("MOVIELENS_COLD_ARTIFACTS")
         prod = Path(prod_env) if prod_env else weights_root() / "production"
         cold = Path(cold_env) if cold_env else weights_root() / "cold_start"
-        _missing(prod, cold)
+        failure = last_failure()
+        if failure.get("stage") == "data":
+            _data_failed(failure.get("detail", ""))
+        else:
+            _missing(prod, cold)
         _footer(api_key)
         return
 
