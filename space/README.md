@@ -10,11 +10,11 @@ The GroupLens ml-1m README says the dataset may be used for research under these
 
 ## Weights
 
-The app looks first for `space-weights.tar.gz` next to `app.py`. If that file is absent, it downloads the default `WEIGHTS_URL` in `runtime.py` (`https://huggingface.co/NikosMav/movielens-recommender-weights/resolve/main/space-weights.tar.gz`) into `.runtime/cache/` and checks `WEIGHTS_SHA256`. A `WEIGHTS_URL` environment variable overrides that address, and so does a Streamlit secret named `WEIGHTS_URL` when the environment variable is unset. The archive holds item–item and EASE similarity, the two-tower state dict, LightGBM trees, and the item-id column order. It has no rating rows and no user ids. The page then downloads ml-1m from GroupLens and rebuilds the tables those parameters need. It does not train.
+The app looks first for `space-weights.tar.gz` next to `app.py`. If that file is absent, it downloads the default `WEIGHTS_URL` in `runtime.py` (`https://github.com/NikosMav/movielens-recommender/releases/download/weights-v2/space-weights.tar.gz`) into `.runtime/cache/` and checks `WEIGHTS_SHA256`. A `WEIGHTS_URL` environment variable overrides that address, and so does a Streamlit secret named `WEIGHTS_URL` when the environment variable is unset. The archive holds item–item and EASE similarity, the two-tower state dict, LightGBM trees, and the item-id column order. It has no rating rows and no user ids. The page then downloads ml-1m from GroupLens and rebuilds the tables those parameters need. It does not train.
 
 If the file is missing or the checksum fails, the page shows `make space-snapshot` and stops. It does not download MovieLens in that case.
 
-`make space-snapshot`, from a checkout of [NikosMav/movielens-recommender](https://github.com/NikosMav/movielens-recommender) with the `rank`, `deep`, and `ui` extras, writes gitignored `space/weights/` and does not rewrite `results/`. Pack `production/` and `cold_start/` into `space-weights.tar.gz`. This GitHub repo does not commit that archive. The default download is the file `space-weights.tar.gz` on `NikosMav/movielens-recommender-weights`.
+`make space-snapshot`, from a checkout of [NikosMav/movielens-recommender](https://github.com/NikosMav/movielens-recommender) with the `rank`, `deep`, and `ui` extras, writes gitignored `space/weights/` and does not rewrite `results/`. Pack `production/` and `cold_start/` into `space-weights.tar.gz`. This GitHub repo does not commit that archive. The default download is the `space-weights.tar.gz` asset of the `weights-v2` release of this repository. `python scripts/pack_space_weights.py` packs that file from a production snapshot and an existing new-user tree, and prints the SHA-256 to pin.
 
 ## Streamlit Community Cloud
 

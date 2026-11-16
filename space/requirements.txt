@@ -10,4 +10,4 @@ implicit==0.7.3
 matplotlib==3.10.1
 lightgbm==4.6.0
 streamlit==1.65.0
-movielens-recommender @ git+https://github.com/NikosMav/movielens-recommender.git@962675f136c1bc2971f496c959c2faacee9fac9b
+movielens-recommender @ git+https://github.com/NikosMav/movielens-recommender.git@60e3e2548c03e2581fcf5cdf78bccd533d6d2371

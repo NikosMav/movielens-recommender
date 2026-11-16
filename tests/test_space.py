@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 SPACE = Path(__file__).resolve().parents[1] / "space"
-_PIN = "962675f136c1bc2971f496c959c2faacee9fac9b"
+_PIN = "60e3e2548c03e2581fcf5cdf78bccd533d6d2371"
 _DEMO_REASON = (
     "demo_",
     "group_",
@@ -92,13 +92,14 @@ def test_space_readme_and_requirements_pin():
     assert "COPY app.py runtime.py space-weights.tar.gz" in dockerfile
     runtime_source = (SPACE / "runtime.py").read_text(encoding="utf-8")
     assert runtime_source.count("WEIGHTS_URL = (") == 1
-    assert "huggingface.co/NikosMav/movielens-recommender-weights/" in runtime_source
-    assert "resolve/main/space-weights.tar.gz" in runtime_source
-    assert "releases/download/" not in runtime_source
+    # One pinned GitHub Release asset (ADR-0033). The tag names the archive version.
+    assert "github.com/NikosMav/movielens-recommender/releases/download/" in runtime_source
+    assert "weights-v2/space-weights.tar.gz" in runtime_source
+    assert "huggingface.co" not in runtime_source
     assert "hf_hub_download" not in runtime_source
     assert "HF_TOKEN" not in runtime_source
     assert (
-        "f6cbc0d77d435834493b85835215211874307d827ac2910121894bb56be7dbfd"
+        "19ac85cf113f9de8e6962dfadab365bfcf9c35eaf0acb89fccc66961085031c2"
         in runtime_source
     )
     assert "fit_two_tower_recommender" not in runtime_source
@@ -286,7 +287,7 @@ def test_weights_url_env_overrides_secret_and_default(tmp_path, monkeypatch):
     assert runtime.install_space_weights(root) is None
     assert seen["url"] == "https://env.example/space-weights.tar.gz"
     assert runtime.WEIGHTS_SHA256 == (
-        "f6cbc0d77d435834493b85835215211874307d827ac2910121894bb56be7dbfd"
+        "19ac85cf113f9de8e6962dfadab365bfcf9c35eaf0acb89fccc66961085031c2"
     )
 
 

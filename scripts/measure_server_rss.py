@@ -37,10 +37,10 @@ from urllib.request import urlopen
 ROOT = Path(__file__).resolve().parents[1]
 SPACE = ROOT / "space"
 ARCHIVE_NAME = "space-weights.tar.gz"
-WEIGHTS_SHA256 = "f6cbc0d77d435834493b85835215211874307d827ac2910121894bb56be7dbfd"
+WEIGHTS_SHA256 = "19ac85cf113f9de8e6962dfadab365bfcf9c35eaf0acb89fccc66961085031c2"
 WEIGHTS_URL = (
-    "https://huggingface.co/NikosMav/movielens-recommender-weights/"
-    "resolve/main/space-weights.tar.gz"
+    "https://github.com/NikosMav/movielens-recommender/releases/download/"
+    "weights-v2/space-weights.tar.gz"
 )
 ML1M_SHA256 = "a6898adb50b9ca05aa231689da44c217cb524e7ebd39d264c56e2832f2c54e20"
 ML1M_URL = "https://files.grouplens.org/datasets/movielens/ml-1m.zip"

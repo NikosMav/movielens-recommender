@@ -81,4 +81,6 @@ A rebuild from the exported parameter files, done the way the demo starts, retur
 
 `results/serving/ml-1m.json` was measured on the earlier ranker and is not rewritten here. On this host a warm explained request for one viewer took about 36 ms with the new snapshot.
 
+The new archive is the `space-weights.tar.gz` asset of the `weights-v2` GitHub Release of this repository, SHA-256 `19ac85cf113f9de8e6962dfadab365bfcf9c35eaf0acb89fccc66961085031c2`, 119,950,419 bytes, with its production snapshot built from commit `60e3e25`. The first archive stays on Hugging Face (SHA-256 `f6cbc0d77d435834493b85835215211874307d827ac2910121894bb56be7dbfd`), and ADR-0020 through ADR-0032 refer to that one. A rebuild from the release file returned the same top 10 as the full snapshot for 10 of 10 checked viewers, and the same new-user list as before.
+
 The demo installs parameters by checksum. An extracted tree now records the archive it came from, so a moved pin replaces it on the next start, and an archive host that is down leaves the previous tree serving.

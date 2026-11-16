@@ -52,10 +52,10 @@ CATALOG_WEIGHTS_VERSION = 1
 # Gzip of production/ and cold_start/. This GitHub repo gitignores the file.
 WEIGHTS_ARCHIVE_NAME = "space-weights.tar.gz"
 WEIGHTS_URL = (
-    "https://huggingface.co/NikosMav/movielens-recommender-weights/"
-    "resolve/main/space-weights.tar.gz"
+    "https://github.com/NikosMav/movielens-recommender/releases/download/"
+    "weights-v2/space-weights.tar.gz"
 )
-WEIGHTS_SHA256 = "f6cbc0d77d435834493b85835215211874307d827ac2910121894bb56be7dbfd"
+WEIGHTS_SHA256 = "19ac85cf113f9de8e6962dfadab365bfcf9c35eaf0acb89fccc66961085031c2"
 
 # Files a full serving snapshot writes that must not be uploaded with the Space.
 OMITTED_FILES: tuple[str, ...] = (
