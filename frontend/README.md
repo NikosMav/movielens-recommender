@@ -24,7 +24,7 @@ the archived bundle matches its source. The separate local build uses FastAPI.
 ## Run locally
 
 Start FastAPI from the repository root with the Python API dependencies and
-both serving snapshots available. See [the serving setup](../README.md#serve-over-http-batch-and-docker)
+both serving snapshots available. See [the serving setup](../docs/serving.md#serve-over-http-batch-and-docker)
 for snapshot commands and environment variables.
 
 ```sh

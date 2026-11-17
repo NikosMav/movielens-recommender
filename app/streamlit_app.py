@@ -24,7 +24,7 @@ _DEMO_TEXT = re.compile(
 )
 
 DEFAULT_ARTIFACTS = Path("artifacts/ml-1m")
-RESULTS_URL = "https://github.com/NikosMav/movielens-recommender/blob/main/README.md#results"
+RESULTS_URL = "https://github.com/NikosMav/movielens-recommender/blob/main/docs/results.md"
 _N_RECS = 10
 _N_RECENT = 10
 _MIN_NEW_RATINGS = 3
@@ -137,7 +137,7 @@ def _existing_user(path: Path) -> None:
     st.markdown(
         f"Production model on `{dataset}`: candidates from the validation-chosen "
         f"`{candidate_set}` set, re-ranked by LightGBM LambdaRank.{demo_sentence} "
-        f"Recorded metrics are in the [README results]({RESULTS_URL})."
+        f"Recorded metrics are in the [full results]({RESULTS_URL})."
     )
     st.caption(
         "This mode uses an existing MovieLens user. Switch to New user to rate "
@@ -207,7 +207,7 @@ def _new_user(path: Path) -> None:
     st.markdown(
         f"New-user model on `{dataset}`: rate a few films and get a top 10. "
         "The page does not ask for gender, age, occupation, or ZIP. "
-        f"Recorded cold-start metrics are in the [README results]({RESULTS_URL})."
+        f"Recorded cold-start metrics are in the [full results]({RESULTS_URL})."
     )
     st.caption(
         "Rate at least 3 films. About 5 is a good start. "

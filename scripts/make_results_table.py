@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate the Results table section in README.md from committed results/*.json."""
+"""Regenerate the results tables in docs/results.md from committed results/*.json."""
 
 from __future__ import annotations
 
@@ -11,11 +11,19 @@ from movielens_recommender.ranker.gate import compare_prior_points
 from movielens_recommender.reporting import primary_metrics
 
 ROOT = Path(__file__).resolve().parents[1]
-README = ROOT / "README.md"
+RESULTS_PAGE = ROOT / "docs" / "results.md"
 RESULTS_DIR = ROOT / "results"
 
 BEGIN = "<!-- BEGIN RESULTS TABLE -->"
 END = "<!-- END RESULTS TABLE -->"
+
+
+def _link(path: object) -> str:
+    """A repository-relative path as a link target from docs/results.md."""
+    text = str(path)
+    if "://" in text or text.startswith("../"):
+        return text
+    return "../" + text
 
 METRIC_COLS = [
     "ndcg@10",
@@ -575,7 +583,7 @@ def render_headline(filename: str, payload: dict) -> str:
             f"(val NDCG@10={_fmt(float(tt['best_val_ndcg@10']))}; "
             f"early-stopping best_epoch={tt.get('best_epoch')}; "
             f"{tt.get('early_stopping')}). "
-            f"Tuning log: [`{tt.get('tuning_json')}`]({tt.get('tuning_json')})."
+            f"Tuning log: [`{tt.get('tuning_json')}`]({_link(tt.get('tuning_json'))})."
         )
         lines.append("")
         lines.append("| seed | ndcg@10 | ndcg@10 CI | recall@100 | recall@200 |")
@@ -675,7 +683,7 @@ def render_headline(filename: str, payload: dict) -> str:
     tuning = payload.get("tuning_summary")
     if tuning:
         bits = [
-            f"Tuning log: [`{tuning.get('tuning_json')}`]({tuning.get('tuning_json')})."
+            f"Tuning log: [`{tuning.get('tuning_json')}`]({_link(tuning.get('tuning_json'))})."
         ]
         if tuning.get("als_best") is not None:
             bits.append(
@@ -698,7 +706,7 @@ def render_headline(filename: str, payload: dict) -> str:
                 f"(val NDCG@10={_fmt(float(tuning['two_tower_best_val_ndcg@10']))}, "
                 f"best_epoch={tuning.get('two_tower_best_epoch')}; "
                 f"log [`{tuning.get('two_tower_tuning_json')}`]"
-                f"({tuning.get('two_tower_tuning_json')}))."
+                f"({_link(tuning.get('two_tower_tuning_json'))}))."
             )
         lines.append(" ".join(bits))
         lines.append("")
@@ -1258,7 +1266,7 @@ def _render_cold_start_round2(payload: dict) -> str:
 def render_cold_start() -> str:
     """S5c panel. Empty when results/cold-start/ml-1m.json is absent.
 
-    An empty return leaves the earlier README panels byte-identical.
+    An empty return leaves the earlier results panels byte-identical.
     A file without ``round2`` keeps the original panel text.
     """
     path = RESULTS_DIR / "cold-start" / "ml-1m.json"
@@ -2351,7 +2359,7 @@ def render_beyond_accuracy_payload(payload: dict) -> str:
         "",
         (
             f"From `results/beyond-accuracy/{payload['dataset']}.json`. "
-            f"Definitions: [`{payload['adr']}`]({payload['adr']}). "
+            f"Definitions: [`{payload['adr']}`]({_link(payload['adr'])}). "
             f"k={payload['k']}, eval users={payload['n_eval_users']}. "
             f"Bootstrap: {boot.get('n_bootstrap')} resamples, "
             f"alpha={boot.get('alpha')}, seed={boot.get('seed')}. "
@@ -2569,7 +2577,7 @@ def _edge_extension_trials(payload: dict, path: Path) -> list:
 def render_als_retune(path: Path | None = None) -> str:
     """ALS retune panel (ADR-0018). Empty when the results file is absent.
 
-    An empty return leaves the earlier README panels byte-identical.
+    An empty return leaves the earlier results panels byte-identical.
     """
     path = RESULTS_DIR / "als-retune" / "ml-1m.json" if path is None else path
     if not path.is_file():
@@ -2909,7 +2917,7 @@ def _test_vs_val_sentence(payload: dict) -> str | None:
 def render_sasrec(path: Path | None = None) -> str:
     """SASRec panel (ADR-0019). Empty when the results file is absent.
 
-    An empty return leaves the earlier README panels byte-identical.
+    An empty return leaves the earlier results panels byte-identical.
     """
     path = RESULTS_DIR / "sasrec" / "ml-1m.json" if path is None else path
     if not path.is_file():
@@ -3544,7 +3552,7 @@ def build_section(results: list[tuple[str, dict]]) -> str:
 
 def replace_section(readme_text: str, section: str) -> str:
     if BEGIN not in readme_text or END not in readme_text:
-        raise SystemExit(f"README.md must contain markers {BEGIN!r} and {END!r}")
+        raise SystemExit(f"{RESULTS_PAGE.name} must contain markers {BEGIN!r} and {END!r}")
     before, rest = readme_text.split(BEGIN, 1)
     _, after = rest.split(END, 1)
     return before + section.rstrip("\n") + "\n" + after.lstrip("\n")
@@ -3553,10 +3561,10 @@ def replace_section(readme_text: str, section: str) -> str:
 def main() -> int:
     results = load_headline_results()
     section = build_section(results)
-    readme = README.read_text(encoding="utf-8")
-    updated = replace_section(readme, section)
-    README.write_text(updated, encoding="utf-8")
-    print(f"Updated {README} from {len(results)} results file(s).")
+    page = RESULTS_PAGE.read_text(encoding="utf-8")
+    updated = replace_section(page, section)
+    RESULTS_PAGE.write_text(updated, encoding="utf-8", newline="\n")
+    print(f"Updated {RESULTS_PAGE} from {len(results)} results file(s).")
     return 0
 
 

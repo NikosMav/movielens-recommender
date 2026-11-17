@@ -489,7 +489,7 @@ def test_readme_panel_is_three_sentences_from_the_json(tmp_path: Path) -> None:
         assert rendered == ""
     else:
         assert rendered.strip()
-        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        readme = (ROOT / "docs" / "results.md").read_text(encoding="utf-8")
         start = readme.index("### SASRec (`ml-1m`)")
         next_h3 = readme.find("\n### ", start + 1)
         end = next_h3 if next_h3 != -1 else readme.index("<!-- END RESULTS TABLE -->", start)

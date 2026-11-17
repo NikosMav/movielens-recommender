@@ -156,10 +156,14 @@ def test_results_table_script_does_not_rewrite_the_engineering_section():
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    updated = module.replace_section(readme, module.BEGIN + "\nkept\n" + module.END)
+    assert module.RESULTS_PAGE == ROOT / "docs" / "results.md"
+    page = module.RESULTS_PAGE.read_text(encoding="utf-8")
+    updated = module.replace_section(page, module.BEGIN + "\nkept\n" + module.END)
     prefix = updated.split(module.BEGIN, 1)[0]
-    assert "Engineering process" in prefix
-    assert "How this was built" not in prefix
-    assert "AI coding" not in prefix
-    assert "coding agents" not in prefix
+    assert "## Findings" in prefix
+    evaluation = (ROOT / "docs" / "evaluation.md").read_text(encoding="utf-8")
+    assert "Engineering process" in evaluation
+    for text in (prefix, evaluation, (ROOT / "README.md").read_text(encoding="utf-8")):
+        assert "How this was built" not in text
+        assert "AI coding" not in text
+        assert "coding agents" not in text
