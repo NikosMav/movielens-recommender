@@ -1,14 +1,31 @@
 # movielens-recommender
 
-[![Streamlit Community Cloud](https://img.shields.io/badge/Streamlit%20Community%20Cloud-live-brightgreen)](https://nikosmav-movielens-recommender.streamlit.app/)
+[![Live demo](https://img.shields.io/badge/demo-live-brightgreen)](https://nikosmav-movielens-recommender.streamlit.app/)
+[![CI](https://github.com/NikosMav/movielens-recommender/actions/workflows/ci.yml/badge.svg)](https://github.com/NikosMav/movielens-recommender/actions/workflows/ci.yml)
+![Python 3.10 to 3.12](https://img.shields.io/badge/python-3.10%E2%80%933.12-blue)
+[![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
-**Live demo:** [nikosmav-movielens-recommender.streamlit.app](https://nikosmav-movielens-recommender.streamlit.app/)
+**Rate three films and get ten picks, each with the reason it was chosen.** A movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings, measured strictly enough that failed ideas are published as failures.
 
-A movie recommender built from scratch on [MovieLens](https://grouplens.org/datasets/movielens/) ratings, with an evaluation protocol strict enough that negative results are reported as such.
+**[Try the live demo →](https://nikosmav-movielens-recommender.streamlit.app/)**
 
-It covers the path from data to a demo: download and cleaning, a per-user time split, an evaluation harness with bootstrap confidence intervals, classic baselines, a two-tower retrieval model, a LightGBM LambdaRank re-ranker, a Streamlit app that explains each recommendation in plain language and also serves people with no MovieLens history, an HTTP API with batch scoring, monitoring, and a Docker image, and a time-ordered replay that tests when the models need retraining. The same harness runs on ml-latest-small, ml-1m, and MovieLens 32M.
+![Rate a few films, get ten picks with reasons, then see how the model is measured](docs/demo/movielens-demo.gif)
 
-![Discover: search or browse a shelf, rate films with the stars, and collect ratings in the side panel](docs/demo/discover-rate.png)
+## At a glance
+
+- **The served model is 54% better than the one it replaced.** It reads the order a viewer rated films in. On held-out MovieLens 1M viewers it scores NDCG@10 **0.202** against **0.131** for the earlier ranker, a paired gain of +0.072 (95% interval +0.067 to +0.078). The switch was decided by a rule written down before the test ran ([ADR-0033](docs/adr/0033-pctm-in-the-ranker.md)).
+- **Every pick explains itself.** A card names the films you rated that led to it ("Because you liked …"), and a details panel shows what drove the ranker's score.
+- **It works for strangers.** You don't need a MovieLens account: rate a few films and a model trained on short profiles takes over. From three ratings it beats a list of the most popular films ([ADR-0012](docs/adr/0012-new-user-cold-start.md)).
+- **Negative results stay in.** The two-tower model did not beat item–item on its gate. Two attempts at a larger, post-2000 catalogue missed their ship rule. Both are written up ([ADR-0006](docs/adr/0006-two-tower-retrieval.md), [ADR-0034](docs/adr/0034-extended-discover-catalogue.md), [ADR-0035](docs/adr/0035-extended-catalogue-popularity-blend.md)).
+
+```mermaid
+flowchart LR
+    A[Your ratings] --> B[Candidates<br/>watch-order transitions<br/>+ two-tower retrieval]
+    B --> C[LightGBM LambdaRank<br/>re-ranks 200 films]
+    C --> D[Top 10<br/>with reasons]
+```
+
+**What's inside.** A per-user time split and an evaluation harness with bootstrap confidence intervals. More than ten models, tuned on validation only: popularity, item–item, ALS, EASE, EASE-DAN, RP3beta, a PyTorch two-tower model, SASRec, eSASRec, pairwise transitions, and a LightGBM ranker. A Streamlit app, a FastAPI service with batch scoring and Prometheus metrics, a Docker image, a drift-and-retraining replay, CI on every change, and 35 decision records. The same harness runs on ml-latest-small, ml-1m, and MovieLens 32M.
 
 ## Contents
 
@@ -93,11 +110,13 @@ The [public demo](https://nikosmav-movielens-recommender.streamlit.app/) runs on
 
 Posters use the Streamlit secret `TMDB_API_KEY` when it is set. Without that secret, each card uses a placeholder. The page follows Streamlit's System, Light, and Dark setting.
 
+![Discover: search or browse a shelf, rate films with the stars, and collect ratings in the side panel](docs/demo/discover-rate.png)
+
 ![Discover: ten picks, each with the rated films behind it and a familiar-to-adventurous slider](docs/demo/discover-picks.png)
 
 ![How good is it: NDCG@10 with uncertainty ranges, read from the committed results JSON](docs/demo/quality.png)
 
-The screenshots were taken from a local run with no `TMDB_API_KEY`, so cards show placeholders. The live page shows posters.
+The screenshots and the animation are from the live page, recorded with `python scripts/record_demo.py both`. Poster images come from [TMDB](https://www.themoviedb.org/). This product uses the TMDB API but is not endorsed or certified by TMDB.
 
 The entrypoint is `space/app.py`. Community Cloud runs `streamlit run` with the repository root as the working directory and looks for dependencies in the entrypoint's directory first. `space/requirements.txt` is that file: pinned versions, Python 3.12, and CPU PyTorch from `--extra-index-url https://download.pytorch.org/whl/cpu`. `packages.txt` at the repo root installs `libgomp1` for LightGBM. In Advanced settings, select Python 3.12.
 
@@ -335,7 +354,7 @@ pytest -q
 ruff check src tests scripts app space
 ```
 
-GitHub Actions runs ruff and pytest on Python 3.10 and 3.12 with the CPU PyTorch wheel. Tests use synthetic data only; `MOVIELENS_ALLOW_DOWNLOAD=0` blocks downloads in CI. A second job type-checks and builds the React frontend and verifies the committed `space/astryx_ui` bundle. A third builds the Docker image and checks that a container with no snapshot answers `/health` with 503.
+GitHub Actions runs ruff and pytest on Python 3.10 and 3.12 with the CPU PyTorch wheel. Tests use synthetic data only; `MOVIELENS_ALLOW_DOWNLOAD=0` blocks downloads in CI. A second job type-checks and builds the React frontend and verifies the committed `space/astryx_ui` bundle. A third builds the Docker image and checks that a container with no snapshot answers `/health` with 503. A separate scheduled workflow opens the public demo in a headless browser every four hours (`scripts/keep_awake.py`), so Community Cloud does not put it to sleep, and fails visibly if the app does not come up.
 
 ## Engineering process
 

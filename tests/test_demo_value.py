@@ -103,12 +103,13 @@ def test_stale_reason_hides_a_film_that_is_no_longer_rated():
     assert "100" in tip
 
 
-def test_cold_start_nudge_cites_the_file_only_when_the_flags_match():
+def test_cold_start_nudge_states_the_result_only_when_the_flags_match():
     value = _load("value")
     payload = json.loads((ROOT / "results/cold-start/ml-1m.json").read_text(encoding="utf-8"))
     text = value.cold_start_nudge(payload)
-    assert "results/cold-start/ml-1m.json" in text
-    assert "3 ratings" in text
+    assert "3 ratings on these picks beat a list of the most popular films" in text
+    # Visitors see this sentence. It names no file.
+    assert "results/" not in text and ".json" not in text
     assert value.cold_start_nudge({"by_n": []}) == "Rate at least 3 films."
 
 

@@ -426,7 +426,7 @@ def funnel_steps(pipeline: Mapping[str, Any] | None) -> list[dict[str, str]]:
 
 
 def cold_start_nudge(payload: Mapping[str, Any]) -> str:
-    """Cite the cold-start file only when its stored flags say 3 beats 1."""
+    """Say what 3 ratings buy, only when the stored cold-start flags say 3 beats 1."""
     blocks: dict[int, Mapping[str, Any]] = {}
     for block in payload.get("by_n") or []:
         if isinstance(block, dict) and "n" in block:
@@ -447,8 +447,8 @@ def cold_start_nudge(payload: Mapping[str, Any]) -> str:
         and three_pair.get("excludes_zero") is True
     ):
         return (
-            "Rate at least 3 films. In results/cold-start/ml-1m.json the served list "
-            "does not beat most-popular at 1 rating, and it does at 3 ratings."
+            "Rate at least 3 films. In testing, from 3 ratings on these picks beat "
+            "a list of the most popular films. After 1 rating they do not."
         )
     return base
 

@@ -1,0 +1,37 @@
+name: Keep the demo awake
+
+# Community Cloud puts an app to sleep after a stretch with no visitors. A
+# headless browser visit every few hours keeps the public demo ready.
+# GitHub pauses scheduled workflows in a repository with no commits for 60
+# days; re-enable it from the Actions tab, or run it by hand.
+on:
+  schedule:
+    - cron: "17 */4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keep-awake
+  cancel-in-progress: true
+
+jobs:
+  visit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install a headless browser
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright==1.49.1
+          python -m playwright install --with-deps chromium
+
+      - name: Open the demo
+        run: python scripts/keep_awake.py
