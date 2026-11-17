@@ -181,7 +181,7 @@ def load_quality(results_dir: Path | str) -> dict[str, Any]:
     if ranker_dan is not None:
         out["ranker_ease_dan"] = _ranker_ease_dan_block(ranker_dan)
     if served is not None:
-        out["served"] = _served_block(served)
+        out["served"] = _served_block(served, ml1["metrics"])
     return out
 
 
@@ -667,8 +667,14 @@ def ranker_ease_dan_lead(block: dict[str, Any]) -> str:
 _SERVED_IDS = {"seq_off": "served_ranker", "seq_both": "served_ranker", "pctm_only": "pctm_only"}
 
 
-def _served_block(payload: dict[str, Any]) -> dict[str, Any]:
-    """The model behind Explore, beside the two lists it was chosen over (ADR-0033)."""
+# Baselines a visitor can picture, from the headline ml-1m run on the same split.
+SERVED_BASELINES: tuple[str, ...] = ("item_item_cosine", "most_popular")
+
+
+def _served_block(
+    payload: dict[str, Any], ml1_metrics: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """The model behind Explore, its ADR-0033 variants, and two plain baselines."""
     decision = payload["decision"]
     serve = str(decision["serve"])
     ranker = str(decision["ranker_candidate"])
@@ -689,11 +695,19 @@ def _served_block(payload: dict[str, Any]) -> dict[str, Any]:
                 "coverage@10": block["coverage@10_mean"],
             }
         )
+    baselines = [
+        _model_row(ml1_metrics, name)
+        for name in SERVED_BASELINES
+        if ml1_metrics is not None and name in ml1_metrics
+    ]
+    served_id = _SERVED_IDS.get(serve, "previous_ranker")
+    served_row = next((row for row in models if row["model"] == served_id), models[0])
     return {
+        "headline": [served_row, *baselines],
         "serve": serve,
         "serving_rule": str(decision["serving_rule"]),
         "ranker_candidate": ranker,
-        "served_model": _SERVED_IDS.get(serve, "previous_ranker"),
+        "served_model": served_id,
         "candidate_set": payload["selected_sequence_candidate_set"],
         "wins": decision["wins"],
         "paired": payload["paired"],
@@ -702,29 +716,34 @@ def _served_block(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def served_lead(block: dict[str, Any]) -> str:
-    """Plain reading of the stored serving choice. The numbers are the JSON fields."""
-    ranker = block["ranker_candidate"]
-    over_old = block["paired"][f"{ranker}_minus_bi_both"]
-    over_pctm = block["paired"][f"{ranker}_minus_pctm_only"]
-    if block["serve"] == ranker:
-        verdict = (
-            "The model behind Explore a MovieLens user reads the order a viewer "
-            "rated films in, then re-ranks that shortlist."
-        )
-    elif block["serve"] == "pctm_only":
-        verdict = (
-            "The model behind Explore a MovieLens user is the watch-order model "
-            "on its own. Re-ranking its list did not clear the registered bar."
+    """Plain reading of the served model against baselines a visitor can picture."""
+    headline = block.get("headline") or block["models"][:1]
+    served = headline[0]
+    if served["model"] == "served_ranker":
+        what = (
+            "The model behind this demo reads the order a viewer rated films in, "
+            "gathers a shortlist, and re-ranks it with a learned ranker."
         )
     else:
-        verdict = "The watch-order model did not clear the registered bar, so the ranker is kept."
-    return (
-        f"{verdict} Against the ranker without watch order, the paired NDCG@10 "
-        f"difference is {signed(over_old['mean'])} "
-        f"(range {signed(over_old['low'])} to {signed(over_old['high'])}). "
-        f"Against the watch-order model alone it is {signed(over_pctm['mean'])} "
-        f"(range {signed(over_pctm['low'])} to {signed(over_pctm['high'])})."
-    )
+        what = "The model behind this demo reads the order a viewer rated films in."
+    score = float(served["ndcg@10"])
+    parts = [f"{what} On held-out MovieLens 1M viewers it scores NDCG@10 {score:.3f}."]
+    by_id = {str(row["model"]): float(row["ndcg@10"]) for row in headline[1:]}
+    comparisons = []
+    if by_id.get("most_popular"):
+        base = by_id["most_popular"]
+        comparisons.append(
+            f"{score / base:.1f} times the score of a most-popular list ({base:.3f})"
+        )
+    if by_id.get("item_item_cosine"):
+        base = by_id["item_item_cosine"]
+        comparisons.append(
+            f"{round(100 * (score / base - 1))}% above the classic "
+            f"\"people who liked this also liked\" approach ({base:.3f})"
+        )
+    if comparisons:
+        parts.append("That is " + ", and ".join(comparisons) + ".")
+    return " ".join(parts)
 
 
 def served_caption(view: dict[str, Any]) -> str:

@@ -282,8 +282,16 @@ def test_served_model_panels_read_the_committed_record():
     ranker = block["ranker_candidate"]
     pair = record["paired"][f"{ranker}_minus_bi_both"]
     lead = quality.served_lead(block)
-    assert quality.signed(pair["mean"]) in lead
-    assert quality.signed(pair["low"]) in lead
+    assert [row["model"] for row in block["headline"]] == [
+        "served_ranker",
+        "item_item_cosine",
+        "most_popular",
+    ]
+    assert f"{served['ndcg@10_mean']:.3f}" in lead
+    popular = block["headline"][2]["ndcg@10"]
+    assert f"{served['ndcg@10_mean'] / popular:.1f} times" in lead
+    # The lead compares with baselines a visitor knows, not with earlier versions.
+    assert "without watch order" not in lead and "previous" not in lead.lower()
     assert quality.fmt(pair["mean"]) in quality.served_caption(view)
     rows = quality.chart_rows(block["models"])
     assert rows[0]["best"] and rows[0]["label"] == "Full model, served"

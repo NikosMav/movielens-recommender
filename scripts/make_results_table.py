@@ -3325,18 +3325,24 @@ def render_ranker_ease_dan(path: Path | None = None) -> str:
 
 
 _SERVED_LABELS = {
-    "bi_both": "Earlier ranker: two-tower candidates, demographics on",
+    "bi_both": "Ranker without watch order: two-tower candidates, demographics on",
     "pctm_only": "PCTM list, no ranker",
     "seq_off": "Ranker over the sequence-aware set, demographics off",
     "seq_both": "Ranker over the sequence-aware set, demographics on",
 }
 _SERVED_PAIRS = (
-    ("pctm_only_minus_bi_both", "PCTM alone minus the earlier ranker"),
+    ("pctm_only_minus_bi_both", "PCTM alone minus the ranker without watch order"),
     ("seq_off_minus_pctm_only", "Sequence ranker, demographics off, minus PCTM alone"),
     ("seq_both_minus_pctm_only", "Sequence ranker, demographics on, minus PCTM alone"),
     ("seq_both_minus_seq_off", "Demographics on minus demographics off"),
-    ("seq_off_minus_bi_both", "Sequence ranker, demographics off, minus the earlier ranker"),
-    ("seq_both_minus_bi_both", "Sequence ranker, demographics on, minus the earlier ranker"),
+    (
+        "seq_off_minus_bi_both",
+        "Sequence ranker, demographics off, minus the ranker without watch order",
+    ),
+    (
+        "seq_both_minus_bi_both",
+        "Sequence ranker, demographics on, minus the ranker without watch order",
+    ),
 )
 _SERVED_TEXT = {
     "seq_off": "the ranker over the sequence-aware set, demographics off",

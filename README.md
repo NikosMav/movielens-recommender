@@ -13,7 +13,7 @@
 
 ## At a glance
 
-- **The served model is 54% better than the one it replaced.** It reads the order a viewer rated films in. On held-out MovieLens 1M viewers it scores NDCG@10 **0.202** against **0.131** for the earlier ranker, a paired gain of +0.072 (95% interval +0.067 to +0.078). The switch was decided by a rule written down before the test ran ([ADR-0033](docs/adr/0033-pctm-in-the-ranker.md)).
+- **2.3 times better than recommending the most popular films.** The served model reads the order a viewer rated films in and re-ranks a shortlist with LightGBM. On held-out MovieLens 1M viewers it scores NDCG@10 **0.202**, against **0.090** for a most-popular list and **0.120** for the classic "people who liked this also liked" approach, 68% higher. The model was chosen by a rule written down before the test ran ([ADR-0033](docs/adr/0033-pctm-in-the-ranker.md)).
 - **Every pick explains itself.** A card names the films you rated that led to it ("Because you liked …"), and a details panel shows what drove the ranker's score.
 - **It works for strangers.** You don't need a MovieLens account: rate a few films and a model trained on short profiles takes over. From three ratings it beats a list of the most popular films ([ADR-0012](docs/adr/0012-new-user-cold-start.md)).
 - **Negative results stay in.** The two-tower model did not beat item–item on its gate. Two attempts at a larger, post-2000 catalogue missed their ship rule. Both are written up ([ADR-0006](docs/adr/0006-two-tower-retrieval.md), [ADR-0034](docs/adr/0034-extended-discover-catalogue.md), [ADR-0035](docs/adr/0035-extended-catalogue-popularity-blend.md)).
@@ -46,12 +46,13 @@ Test NDCG@10 on MovieLens 1M held-out viewers (higher is better). Every number i
 | --- | --- |
 | **Served ranker:** LambdaRank over watch-order and two-tower candidates ([ADR-0033](docs/adr/0033-pctm-in-the-ranker.md)) | **0.2021** |
 | Pairwise watch-order transitions alone (PCTM) | 0.1787 |
-| The ranker served before it | 0.1309 |
-| Item–item cosine, the classic baseline | 0.1201 |
+| The same ranker without watch order | 0.1309 |
+| Item–item cosine, the classic "people who liked this also liked" baseline | 0.1201 |
 | Two-tower retrieval (PyTorch) | 0.1192 |
 | Most popular films | 0.0895 |
 
-- **Watch order matters most.** Adding the order a viewer rated films in lifted the ranker from 0.131 to 0.202 (paired +0.072, 95% interval +0.067 to +0.078). Demographics add nothing once order is in, so the served model uses none.
+- **2.3 times a most-popular list, 68% above the classic approach.** The served model scores 0.202, against 0.090 for recommending the most popular films and 0.120 for item–item similarity.
+- **Watch order is what makes the difference.** The same ranker without it scores 0.131 (paired gain +0.072, 95% interval +0.067 to +0.078). Demographics add nothing once order is in, so the served model uses none.
 - **Negative results are reported.** The two-tower model did not beat item–item on its gate, SASRec and eSASRec trail the simple transition model, and a larger post-2000 catalogue missed its ship rule twice.
 - **New users are covered.** From three ratings, the new-user model beats the most-popular list ([ADR-0012](docs/adr/0012-new-user-cold-start.md)).
 

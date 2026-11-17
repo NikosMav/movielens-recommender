@@ -364,15 +364,15 @@ def _quality_body(path_str: str, sequence_live: bool = False) -> None:
         st.markdown(served_lead(view["served"]))
         if not sequence_live:
             st.caption(
-                "This copy of the demo has not loaded that model yet. "
-                "Explore a MovieLens user is still the ranker without watch order."
+                "This copy of the demo has not loaded that model, so Explore a "
+                "MovieLens user uses a simpler ranker."
             )
         st.markdown(
             metric_chart_html(
-                chart_rows(view["served"]["models"]),
+                chart_rows(view["served"].get("headline") or view["served"]["models"]),
                 caption=(
-                    "MovieLens 1M, the same held-out ratings for all three. "
-                    "The ranker bars are three-seed means. Their ranges are the primary seed."
+                    "MovieLens 1M, the same held-out viewers for all three. "
+                    "The demo model's bar is a three-seed mean. Ranges are 95% intervals."
                 ),
             ),
             unsafe_allow_html=True,
@@ -381,8 +381,8 @@ def _quality_body(path_str: str, sequence_live: bool = False) -> None:
         "MovieLens 1M",
         view["ml1m"]["models"],
         "MovieLens 1M",
-        "The earlier benchmark: a two-stage ranker against similarity, retrieval, "
-        "and popularity, before watch order was added.",
+        "The wider benchmark: classic recommenders, retrieval models, and a two-stage "
+        "ranker that does not use watch order, on the same held-out viewers.",
     )
     _dataset_block(
         "MovieLens 32M",

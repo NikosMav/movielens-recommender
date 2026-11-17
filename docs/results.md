@@ -9,7 +9,7 @@ Back to the [README](../README.md).
 Every number behind these sentences is in the [tables below](#tables), generated from `results/*.json`.
 
 - **ml-1m.** Tuned item–item kNN is a strong baseline. The two-tower model does not beat it on NDCG@10 (a recorded negative result), but it leads on Recall@100/200, catalog coverage, and the long tail. LambdaRank over two-tower candidates clears the item–item gate.
-- **The served model (ml-1m).** A LambdaRank ranker over the union of pairwise-transition (PCTM) and two-tower candidates, with PCTM score and rank as features, scores NDCG@10 `0.2021`. The ranker served before it scores `0.1309` on the same run (paired `+0.0720 [+0.0668, +0.0776]`), and PCTM alone scores `0.1787` (paired `+0.0228 [+0.0203, +0.0253]`). Demographic features add nothing on top (`+0.0001 [-0.0013, +0.0018]`), so the served ranker has none. The pre-registered rule chose it, and Explore a MovieLens user now runs it (ADR-0033).
+- **The served model (ml-1m).** A LambdaRank ranker over the union of pairwise-transition (PCTM) and two-tower candidates, with PCTM score and rank as features, scores NDCG@10 `0.2021`. The same kind of ranker without watch order (two-tower candidates only) scores `0.1309` on the same run (paired `+0.0720 [+0.0668, +0.0776]`), and PCTM alone scores `0.1787` (paired `+0.0228 [+0.0203, +0.0253]`). Demographic features add nothing on top (`+0.0001 [-0.0013, +0.0018]`), so the served ranker has none. The pre-registered rule chose it, and Explore a MovieLens user now runs it (ADR-0033).
 - **ml-32M.** The two-tower model and LambdaRank tie at the top and both beat item–item (ADR-0011).
 - **Baselines.** EASE^R and RP3beta are tuned on the same validation split and compared in the results tables (ADR-0008). Adding Data-Adaptive Normalization / dropout-regularized EASE (`EASE-DAN`, Park et al. 2025 / Steck 2020) beats `EASE^R` on ml-1m (`0.1195` vs `0.1184`, paired 95% CI `[+0.0004, +0.0017]`) and closes the statistical gap to item–item cosine (`0.1201`) in a 2.4s closed-form solve (ADR-0028).
 - **Sequence modeling (ml-1m).** Causal SASRec with full-catalog softmax beats a shuffled-order control (`0.0924` vs `0.0892`, paired `[+0.0024, +0.0052]`), confirming sequential order carries a small signal (+4% relative), while trailing bag-of-history retrieval and LambdaRank on MovieLens ratings (ADR-0019). Replacing the blocks with LiGR and SwiGLU (`eSASRec`, RecSys 2025) scores below that SASRec reference (paired primary-seed `-0.0134`, interval excludes 0). A pairwise transition probe (`PCTM`, RecSys 2026) scores `0.1787` against the refit SASRec `0.0929` (paired `+0.0857 [+0.0796, +0.0917]`) and covers `71.1%` of the catalog at 10, against `3.3%` for SASRec. The enhanced transformer stays below that pairwise probe (ADR-0030).
@@ -1011,16 +1011,16 @@ Validation Recall@200: `two_tower` 0.6552, `pctm` 0.6942, `pctm_two_tower` 0.725
 
 | paired test NDCG@10 difference | mean and 95% interval | win |
 | --- | --- | --- |
-| PCTM alone minus the earlier ranker | 0.0492 [0.0435, 0.0550] (excludes 0: yes) | yes |
+| PCTM alone minus the ranker without watch order | 0.0492 [0.0435, 0.0550] (excludes 0: yes) | yes |
 | Sequence ranker, demographics off, minus PCTM alone | 0.0228 [0.0203, 0.0253] (excludes 0: yes) | yes |
 | Sequence ranker, demographics on, minus PCTM alone | 0.0229 [0.0205, 0.0255] (excludes 0: yes) | yes |
 | Demographics on minus demographics off | 0.0001 [-0.0013, 0.0018] (excludes 0: no) | no |
-| Sequence ranker, demographics off, minus the earlier ranker | 0.0720 [0.0668, 0.0776] (excludes 0: yes) | yes |
-| Sequence ranker, demographics on, minus the earlier ranker | 0.0721 [0.0670, 0.0781] (excludes 0: yes) | yes |
+| Sequence ranker, demographics off, minus the ranker without watch order | 0.0720 [0.0668, 0.0776] (excludes 0: yes) | yes |
+| Sequence ranker, demographics on, minus the ranker without watch order | 0.0721 [0.0670, 0.0781] (excludes 0: yes) | yes |
 
 | variant | candidate set | features | test NDCG@10 | 95% CI | Coverage@10 |
 | --- | --- | --- | --- | --- | --- |
-| Earlier ranker: two-tower candidates, demographics on | `two_tower` | 61 | 0.1309 | [0.1251, 0.1336] | 0.3970 |
+| Ranker without watch order: two-tower candidates, demographics on | `two_tower` | 61 | 0.1309 | [0.1251, 0.1336] | 0.3970 |
 | PCTM list, no ranker | `pctm` | 0 | 0.1787 | [0.1737, 0.1837] | 0.7112 |
 | Ranker over the sequence-aware set, demographics off | `pctm_two_tower` | 53 | 0.2021 | [0.1961, 0.2068] | 0.5100 |
 | Ranker over the sequence-aware set, demographics on | `pctm_two_tower` | 63 | 0.2019 | [0.1966, 0.2067] | 0.4974 |
