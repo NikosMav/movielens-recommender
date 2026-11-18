@@ -981,7 +981,7 @@ def _rating_comparison(ratings, shown, cold_path, by_id) -> None:
     from movielens_recommender.serving.cold import recommend_new_user
 
     with st.expander("Change one rating", key="compare-panel"):
-        st.caption("Try a different rating and compare both lists. Your original ratings stay in this session.")
+        st.caption("Try a different rating. Your original profile stays the same.")
         scores = dict(_signature(ratings))
         item = st.selectbox("Film to change", list(scores), format_func=lambda i: by_id[i]["title"])
         stars = st.select_slider(
