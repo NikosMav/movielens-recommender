@@ -199,13 +199,17 @@ def _discover_body(cold_path: str, api_key: str, extended_path: str = "") -> Non
             url = poster_for(film["title"], film.get("year"), api_key)
             if url:
                 poster_strip.append(poster_html(film["title"], url))
-    st.markdown(hero_html(poster_strip), unsafe_allow_html=True)
+    with st.container(key="discover-intro"):
+        st.markdown(hero_html(poster_strip), unsafe_allow_html=True)
+        if not ratings:
+            _taste_sets(by_id)
     with st.container(key="workbench"):
         side, browse = st.columns([0.9, 1.7], gap="medium")
         with side:
-            with st.container(key="ticket"):
+            with st.container(key="ticket" if ratings else "ticket-empty"):
                 _ticket(ratings, by_id, cold_path, api_key)
-                _taste_sets(by_id)
+                if ratings:
+                    _taste_sets(by_id)
         with browse:
             query = st.text_input(
                 "Search for a movie",
@@ -833,12 +837,11 @@ def _ticket(
         unsafe_allow_html=True,
     )
     if not ratings:
-        nudge = (
-            "Rate at least 3 films."
-            if st.session_state.get("catalogue_extended")
-            else _cold_start_nudge()
-        )
-        st.caption(f"{nudge} Ratings stay in this browser session.")
+        st.caption("Tap a star under a film to start your list. Ratings stay in this session.")
+        if not st.session_state.get("catalogue_extended"):
+            with st.expander("Why three ratings?"):
+                st.write(_cold_start_nudge())
+        return
     if ratings:
         with st.expander("Review or remove ratings"):
             for row in ratings:
