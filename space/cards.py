@@ -189,7 +189,11 @@ def _theme_css() -> str:
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
   gap: clamp(1.25rem, 4vw, 4rem);
   align-items: center;
-  padding: 1.25rem 0 1.5rem;
+  padding: clamp(1.25rem, 3vw, 2.75rem);
+  margin: .5rem 0 1rem;
+  background: #211d39;
+  border-radius: 1rem;
+  overflow: hidden;
 }}
 .intro h1 {{
   margin: 0 0 0.6rem;
@@ -205,10 +209,27 @@ def _theme_css() -> str:
   {_paint("color", light["pitch"], dark["pitch"])}
 }}
 .intro-art svg {{
+  max-height: 220px;
   display: block;
   width: 100%;
   height: auto;
   max-width: 100%;
+}}
+.stApp .intro h1 {{ color: #fff6e6; }}
+.stApp .intro p {{ color: #e1dbe9; }}
+.intro-art {{ max-height: 220px; overflow: hidden; }}
+.marquee-posters {{ display: flex; gap: .65rem; justify-content: center; }}
+.marquee-posters .poster {{ width: min(29%, 134px); height: auto; aspect-ratio: 2/3; }}
+.marquee-posters .poster:nth-child(2) {{ transform: translateY(-.5rem); }}
+[data-testid="stVerticalBlock"].st-key-picks [class*="st-key-rec-picks-1-"] {{
+  grid-column: 1 / -1;
+}}
+.stApp [class*="st-key-rec-picks-1-"] .pick-title {{
+  font-size: clamp(1.4rem, 3vw, 2.6rem);
+  line-height: 1.12;
+}}
+.stApp [class*="st-key-rec-picks-1-"] .pick-rich > .poster {{
+  width: clamp(94px, 17vw, 190px); height: auto; aspect-ratio: 2/3;
 }}
 .section-title {{
   margin: 1.5rem 0 0.45rem;
@@ -1194,6 +1215,8 @@ h2[tabindex="-1"]:focus {{
   }}
   .intro {{ grid-template-columns: minmax(0, 1fr); }}
   .intro-art {{ display: none; }}
+  .intro-art:has(.marquee-posters) {{ display: block; }}
+  .marquee-posters .poster {{ width: min(26%, 85px); }}
   .bar-row {{ grid-template-columns: minmax(0, 1fr) auto; row-gap: 0.25rem; }}
   .bar-track {{ grid-column: 1 / -1; grid-row: 2; }}
   .bar-value {{ grid-column: 2; grid-row: 1; }}
@@ -1271,9 +1294,11 @@ def initials(title: str) -> str:
     return (content[0][0] + content[1][0]).upper()
 
 
-def hero_html() -> str:
+def hero_html(posters: list[str] | None = None) -> str:
     art_path = Path(__file__).with_name("screening-room.svg")
     art = art_path.read_text(encoding="utf-8") if art_path.is_file() else ""
+    if posters and len(posters) == 3:
+        art = '<div class="marquee-posters">' + "".join(posters) + "</div>"
     return (
         '<section class="intro">'
         "<div>"
