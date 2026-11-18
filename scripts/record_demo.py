@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = "https://nikosmav-movielens-recommender.streamlit.app/~/+/"
 OUT = ROOT / "artifacts" / "demo"
 SHOTS = ROOT / "docs" / "demo"
-SAMPLE = "Try Science fiction sample"
+SAMPLE = "Try a sample profile"
 # Ids rated 5 in the README's picks screenshot: The Matrix, Star Wars V, IV, VI.
 SHARED = "?view=discover&ratings=2571-5.1196-5.260-5.1210-5&mix=0"
 
@@ -75,17 +75,13 @@ def record(channel: str | None) -> Path:
         _settle(page, 1.0)
         page.get_by_role("button", name=SAMPLE).click()
         _settle(page, 2.0)
-        # Show the posters with their filled stars before asking for picks.
-        _glide(page, 720, step=60, pause=0.05)
-        _settle(page, 2.5)
-        page.get_by_role("button", name="Get my picks").click()
         _wait_text(page, "Your next watch")
         _settle(page, 1.5)
         page.get_by_text("Your next watch").first.scroll_into_view_if_needed()
         _settle(page, 2.5)
         _glide(page, 900, step=60, pause=0.06)
         _settle(page, 1.5)
-        page.get_by_text("Why?", exact=True).first.click()
+        page.get_by_text("Why this pick?", exact=True).first.click()
         _settle(page, 3.0)
 
         page.get_by_text("How good is it?", exact=True).first.click()
@@ -163,11 +159,9 @@ def screenshots(channel: str | None) -> None:
 
         page.goto(APP + "?view=discover", wait_until="domcontentloaded")
         _wait_text(page, "Find your next film")
-        page.get_by_role("button", name=SAMPLE).click()
-        _settle(page, 3.0)
         page.locator("img.poster").nth(5).wait_for(timeout=60_000)
         _settle(page, 3.0)
-        _crop(page, "What have you watched?", 1080, SHOTS / "discover-rate.png", above=40)
+        _crop(page, "Search for a movie", 1080, SHOTS / "discover-rate.png", above=40)
 
         page.goto(APP + SHARED, wait_until="domcontentloaded")
         _wait_text(page, "Your next watch")

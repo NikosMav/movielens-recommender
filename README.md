@@ -1,4 +1,6 @@
-# movielens-recommender
+# MovieLens Recommender
+
+[![Three ratings. Ten movie picks. Open the live recommender.](docs/demo/social-preview.jpg)](https://nikosmav-movielens-recommender.streamlit.app/)
 
 [![Live demo](https://img.shields.io/badge/demo-live-brightgreen)](https://nikosmav-movielens-recommender.streamlit.app/)
 [![CI](https://github.com/NikosMav/movielens-recommender/actions/workflows/ci.yml/badge.svg)](https://github.com/NikosMav/movielens-recommender/actions/workflows/ci.yml)
@@ -9,11 +11,11 @@
 
 **[Try the live demo →](https://nikosmav-movielens-recommender.streamlit.app/)**
 
-![Rate a few films, get ten picks with reasons, then see how the model is measured](docs/demo/movielens-demo.gif)
+**Short on time?** In Discover, select **Try a sample profile**, then **Change one rating** to see which movies enter or leave the list.
 
 ## At a glance
 
-- **2.3 times better than recommending the most popular films.** The served model reads the order a viewer rated films in and re-ranks a shortlist with LightGBM. On held-out MovieLens 1M viewers it scores NDCG@10 **0.202**, against **0.090** for a most-popular list and **0.120** for the classic "people who liked this also liked" approach, 68% higher. The model was chosen by a rule written down before the test ran ([ADR-0033](docs/adr/0033-pctm-in-the-ranker.md)).
+- **For existing viewers, 2.3× the ranking score of a most-popular list.** The served model reads the order a viewer rated films in and re-ranks a shortlist with LightGBM. On held-out MovieLens 1M viewers it scores NDCG@10 **0.202**, against **0.090** for a most-popular list and **0.120** for the classic "people who liked this also liked" approach, 68% higher. The model was chosen by a rule written down before the test ran ([ADR-0033](docs/adr/0033-pctm-in-the-ranker.md)).
 - **Every pick explains itself.** A card names the films you rated that led to it ("Because you liked …"), and a details panel shows what drove the ranker's score.
 - **It works for strangers.** You don't need a MovieLens account: rate a few films and a model trained on short profiles takes over. From three ratings it beats a list of the most popular films ([ADR-0012](docs/adr/0012-new-user-cold-start.md)).
 - **Negative results stay in.** The two-tower model did not beat item–item on its gate. Two attempts at a larger, post-2000 catalogue missed their ship rule. Both are written up ([ADR-0006](docs/adr/0006-two-tower-retrieval.md), [ADR-0034](docs/adr/0034-extended-discover-catalogue.md), [ADR-0035](docs/adr/0035-extended-catalogue-popularity-blend.md)).

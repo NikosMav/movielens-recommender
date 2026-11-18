@@ -187,7 +187,8 @@ def _open_existing(page: object, base: str) -> None:
 
 def _rate_comedy_shelf(page: object) -> None:
     _click_mode(page, "Discover")
-    _wait_text(page, "What have you watched?")
+    _wait_text(page, "Search for a movie")
+    page.get_by_text("Browse genres", exact=True).click()
     page.get_by_role("button", name="Comedy", exact=True).click()  # type: ignore[attr-defined]
     _wait_text(page, "Genre shelf", timeout=180_000)
     page.get_by_role("radio", name=re.compile(r" out of 5$")).first.wait_for(timeout=180_000)  # type: ignore[attr-defined]
@@ -257,7 +258,7 @@ def _walk(base: str, pid: int) -> None:
             meanings.click()
             _wait_text(page_b, "Coverage", timeout=60_000)
             _click_mode(page_b, "Discover")
-            _wait_text(page_b, "What have you watched?")
+            _wait_text(page_b, "Search for a movie")
             _log_rss(pid, "B quality and new user")
             _click_mode(page_a, "How good is it?")
             _wait_text(page_a, "NDCG@10")
