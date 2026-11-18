@@ -16,6 +16,7 @@ from cards import (
     poster_html,
     rated_line_html,
     recommendation_card_html,
+    score_details_html,
     scroll_script,
 )
 from catalog import (
@@ -976,8 +977,7 @@ def _picks(
     if sentence:
         with st.expander("How this list was built"):
             st.markdown(plain_method(str(stored.get("method") or "")))
-            with st.expander("Technical wording"):
-                st.markdown(sentence)
+            st.caption(sentence)
 
 
 def _rating_comparison(ratings, shown, cold_path, by_id) -> None:
@@ -1292,28 +1292,20 @@ def _recommendation(
             ),
             unsafe_allow_html=True,
         )
-        if films_path:
-            _more_like_this(item_id, films_path, cold, api_key, scope=scope)
-        if not explain:
-            return
-        details = visible_details(list(card.get("details") or []))
-        with st.container(key=f"why-{scope}-{item_id}"):
+        if explain:
             with st.expander("Why this pick?" if cold else "Why?"):
-                if not original and not details and not (cold and shown[1:]):
-                    st.markdown("No separate note was recorded for this title.")
-                    return
-                for text in dict.fromkeys([*shown[1:], *original] if cold else original):
-                    st.markdown(text)
-                if details or card.get("bias") is not None:
-                    with st.expander("Score details"):
-                        st.caption(
-                            "Contributions to the score. They are not a reason to watch the film."
-                        )
-                        for row in details:
-                            st.text(f"{row['feature']}: {row['contribution']:+.4f}")
-                        bias = card.get("bias")
-                        if bias is not None:
-                            st.text(f"bias: {bias:+.4f}")
+                reasons = list(dict.fromkeys([*shown[1:], *original] if cold else original))
+                if reasons:
+                    items = "".join(f"<li>{_escape(reason)}</li>" for reason in reasons)
+                    st.markdown(f'<ul class="pick-reasons">{items}</ul>', unsafe_allow_html=True)
+                details = visible_details(list(card.get("details") or []))
+                bias = card.get("bias")
+                if details or bias is not None:
+                    st.markdown(score_details_html(details, bias), unsafe_allow_html=True)
+                elif not reasons:
+                    st.caption("No separate note was recorded for this title.")
+        if films_path:
+            _more_like_this(item_id, films_path, cold, api_key, scope=scope, inline=True)
 
 
 def _history_rows(ratings: list[dict[str, Any]]) -> list[tuple[int, str, float]]:
@@ -1603,12 +1595,14 @@ def _more_like_this(
     api_key: str,
     *,
     scope: str,
+    inline: bool = False,
 ) -> None:
     from value import neighbour_caption
 
     if not path:
         return
-    with st.popover("More like this"):
+    panel = st.expander if inline else st.popover
+    with panel("More like this"):
         payload = similar_films(path, int(item_id), cold)
         ids = [int(item) for item in payload.get("item_ids") or []]
         st.caption(neighbour_caption(str(payload.get("source") or "")))
