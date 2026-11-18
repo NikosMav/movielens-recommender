@@ -96,7 +96,7 @@ def _theme_css() -> str:
 }}
 .block-container {{
   max-width: 1560px;
-  padding-top: 6rem;
+  padding-top: 4.25rem;
   padding-left: 1.25rem;
   padding-right: 1.25rem;
 }}
@@ -195,6 +195,25 @@ def _theme_css() -> str:
   border-radius: 1rem;
   overflow: hidden;
 }}
+[data-testid="stVerticalBlock"].st-key-discover-intro {{
+  background: #211d39;
+  border-radius: 1rem;
+  margin: .5rem 0 1rem;
+  padding: clamp(1.3rem, 3vw, 2.75rem);
+  gap: 1rem;
+}}
+.st-key-discover-intro .intro {{ padding: 0; margin: 0; border-radius: 0; }}
+.st-key-discover-intro button[kind="secondary"] {{
+  margin-top: .65rem;
+  min-height: 44px;
+  background: #fff2d8;
+  border: 1px solid #fff2d8;
+}}
+.st-key-discover-intro button[kind="secondary"] p {{ color: #241d37; font-weight: 650; }}
+.st-key-discover-intro button[kind="secondary"]:hover {{ background: #f2d8a8; }}
+.st-key-discover-intro button[kind="secondary"]:focus-visible {{
+  outline: 3px solid #decfff; outline-offset: 3px;
+}}
 .intro h1 {{
   margin: 0 0 0.6rem;
   font-size: clamp(2.6rem, 6vw, 4.5rem);
@@ -218,9 +237,13 @@ def _theme_css() -> str:
 .stApp .intro h1 {{ color: #fff6e6; }}
 .stApp .intro p {{ color: #e1dbe9; }}
 .intro-art {{ max-height: 220px; overflow: hidden; }}
-.marquee-posters {{ display: flex; gap: .65rem; justify-content: center; }}
-.marquee-posters .poster {{ width: min(29%, 134px); height: auto; aspect-ratio: 2/3; }}
-.marquee-posters .poster:nth-child(2) {{ transform: translateY(-.5rem); }}
+.marquee-posters {{ display: flex; justify-content: center; padding: .85rem .5rem; }}
+.marquee-posters .poster {{ width: min(28%, 125px); height: auto; aspect-ratio: 2/3;
+  border: 2px solid #fff2d8; border-radius: 4px;
+  box-shadow: 0 5px 12px #14102266; }}
+.marquee-posters .poster:first-child {{ transform: rotate(-7deg); }}
+.marquee-posters .poster:nth-child(2) {{ position: relative; z-index: 1; }}
+.marquee-posters .poster:last-child {{ transform: rotate(7deg); }}
 [data-testid="stVerticalBlock"].st-key-picks [class*="st-key-rec-picks-1-"] {{
   grid-column: 1 / -1;
 }}
@@ -989,7 +1012,7 @@ h2[tabindex="-1"]:focus {{
   color: {light["kicker"]};
   color: light-dark({light["kicker"]}, {dark["kicker"]});
 }}
-[data-testid="stVerticalBlock"].st-key-ticket {{
+[data-testid="stVerticalBlock"]:is(.st-key-ticket, .st-key-ticket-empty) {{
   {_paint("background", light["card"], dark["card"])}
   {_line("border", light["border"], dark["border"])}
   border-top: 3px solid {light["kicker"]};
@@ -1006,10 +1029,10 @@ h2[tabindex="-1"]:focus {{
   width: 100%;
   box-sizing: border-box;
 }}
-.st-key-workbench [data-testid="stColumn"]:has(.st-key-ticket) {{
+.st-key-workbench [data-testid="stColumn"]:has(:is(.st-key-ticket, .st-key-ticket-empty)) {{
   order: 2;
 }}
-.st-key-workbench [data-testid="stColumn"]:has(.st-key-ticket)
+.st-key-workbench [data-testid="stColumn"]:has(:is(.st-key-ticket, .st-key-ticket-empty))
   [data-testid="stLayoutWrapper"]:has(> .st-key-ticket) {{
   flex: 1 1 auto !important;
   align-items: flex-start !important;
@@ -1198,8 +1221,11 @@ h2[tabindex="-1"]:focus {{
     flex: 1 1 100% !important;
     min-width: 0 !important;
   }}
-  .st-key-workbench [data-testid="stColumn"]:has(.st-key-ticket) {{
+  .st-key-workbench [data-testid="stColumn"]:has(:is(.st-key-ticket, .st-key-ticket-empty)) {{
     order: 0;
+  }}
+  .st-key-workbench [data-testid="stColumn"]:has(.st-key-ticket-empty) {{
+    order: 2;
   }}
   .st-key-starters [data-testid="stHorizontalBlock"] > [data-testid="stColumn"],
   .st-key-tries [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {{
@@ -1268,7 +1294,8 @@ _SCROLL = """
 <script>
 const doc = window.parent.document;
 const el = doc.getElementById("your-next-watch");
-if (el) el.scrollIntoView({block: "start", behavior: "smooth"});
+const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+if (el) el.scrollIntoView({block: "start", behavior: reduced ? "instant" : "smooth"});
 const head = doc.getElementById("picks-heading") || doc.querySelector("h2#your-next-watch");
 if (head) head.focus({preventScroll: true});
 </script>
