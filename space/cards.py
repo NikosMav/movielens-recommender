@@ -244,16 +244,9 @@ def _theme_css() -> str:
 .marquee-posters .poster:first-child {{ transform: rotate(-7deg); }}
 .marquee-posters .poster:nth-child(2) {{ position: relative; z-index: 1; }}
 .marquee-posters .poster:last-child {{ transform: rotate(7deg); }}
-.st-key-picks > :is([class*="st-key-rec-picks-1-"],
-  [data-testid="stLayoutWrapper"]:has(> [class*="st-key-rec-picks-1-"])) {{
-  grid-column: 1 / -1;
-}}
 .stApp [class*="st-key-rec-picks-1-"] .pick-title {{
-  font-size: clamp(1.4rem, 3vw, 2.6rem);
+  font-size: clamp(1.4rem, 2.4vw, 2rem);
   line-height: 1.12;
-}}
-.stApp [class*="st-key-rec-picks-1-"] .pick-rich > .poster {{
-  width: clamp(94px, 17vw, 190px); height: auto; aspect-ratio: 2/3;
 }}
 .section-title {{
   margin: 1.5rem 0 0.45rem;
@@ -957,6 +950,42 @@ h2[tabindex="-1"]:focus {{
   gap: .25rem;
   padding: clamp(.75rem, 2vw, 1.25rem);
 }}
+[data-testid="stVerticalBlock"][class*="st-key-rec-"]:has(.rec-art) {{
+  display: grid;
+  grid-template-columns: clamp(6rem, 10vw, 9rem) minmax(0, 1fr);
+  grid-template-rows: auto auto 1fr;
+  row-gap: .65rem;
+  column-gap: clamp(.75rem, 2vw, 1.5rem);
+  align-items: start;
+  height: auto;
+}}
+[data-testid="stVerticalBlock"][class*="st-key-rec-"]:has(.rec-art) > * {{
+  grid-column: 2;
+  min-width: 0;
+}}
+[data-testid="stVerticalBlock"][class*="st-key-rec-"] > :has(.rec-art) {{
+  grid-column: 1;
+  grid-row: 1 / span 3;
+}}
+.stApp .rec-art .poster {{
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 3;
+  margin: 0;
+}}
+.stApp .rec-art .placeholder {{ display: grid; place-items: center; }}
+.stApp .pick-rich .pick-why {{ padding-inline-start: 0; margin: .55rem 0 .4rem; }}
+@media (max-width: 550px) {{
+  [data-testid="stVerticalBlock"][class*="st-key-rec-"]:has(.rec-art) {{
+    grid-template-columns: 4.75rem minmax(0, 1fr);
+    grid-template-rows: auto;
+  }}
+  [data-testid="stVerticalBlock"][class*="st-key-rec-"] > :has(.rec-art) {{ grid-row: 1; }}
+  [data-testid="stVerticalBlock"][class*="st-key-rec-"]:has(.rec-art) > :has(details) {{
+    grid-column: 1 / -1;
+  }}
+}}
 .stApp [class*="st-key-rec-"] details {{
   border: 0;
   border-top: 1px solid light-dark(#d8d2e1, #484253);
@@ -1406,6 +1435,7 @@ def recommendation_card_html(
     show_reasons: bool = True,
     kind: str = "row",
     evidence_html: str = "",
+    include_poster: bool = True,
 ) -> str:
     bits = []
     shown_year = _year_text(year)
@@ -1424,10 +1454,11 @@ def recommendation_card_html(
     rank_html = ""
     if rank is not None:
         rank_html = f'<p class="pick-rank">{int(rank):02d}</p>'
+    artwork = poster_html(title, poster_url) if include_poster else ""
     style = kind if kind in {"poster", "rich", "compact", "row"} else "row"
     return (
         f'<div class="pick pick-{style}">'
-        f"{poster_html(title, poster_url)}"
+        f"{artwork}"
         '<div class="pick-body">'
         f"{rank_html}"
         f'<p class="pick-title">{html.escape(title)}</p>'
