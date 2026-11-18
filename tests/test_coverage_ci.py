@@ -96,3 +96,40 @@ def test_bootstrap_mean_ci_contains_mean():
     values = [0.01 * i for i in range(50)]
     mean, low, high = bootstrap_mean_ci(values, n_bootstrap=1000, seed=42)
     assert low <= mean <= high
+
+
+def test_refit_evaluation_preserves_split_and_scores_full_segment_depth():
+    columns = ["user_id", "item_id", "rating", "timestamp"]
+    train = pd.DataFrame([(1, 10, 5, 1), (2, 30, 5, 1)], columns=columns)
+    val = pd.DataFrame([(1, 20, 5, 2), (2, 40, 5, 2)], columns=columns)
+    test = pd.DataFrame([(1, 40, 5, 3)], columns=columns)
+    split = SplitResult(
+        train=train, val=val, test=test, config=SplitConfig(), n_users_kept=2, n_users_dropped=0
+    )
+
+    def recommend(user_id, n):
+        return [10, 20, 30, 30, 40][:n]
+
+    metrics = evaluate_recommender(
+        recommend, split.full_train, test.copy(), ks=(1, 2), split=split, include_segments=True
+    )
+    assert metrics["recall@1"] == 0
+    assert metrics["recall@2"] == 1
+    buckets = metrics["segments"]["user_activity_terciles"]
+    bucket = next(bucket for bucket in buckets.values() if bucket["n_users"])
+    assert bucket["ndcg@10"] == pytest.approx(1 / np.log2(3), abs=1e-6)
+    assert split.train is train
+    assert split.test is test
+    assert len(split.full_train) == 4
+    assert split.cold_start.n_train_items == 4
+
+
+def test_small_requested_cutoff_keeps_deeper_segment_hits():
+    train = pd.DataFrame({"user_id": [1, 2, 2], "item_id": [10, 20, 30], "rating": 5})
+    test = pd.DataFrame({"user_id": [1], "item_id": [30], "rating": [5]})
+    metrics = evaluate_recommender(
+        lambda uid, n: [10, 20, 30][:n], train, test, ks=(1,), include_segments=True
+    )
+    assert metrics["recall@1"] == 0
+    buckets = metrics["segments"]["user_activity_terciles"]
+    assert any(bucket["ndcg@10"] > 0 for bucket in buckets.values())

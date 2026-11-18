@@ -108,6 +108,7 @@ class SplitResult:
         return pd.concat([self.train, self.val], ignore_index=True)
 
     def summary(self) -> dict:
+        full_train = self.full_train
         out = {
             "n_train": int(len(self.train)),
             "n_test": int(len(self.test)),
@@ -116,9 +117,9 @@ class SplitResult:
             "n_train_users": int(self.train["user_id"].nunique()),
             "n_test_users": int(self.test["user_id"].nunique()),
             "n_train_items": int(self.train["item_id"].nunique()),
-            "n_full_train": int(len(self.full_train)),
-            "n_full_train_users": int(self.full_train["user_id"].nunique()),
-            "n_full_train_items": int(self.full_train["item_id"].nunique()),
+            "n_full_train": int(len(full_train)),
+            "n_full_train_users": int(full_train["user_id"].nunique()),
+            "n_full_train_items": int(full_train["item_id"].nunique()),
             "config": self.config.to_dict(),
         }
         if self.val is not None:
