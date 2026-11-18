@@ -16,7 +16,7 @@ def precision_at_k(recommended: Sequence[int], relevant: Iterable[int], k: int) 
     if k <= 0:
         raise ValueError("k must be positive")
     rel = set(relevant)
-    hits = sum(1 for item in recommended[:k] if item in rel)
+    hits = len(rel.intersection(recommended[:k]))
     return hits / k
 
 
@@ -31,7 +31,7 @@ def recall_at_k(recommended: Sequence[int], relevant: Iterable[int], k: int) -> 
     rel = set(relevant)
     if not rel:
         return 0.0
-    hits = sum(1 for item in recommended[:k] if item in rel)
+    hits = len(rel.intersection(recommended[:k]))
     return hits / len(rel)
 
 
@@ -39,10 +39,11 @@ def dcg_at_k(recommended: Sequence[int], relevant: Iterable[int], k: int) -> flo
     """Discounted cumulative gain at k with binary relevance."""
     if k <= 0:
         raise ValueError("k must be positive")
-    rel = set(relevant)
+    remaining = set(relevant)
     score = 0.0
     for rank, item in enumerate(recommended[:k], start=1):
-        if item in rel:
+        if item in remaining:
+            remaining.remove(item)
             score += 1.0 / math.log2(rank + 1)
     return score
 

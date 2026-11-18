@@ -110,3 +110,11 @@ def test_seed_summary_rejects_different_evaluation_populations():
     ]
     with pytest.raises(ValueError, match="evaluation populations"):
         summarize_seed_metrics(rows, primary_seed=42)
+
+
+def test_duplicate_hits_only_earn_credit_at_their_first_rank():
+    recs = [10, 10, 20]
+    relevant = {10, 20}
+    assert precision_at_k(recs, relevant, 3) == pytest.approx(2 / 3)
+    assert recall_at_k(recs, relevant, 3) == 1.0
+    assert ndcg_at_k(recs, relevant, 3) == pytest.approx(1.5 / (1 + 1 / math.log2(3)))

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import replace
 from typing import Any
 
 import pandas as pd
@@ -36,15 +37,20 @@ def recommend_filtered(
     *,
     candidate_pool: int | None = None,
 ) -> list[int]:
-    """Get recommendations excluding already-seen train items."""
+    """Keep the first occurrence of each unseen item in candidate order."""
+    if k <= 0:
+        raise ValueError("k must be positive")
     pool = candidate_pool if candidate_pool is not None else k + len(seen)
     pool = max(pool, k)
     raw = recommend_fn(user_id, pool)
     out: list[int] = []
-    for item in raw:
-        if item in seen:
+    selected: set[int] = set()
+    for candidate in raw:
+        item = int(candidate)
+        if item in seen or item in selected:
             continue
-        out.append(int(item))
+        selected.add(item)
+        out.append(item)
         if len(out) >= k:
             break
     return out
@@ -82,11 +88,11 @@ def _prepare_eval(
             n_users_dropped=0,
         )
     # Ensure cold-start uses the train matrix the model was fit on.
-    split.train = train
-    split.test = test
-    seen, relevant, _stats = apply_cold_start_policy(
-        split, relevance_threshold=relevance_threshold
+    evaluation_split = replace(split, train=train, test=test)
+    seen, relevant, stats = apply_cold_start_policy(
+        evaluation_split, relevance_threshold=relevance_threshold
     )
+    split.cold_start = stats
     if not relevant:
         raise ValueError("No test users with warm relevant items to evaluate.")
     return split, seen, relevant
@@ -158,6 +164,8 @@ def evaluate_recommender(
     assert cold_stats is not None
 
     max_k = max(ks)
+    if include_segments:
+        max_k = max(10, max_k)
     catalog = set(train["item_id"].astype(int))
     item_pop = {int(i): float(c) for i, c in train.groupby("item_id").size().items()}
 
