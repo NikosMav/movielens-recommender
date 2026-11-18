@@ -1278,13 +1278,18 @@ def _recommendation(
         shown = [line for line in shown if not cites_unrated(line, kept)]
     item_id = int(card.get("item_id") or rank)
     with st.container(key=f"rec-{scope}-{item_id}"):
+        poster = poster_for(str(card["title"]), card.get("year"), api_key)
+        if kind == "rich":
+            artwork = poster_html(str(card["title"]), poster)
+            st.markdown(f'<div class="rec-art">{artwork}</div>', unsafe_allow_html=True)
         st.markdown(
             recommendation_card_html(
                 title=str(card["title"]),
                 year=card.get("year"),
                 genres=str(card.get("genres") or ""),
                 reasons=shown[:1] if cold else shown,
-                poster_url=poster_for(str(card["title"]), card.get("year"), api_key),
+                poster_url=poster,
+                include_poster=kind != "rich",
                 rank=rank,
                 show_reasons=bool(shown),
                 kind=kind,
