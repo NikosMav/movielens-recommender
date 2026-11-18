@@ -244,7 +244,8 @@ def _theme_css() -> str:
 .marquee-posters .poster:first-child {{ transform: rotate(-7deg); }}
 .marquee-posters .poster:nth-child(2) {{ position: relative; z-index: 1; }}
 .marquee-posters .poster:last-child {{ transform: rotate(7deg); }}
-[data-testid="stVerticalBlock"].st-key-picks [class*="st-key-rec-picks-1-"] {{
+.st-key-picks > :is([class*="st-key-rec-picks-1-"],
+  [data-testid="stLayoutWrapper"]:has(> [class*="st-key-rec-picks-1-"])) {{
   grid-column: 1 / -1;
 }}
 .stApp [class*="st-key-rec-picks-1-"] .pick-title {{
@@ -731,8 +732,8 @@ h2[tabindex="-1"]:focus {{
   border-color: light-dark(#392975, #d4c6ff) !important;
 }}
 .stApp [data-testid="stExpander"] {{
-  {_paint("background", light["card"], dark["card"])}
-  {_line("border", light["border"], dark["border"])}
+  border: 0;
+  background: transparent;
 }}
 .stApp [data-testid="stExpander"] details summary,
 .stApp [data-testid="stExpander"] details summary p {{
@@ -952,19 +953,44 @@ h2[tabindex="-1"]:focus {{
     mask-size: contain;
   }}
 }}
-[class*="st-key-why-"] {{
-  width: max-content;
-  max-width: 100%;
+[data-testid="stVerticalBlock"][class*="st-key-rec-"] {{
+  gap: .25rem;
+  padding: clamp(.75rem, 2vw, 1.25rem);
 }}
-[class*="st-key-why-"] [data-testid="stExpander"] {{
+.stApp [class*="st-key-rec-"] details {{
   border: 0;
+  border-top: 1px solid light-dark(#d8d2e1, #484253);
+  border-radius: 0;
   background: transparent;
 }}
-[class*="st-key-why-"] details summary {{
-  min-height: 0 !important;
-  padding: 0.1rem 0 !important;
-  font-size: 0.85rem;
+.stApp [class*="st-key-rec-"] details summary {{
+  min-height: 44px;
+  padding: .4rem .25rem;
+  background: transparent;
 }}
+.stApp [class*="st-key-rec-"] summary:focus-visible {{
+  outline: 2px solid light-dark(#392975, #d4c6ff);
+  outline-offset: -2px;
+}}
+.stApp .pick-reasons {{
+  margin: .25rem 0 .75rem;
+  padding-inline-start: 1.25rem;
+  max-width: 68ch;
+}}
+.stApp .pick-reasons li {{ margin: .3rem 0; padding: 0; line-height: 1.45; }}
+.stApp table.score-details {{ width: 100%; max-width: 36rem; border-collapse: collapse; }}
+.stApp table.score-details caption {{
+  text-align: left; padding: .45rem 0; font-weight: 650; caption-side: top;
+}}
+.stApp .score-details :is(th,td) {{
+  padding: .35rem .15rem;
+  border: 0;
+  border-bottom: 1px solid light-dark(#d8d2e1, #484253);
+  text-align: left;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}}
+.stApp .score-details td {{ text-align: right; font-variant-numeric: tabular-nums; }}
 [data-testid="stVerticalBlock"][class*="st-key-rated-"] {{
   flex-direction: row !important;
   align-items: center !important;
@@ -1193,6 +1219,7 @@ h2[tabindex="-1"]:focus {{
   .st-key-picks > [data-testid="stVerticalBlock"],
   .st-key-top10 > [data-testid="stVerticalBlock"] {{
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
   }}
 }}
 @media (max-width: 800px) {{
@@ -1407,6 +1434,36 @@ def recommendation_card_html(
         f'<p class="pick-meta">{html.escape(meta)}</p>'
         f"{why}"
         "</div></div>"
+    )
+
+
+def score_details_html(details: list[dict], bias: float | None) -> str:
+    """Show signed model contributions, retaining their order and precision."""
+    labels = {
+        "item_popularity": "Film popularity",
+        "item_year": "Release year",
+        "from_most_popular": "In popularity shortlist",
+        "two_tower_rank": "Two-tower retrieval rank",
+        "item_item_score": "Item similarity score",
+        "item_item_rank": "Item similarity rank",
+        "ease_score": "EASE score",
+        "ease_rank": "EASE rank",
+        "user_mean_rating": "Viewer’s average rating",
+    }
+    rows = []
+    for detail in details:
+        feature = str(detail["feature"])
+        label = labels.get(feature, feature.replace("_", " ").capitalize())
+        rows.append((label, detail["contribution"]))
+    if bias is not None:
+        rows.append(("Base score (bias)", bias))
+    body = "".join(
+        f'<tr><th scope="row">{html.escape(label)}</th><td>{value:+.4f}</td></tr>'
+        for label, value in rows
+    )
+    return (
+        '<table class="score-details"><caption>Contributions to the model score</caption>'
+        f'<tbody>{body}</tbody></table>'
     )
 
 
